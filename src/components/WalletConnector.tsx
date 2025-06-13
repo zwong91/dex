@@ -1,11 +1,17 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useDisconnect } from 'wagmi';
+import { IoLogOutOutline } from 'react-icons/io5';
+import { FaWallet } from 'react-icons/fa';
 
 interface WalletConnectorProps {
   onConnect?: () => void;
-  variant?: 'default' | 'menu';
+  variant?: 'default' | 'menu' | 'navigation';
+  showDisconnect?: boolean;
 }
 
-const WalletConnector = ({ onConnect, variant = 'default' }: WalletConnectorProps) => {
+const WalletConnector = ({ onConnect, variant = 'default', showDisconnect = true }: WalletConnectorProps) => {
+  const { disconnect } = useDisconnect();
+
   return (
     <ConnectButton.Custom>
       {({
@@ -48,8 +54,8 @@ const WalletConnector = ({ onConnect, variant = 'default' }: WalletConnectorProp
                       type="button"
                       className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
                     >
-                      <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm">Connect Different Wallet</span>
+                      <FaWallet className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm">Connect Wallet</span>
                     </button>
                   );
                 }
@@ -98,46 +104,20 @@ const WalletConnector = ({ onConnect, variant = 'default' }: WalletConnectorProp
                 return (
                   <button
                     onClick={() => {
-                      openAccountModal();
+                      disconnect();
                       onConnect?.();
                     }}
                     type="button"
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all duration-200"
                   >
-                    <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                    <IoLogOutOutline className="w-4 h-4" />
                     <span className="text-sm">Disconnect Wallet</span>
                   </button>
                 );
               }
 
-              return (
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={openChainModal}
-                    className="flex items-center space-x-2 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/50 hover:border-blue-500/50 text-gray-200 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 group"
-                    type="button"
-                  >
-                    {chain.hasIcon && (
-                      <div
-                        className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0"
-                        style={{
-                          background: chain.iconBackground,
-                        }}
-                      >
-                        {chain.iconUrl && (
-                          <img
-                            alt={chain.name ?? 'Chain icon'}
-                            src={chain.iconUrl}
-                            className="w-4 h-4"
-                          />
-                        )}
-                      </div>
-                    )}
-                    <span className="text-xs font-medium hidden sm:block group-hover:text-white transition-colors">
-                      {chain.name}
-                    </span>
-                  </button>
-
+              if (variant === 'navigation') {
+                return (
                   <button
                     onClick={openAccountModal}
                     type="button"
@@ -167,6 +147,51 @@ const WalletConnector = ({ onConnect, variant = 'default' }: WalletConnectorProp
                       )}
                     </div>
                   </button>
+                );
+              }
+
+              return (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={openAccountModal}
+                    type="button"
+                    className="flex items-center space-x-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 hover:border-blue-400/50 text-white px-3 py-2 rounded-lg transition-all duration-200 backdrop-blur-sm shadow-lg hover:shadow-blue-500/25 group"
+                  >
+                    {account.ensAvatar ? (
+                      <img
+                        alt={account.ensName ?? 'ENS avatar'}
+                        src={account.ensAvatar}
+                        className="w-5 h-5 rounded-full flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-bold text-white">
+                          {account.address.substring(2, 4).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="hidden sm:flex flex-col items-start">
+                      <span className="text-xs font-medium leading-tight">
+                        {account.ensName || `${account.address.substring(0, 6)}...${account.address.substring(account.address.length - 4)}`}
+                      </span>
+                      {account.displayBalance && (
+                        <span className="text-xs text-blue-200 leading-tight">
+                          {account.displayBalance}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+
+                  {showDisconnect && (
+                    <button
+                      onClick={() => disconnect()}
+                      type="button"
+                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all duration-200"
+                      title="Disconnect Wallet"
+                    >
+                      <IoLogOutOutline className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               );
             })()}
