@@ -1,0 +1,30 @@
+{
+  "name": "unc-dex-backend",
+  "version": "1.0.0",
+  "description": "UNC DEX Backend API - Universal Trading Protocol",
+  "main": "api.ts",
+  "scripts": {
+    "test": "ts-node sample.ts",
+    "test:connectivity": "ts-node sample.ts --connectivity-only",
+    "test:api": "ts-node sample.ts --api-only",
+    "start": "ts-node api.ts",
+    "dev": "ts-node --watch api.ts"
+  },
+  "keywords": ["unc", "dex", "blockchain", "trading", "bsc"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/cors": "^2.8.19",
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.14.4",
+    "express": "^5.1.0",
+    "ts-node": "^10.9.2",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/uuid": "^10.0.0"
+  }
+}

@@ -1,0 +1,33 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family: "Source Sans Pro", sans-serif;
+}
+
+body {
+  background: #141b2d;
+  color: #fafafa;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #151c2e;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #4cceac
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
