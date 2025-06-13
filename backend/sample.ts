@@ -1,39 +1,98 @@
-import axios from "axios";
+import axios from 'axios';
+import { ethers } from 'ethers';
+
+const API_BASE_URL = 'http://localhost:3000/api';
+
+async function testConnectivity() {
+  console.log('🔍 Testing API connectivity...');
+  
+  try {
+    const response = await axios.get(`${API_BASE_URL}/health`);
+    console.log('✅ Health check:', response.data);
+  } catch (error: any) {
+    console.error('❌ Health check failed:', error.message);
+    return false;
+  }
+  
+  return true;
+}
+
+async function testAPIEndpoints() {
+  console.log('🧪 Testing API endpoints...');
+  
+  try {
+    // Test tokens endpoint
+    const tokensResponse = await axios.get(`${API_BASE_URL}/tokens`);
+    console.log('✅ Tokens:', tokensResponse.data.data.length, 'tokens available');
+    
+    // Test pairs endpoint
+    const pairsResponse = await axios.get(`${API_BASE_URL}/pairs`);
+    console.log('✅ Pairs:', pairsResponse.data.data.length, 'trading pairs available');
+    
+    // Test price endpoint
+    const priceResponse = await axios.get(`${API_BASE_URL}/price/TOKEN A/TOKEN B`);
+    console.log('✅ Price:', `1 TOKEN A = ${priceResponse.data.data.price} TOKEN B`);
+    
+    // Test stats endpoint
+    const statsResponse = await axios.get(`${API_BASE_URL}/stats`);
+    console.log('✅ Stats:', statsResponse.data.data);
+    
+    // Test swap history
+    const swapsResponse = await axios.get(`${API_BASE_URL}/swaps`);
+    console.log('✅ Swaps:', swapsResponse.data.data.length, 'transactions in history');
+    
+  } catch (error: any) {
+    console.error('❌ API test failed:', error.message);
+    return false;
+  }
+  
+  return true;
+}
+
+async function testFaucet() {
+  console.log('🪙 Testing faucet...');
+  
+  // Generate a random test wallet
+  const wallet = ethers.Wallet.createRandom();
+  console.log('📱 Test wallet:', wallet.address);
+  
+  try {
+    const response = await axios.get(`${API_BASE_URL}/faucet/${wallet.address}`);
+    console.log('✅ Faucet response:', response.data);
+  } catch (error: any) {
+    console.error('❌ Faucet test failed:', error.message);
+    if (error.response?.data) {
+      console.error('Error details:', error.response.data);
+    }
+  }
+}
 
 async function main() {
-  const baseUrl = "http://localhost:3000";
-
-  // 1. Add a document to the system
-  await axios.post(`${baseUrl}/document`, {
-    document: {
-      id: "loan-agreement-123",
-      pages: 1000,
-      processedDigitally: true,
-      fileSizeMb: 4.5, // Example file size in MB
-    },
-    printParameters: {
-      paperWeight: 5, // grams per page
-      inkUsagePerPage: 0.05, // ml
-      powerConsumptionPerPrint: 0.03, // kWh per page
-    },
-  });
-
-  console.log("Document added successfully");
-
-  // 2. Generate carbon offsets for the loan agreement document
-  await axios.post(`${baseUrl}/offsets/loan-agreement-123`, {
-    pagesSaved: 100,
-  });
-
-  console.log("Offsets generated successfully");
-
-  // 3. Get a detailed report for the document
-  const report = await axios.get(`${baseUrl}/report/loan-agreement-123`);
-  console.log("Loan Agreement Offset Report:", report.data.report);
-
-  // 4. Get a report for the entire system (fleet)
-  const systemReport = await axios.get(`${baseUrl}/system-report`);
-  console.log("System Report:", systemReport.data.report);
+  console.log('🚀 UNC DEX Backend Test Suite\n');
+  
+  const args = process.argv.slice(2);
+  
+  if (args.includes('--connectivity-only')) {
+    await testConnectivity();
+    return;
+  }
+  
+  if (args.includes('--api-only')) {
+    await testAPIEndpoints();
+    return;
+  }
+  
+  // Run all tests
+  const connectivityOk = await testConnectivity();
+  
+  if (connectivityOk) {
+    console.log();
+    await testAPIEndpoints();
+    console.log();
+    await testFaucet();
+  }
+  
+  console.log('\n✨ Test suite completed!');
 }
 
 main().catch(console.error);

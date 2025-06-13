@@ -9,7 +9,7 @@
 # https://github.com/docker/awesome-compose
 services:
   api:
-    image: ianengsen/ccpaper
+    image: rust2024/dex-api
 
     network_mode: "host"
 # The commented out section below is an example of how to define a PostgreSQL
