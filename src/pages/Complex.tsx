@@ -1,6 +1,5 @@
 import Header from "../components/Header";
 import Logo from "../assets/user.png.png";
-import CryptoChart from "../components/CryptoChart";
 
 const Complex = () => {
   return (
@@ -42,7 +41,10 @@ const Complex = () => {
             </div>
           </div>
           <div className="p-5 bg-white w-full">
-            <CryptoChart />
+            <div className="text-center py-20">
+              <h3 className="text-xl font-semibold text-gray-600 mb-4">Advanced Trading Chart</h3>
+              <p className="text-gray-500">Chart functionality will be implemented here</p>
+            </div>
           </div>
         </article>
 

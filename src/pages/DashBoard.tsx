@@ -1,194 +1,306 @@
-import { MdCo2, MdToken } from "react-icons/md";
-import BarChart from "../components/BarChart";
-import GeographyChart from "../components/GeographyChart";
-import { IoPersonAddSharp } from "react-icons/io5";
-import { RiVerifiedBadgeFill } from "react-icons/ri";
+import { MdToken, MdTrendingUp } from "react-icons/md";
+import { IoWallet } from "react-icons/io5";
+import { RiExchangeFill, RiWaterPercentFill } from "react-icons/ri";
+import { FaChartLine, FaUsers } from "react-icons/fa";
 import ShowWallet from "../components/ShowWallet";
 
-import LineChart from "../components/LineChart";
-
-import { useChains, useChainId } from "wagmi";
+import { useChainId, useAccount } from "wagmi";
 import { switchChain } from "@wagmi/core";
 import { config } from "../utils/wagmiConfig";
+import { getNetworkById, SUPPORTED_NETWORKS } from "../utils/dexConfig";
+import { getTokenABalance, getTokenBBalance, getLiquidityTokenBalance } from "../utils/dexUtils";
 
-const transactions = [
+const recentTransactions = [
   {
-    id: "01e4dsa",
-    name: "Lincoln",
+    id: "0x1a2b3c",
+    type: "Swap",
+    user: "0x742d...35Ae",
     date: "2024-09-01",
-    amount: "$43.95",
+    amount: "$1,234.56",
+    status: "Completed",
   },
   {
-    id: "0315dsaa",
-    name: "Emmanuel",
-    date: "2024-04-01",
-    amount: "$133.45",
+    id: "0x4d5e6f",
+    type: "Add Liquidity",
+    user: "0x8f3c...92Bd",
+    date: "2024-08-31",
+    amount: "$2,456.78",
+    status: "Completed",
   },
-  // {
-  //   id: "01e4dsa",
-  //   name: "Kim",
-  //   date: "2024-09-01",
-  //   amount: "$43.95",
-  // },
-  // {
-  //   id: "02fdgqwe",
-  //   name: "Alice",
-  //   date: "2023-12-11",
-  //   amount: "$78.20",
-  // },
-  // {
-  //   id: "0sdfg45w",
-  //   name: "Mark",
-  //   date: "2024-02-15",
-  //   amount: "$97.00",
-  // },
-  // {
-  //   id: "0fgh67tr",
-  //   name: "Sophie",
-  //   date: "2024-03-28",
-  //   amount: "$52.30",
-  // },
-  // {
-  //   id: "098fdsqw",
-  //   name: "John",
-  //   date: "2024-08-10",
-  //   amount: "$109.50",
-  // },
+  {
+    id: "0x7g8h9i",
+    type: "Remove Liquidity",
+    user: "0x1e4d...67Cf",
+    date: "2024-08-30",
+    amount: "$987.65",
+    status: "Completed",
+  },
 ];
 
 const DashBoard = () => {
-  const chains = useChains();
   const chainId = useChainId();
+  const { address } = useAccount();
+  const network = getNetworkById(chainId);
 
-  console.log("chains", chainId);
-  console.log("chains", chains);
+  // Mock data - in real implementation, these would come from blockchain/API
+  const dexStats = {
+    totalValueLocked: "$12,450,789",
+    dailyVolume: "$3,456,789",
+    totalUsers: "15,432",
+    activePairs: "24",
+    fees24h: "$10,370",
+    averageAPR: "45.6%",
+  };
 
-  const activeChain = chains.find((chain) => chain.id == chainId);
-
-  console.log(activeChain?.name);
+  const supportedNetworks = Object.values(SUPPORTED_NETWORKS);
 
   return (
-    <div>
-      <div className="p-3 flex justify-between items-center">
+    <div className="min-h-screen bg-[#161d29]">
+      <div className="p-5 flex justify-between items-center border-b border-[#2d3748]">
         <div>
-          <h3 className="text-lg font-bold">DASHBOARD</h3>
-          <p className="text-[#4CCEAC]">Welcome to Carbon Corp's Dashboard</p>
+          <h1 className="text-2xl font-bold text-[#fafafa]">DEX DASHBOARD</h1>
+          <p className="text-[#10B981]">Welcome to Universal Decentralized Exchange</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <ShowWallet />
-          <button
-            className="flex items-center text-sm gap-2 bg-[#3E4396] text-white px-2 py-1 rounded"
-            onClick={async () => {
-              await switchChain(config, { chainId: 97 }); // BSC Testnet
-            }}
-          >
-            {activeChain?.name == "BSC Testnet" || activeChain?.name == "BNB Smart Chain Testnet"
-              ? activeChain?.name
-              : "CHANGE NETWORK"}
-          </button>
+          
+          {/* Network Switcher */}
+          <div className="relative">
+            <select
+              className="bg-[#2d3748] text-[#fafafa] px-4 py-2 rounded-lg border border-[#4a5568] focus:border-[#10B981] outline-none"
+              value={chainId}
+              onChange={async (e) => {
+                const selectedChainId = parseInt(e.target.value) as 1 | 137 | 97 | 56 | 42161;
+                try {
+                  await switchChain(config, { chainId: selectedChainId });
+                } catch (error) {
+                  console.error("Failed to switch network:", error);
+                }
+              }}
+            >
+              {supportedNetworks.map((net) => (
+                <option key={net.id} value={net.id}>
+                  {net.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-5 p-3">
-        <article className="bg-[#1f2a40] p-3 ">
-          <div className="flex justify-between ">
+
+      {/* Statistics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 p-5">
+        {/* Total Value Locked */}
+        <article className="bg-[#1f2937] p-4 rounded-lg border border-[#374151]">
+          <div className="flex justify-between items-start">
             <div className="flex flex-col gap-2">
-              <MdCo2 size={22} color="#4CCEAC" />
-              <p className="text-lg font-bold">5,000</p>
+              <IoWallet size={24} color="#10B981" />
+              <div>
+                <p className="text-2xl font-bold text-[#fafafa]">{dexStats.totalValueLocked}</p>
+                <p className="text-sm text-[#9CA3AF]">Total Value Locked</p>
+              </div>
             </div>
-            <div className="border-[5px] border-[#4CCEAC] w-10 h-10 rounded-full"></div>
+            <div className="w-3 h-3 bg-[#10B981] rounded-full animate-pulse"></div>
           </div>
-          <div className="flex justify-between items-center text-[#4CCEAC]">
-            <p className="text-sm">Reduced Emmissions</p>
-            <p>+14%</p>
+          <div className="mt-2 text-[#10B981] text-sm">
+            +12.5% from yesterday
           </div>
         </article>
-        <article className="bg-[#1f2a40] p-3 ">
-          <div className="flex justify-between ">
+
+        {/* Daily Volume */}
+        <article className="bg-[#1f2937] p-4 rounded-lg border border-[#374151]">
+          <div className="flex justify-between items-start">
             <div className="flex flex-col gap-2">
-              <MdToken size={22} color="#4CCEAC" />
-              <p className="text-lg font-bold">431,225</p>
+              <RiExchangeFill size={24} color="#3B82F6" />
+              <div>
+                <p className="text-2xl font-bold text-[#fafafa]">{dexStats.dailyVolume}</p>
+                <p className="text-sm text-[#9CA3AF]">24h Volume</p>
+              </div>
             </div>
-            <div className="border-[5px] border-[#4CCEAC] w-10 h-10 rounded-full"></div>
+            <div className="w-3 h-3 bg-[#3B82F6] rounded-full animate-pulse"></div>
           </div>
-          <div className="flex justify-between items-center text-[#4CCEAC]">
-            <p className="text-sm">CC Tokens</p>
-            <p>+21%</p>
+          <div className="mt-2 text-[#3B82F6] text-sm">
+            +8.3% from yesterday
           </div>
         </article>
-        <article className="bg-[#1f2a40] p-3 ">
-          <div className="flex justify-between ">
+
+        {/* Active Users */}
+        <article className="bg-[#1f2937] p-4 rounded-lg border border-[#374151]">
+          <div className="flex justify-between items-start">
             <div className="flex flex-col gap-2">
-              <IoPersonAddSharp size={22} color="#4CCEAC" />
-              <p className="text-lg font-bold">32</p>
+              <FaUsers size={24} color="#8B5CF6" />
+              <div>
+                <p className="text-2xl font-bold text-[#fafafa]">{dexStats.totalUsers}</p>
+                <p className="text-sm text-[#9CA3AF]">Total Users</p>
+              </div>
             </div>
-            <div className="border-[5px] border-[#4CCEAC] w-10 h-10 rounded-full"></div>
+            <div className="w-3 h-3 bg-[#8B5CF6] rounded-full animate-pulse"></div>
           </div>
-          <div className="flex justify-between items-center text-[#4CCEAC]">
-            <p className="text-sm">New Carbon Projects</p>
-            <p>+5%</p>
+          <div className="mt-2 text-[#8B5CF6] text-sm">
+            +156 new users
           </div>
         </article>
-        <article className="bg-[#1f2a40] p-3 ">
-          <div className="flex justify-between  ">
+
+        {/* Trading Pairs */}
+        <article className="bg-[#1f2937] p-4 rounded-lg border border-[#374151]">
+          <div className="flex justify-between items-start">
             <div className="flex flex-col gap-2">
-              <RiVerifiedBadgeFill size={22} color="#4CCEAC" />
-              <p className="text-lg font-bold">1,325,132</p>
+              <MdToken size={24} color="#F59E0B" />
+              <div>
+                <p className="text-2xl font-bold text-[#fafafa]">{dexStats.activePairs}</p>
+                <p className="text-sm text-[#9CA3AF]">Active Pairs</p>
+              </div>
             </div>
-            <div className="border-[5px] border-[#4CCEAC] w-10 h-10 rounded-full"></div>
+            <div className="w-3 h-3 bg-[#F59E0B] rounded-full animate-pulse"></div>
           </div>
-          <div className="flex justify-between items-center text-[#4CCEAC]">
-            <p className="text-sm">Verified Emmissions</p>
-            <p>+43%</p>
+          <div className="mt-2 text-[#F59E0B] text-sm">
+            2 new pairs added
+          </div>
+        </article>
+
+        {/* Daily Fees */}
+        <article className="bg-[#1f2937] p-4 rounded-lg border border-[#374151]">
+          <div className="flex justify-between items-start">
+            <div className="flex flex-col gap-2">
+              <MdTrendingUp size={24} color="#EF4444" />
+              <div>
+                <p className="text-2xl font-bold text-[#fafafa]">{dexStats.fees24h}</p>
+                <p className="text-sm text-[#9CA3AF]">24h Fees</p>
+              </div>
+            </div>
+            <div className="w-3 h-3 bg-[#EF4444] rounded-full animate-pulse"></div>
+          </div>
+          <div className="mt-2 text-[#EF4444] text-sm">
+            +15.7% from yesterday
+          </div>
+        </article>
+
+        {/* Average APR */}
+        <article className="bg-[#1f2937] p-4 rounded-lg border border-[#374151]">
+          <div className="flex justify-between items-start">
+            <div className="flex flex-col gap-2">
+              <RiWaterPercentFill size={24} color="#06B6D4" />
+              <div>
+                <p className="text-2xl font-bold text-[#fafafa]">{dexStats.averageAPR}</p>
+                <p className="text-sm text-[#9CA3AF]">Average APR</p>
+              </div>
+            </div>
+            <div className="w-3 h-3 bg-[#06B6D4] rounded-full animate-pulse"></div>
+          </div>
+          <div className="mt-2 text-[#06B6D4] text-sm">
+            Liquidity providers
           </div>
         </article>
       </div>
 
-      <section className="grid grid-cols-3 p-3 col-span-3 gap-3">
-        <div className="col-span-2 rounded  h-[13rem] bg-[#1f2a40]">
-          <LineChart />
-        </div>
-        <div className="col-span-1  h-[13rem]">
-          <div className="text-sm bg-[#1f2a40] mb-1.5 font-semibold p-2">
-            Recent CC Trasactions
+      {/* User Balances (if connected) */}
+      {address && (
+        <div className="px-5 mb-5">
+          <div className="bg-[#1f2937] p-5 rounded-lg border border-[#374151]">
+            <h3 className="text-lg font-semibold text-[#fafafa] mb-4">Your Balances</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-[#111827] p-4 rounded-lg">
+                <p className="text-[#9CA3AF] text-sm">Token A Balance</p>
+                <p className="text-xl font-bold text-[#fafafa]">{getTokenABalance(address)}</p>
+              </div>
+              <div className="bg-[#111827] p-4 rounded-lg">
+                <p className="text-[#9CA3AF] text-sm">Token B Balance</p>
+                <p className="text-xl font-bold text-[#fafafa]">{getTokenBBalance(address)}</p>
+              </div>
+              <div className="bg-[#111827] p-4 rounded-lg">
+                <p className="text-[#9CA3AF] text-sm">LP Tokens</p>
+                <p className="text-xl font-bold text-[#fafafa]">{getLiquidityTokenBalance(address)}</p>
+              </div>
+            </div>
           </div>
-          <div className="overflow-hidden">
-            {transactions.map((tsx) => (
-              <div
-                key={tsx.id}
-                className="text-sm flex overflow-hidden justify-between items-center bg-[#1f2a40] mb-2 font-semibold p-2"
-              >
-                <div>
-                  <p className="text-[#4CCEAC]">{tsx.id}</p>
-                  <p>{tsx.name}</p>
+        </div>
+      )}
+
+      {/* Statistics Section */}
+      <div className="px-5 mb-5">
+        <div className="bg-[#1f2937] p-5 rounded-lg border border-[#374151]">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-lg font-semibold text-[#fafafa]">Trading Statistics</h4>
+            <FaChartLine color="#3B82F6" size={20} />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 bg-[#111827] rounded-lg">
+              <p className="text-2xl font-bold text-[#10B981]">$2.4M</p>
+              <p className="text-sm text-[#9CA3AF]">24h Volume</p>
+            </div>
+            <div className="text-center p-4 bg-[#111827] rounded-lg">
+              <p className="text-2xl font-bold text-[#3B82F6]">1,234</p>
+              <p className="text-sm text-[#9CA3AF]">Total Trades</p>
+            </div>
+            <div className="text-center p-4 bg-[#111827] rounded-lg">
+              <p className="text-2xl font-bold text-[#F59E0B]">$156K</p>
+              <p className="text-sm text-[#9CA3AF]">Fees Generated</p>
+            </div>
+            <div className="text-center p-4 bg-[#111827] rounded-lg">
+              <p className="text-2xl font-bold text-[#8B5CF6]">98.7%</p>
+              <p className="text-sm text-[#9CA3AF]">Success Rate</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div className="px-5">
+        <div className="bg-[#1f2937] p-5 rounded-lg border border-[#374151]">
+          <h4 className="text-lg font-semibold text-[#fafafa] mb-4">Recent Transactions</h4>
+          <div className="space-y-3">
+            {recentTransactions.map((tx) => (
+              <div key={tx.id} className="bg-[#111827] p-3 rounded-lg">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[#10B981] font-medium">{tx.id}</p>
+                    <p className="text-[#9CA3AF] text-sm">{tx.type} • {tx.user}</p>
+                    <p className="text-[#6B7280] text-xs">{tx.date}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[#fafafa] font-medium">{tx.amount}</p>
+                    <span className="text-xs bg-[#10B981] text-white px-2 py-1 rounded">
+                      {tx.status}
+                    </span>
+                  </div>
                 </div>
-                <div>{tsx.date}</div>
-                <div className="p-2 rounded bg-[#4CCEAC]">{tsx.amount}</div>
               </div>
             ))}
           </div>
         </div>
-      </section>
-      <section className="my-3 p-3 grid lg:grid-cols-3 gap-3">
-        <article className="rounded-lg p-3 h-[17rem] bg-[#1f2a40]">
-          <h4 className="">Carbon Campaign</h4>
-          <div className="flex flex-col justify-center items-center">
-            <div className="border-[1.5rem] border-[#4CCEAC] rounded-full w-[8rem] h-[8rem] my-4" />
-            <p className="text-[#4CCEAC] font-semibold text-center">
-              $48,353 revenue generated
-            </p>
-            <p className="text-center">By Carbon Credits and offsets</p>
-          </div>
-        </article>
-        <article className="rounded-lg p-3 h-[17rem] bg-[#1f2a40]">
-          <h4 className="">Carbon Sales Quantity</h4>
-          <BarChart />
-        </article>
-        <article className="rounded-lg p-3 h-[17rem] bg-[#1f2a40]">
-          <h4>Geography Based Carbon Traffic</h4>
+      </div>
 
-          <GeographyChart />
-        </article>
-      </section>
+      {/* Network Information */}
+      <div className="p-5">
+        <div className="bg-[#1f2937] p-5 rounded-lg border border-[#374151]">
+          <h4 className="text-lg font-semibold text-[#fafafa] mb-4">Current Network</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <p className="text-[#9CA3AF] text-sm">Network</p>
+              <p className="text-[#fafafa] font-medium">{network.name}</p>
+            </div>
+            <div>
+              <p className="text-[#9CA3AF] text-sm">Chain ID</p>
+              <p className="text-[#fafafa] font-medium">{chainId}</p>
+            </div>
+            <div>
+              <p className="text-[#9CA3AF] text-sm">Native Currency</p>
+              <p className="text-[#fafafa] font-medium">{network.nativeCurrency.symbol}</p>
+            </div>
+            <div>
+              <p className="text-[#9CA3AF] text-sm">Block Explorer</p>
+              <a 
+                href={network.blockExplorers?.default?.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[#10B981] hover:underline"
+              >
+                View Explorer
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { http, createConfig } from "wagmi";
-import { bsc, bscTestnet } from "wagmi/chains";
+import { bsc, bscTestnet, mainnet, polygon, arbitrum } from "wagmi/chains";
 
 import {
   coinbaseWallet,
@@ -13,11 +13,11 @@ import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 
 const projectId = "09c1182f7b2cb58c98f0b8ed1f223d91";
 
-// BSC-focused wallet connectors
+// Multi-chain wallet connectors
 const connectors = connectorsForWallets(
   [
     {
-      groupName: "Recommended for BSC",
+      groupName: "Recommended",
       wallets: [metaMaskWallet, trustWallet, injectedWallet],
     },
     {
@@ -30,23 +30,26 @@ const connectors = connectorsForWallets(
     },
   ],
   {
-    appName: "UNC Protocol DEX",
+    appName: "Universal DEX",
     projectId: projectId,
   }
 );
 
-// BSC Configuration
+// Multi-chain Configuration
 export const config = createConfig({
-  chains: [bscTestnet, bsc], // BSC Testnet first for development
+  chains: [bscTestnet, bsc, mainnet, polygon, arbitrum],
   connectors,
   transports: {
     [bscTestnet.id]: http("https://data-seed-prebsc-1-s1.binance.org:8545/"),
     [bsc.id]: http("https://bsc-dataseed1.binance.org/"),
+    [mainnet.id]: http("https://eth-mainnet.g.alchemy.com/v2/your-api-key"),
+    [polygon.id]: http("https://polygon-mainnet.g.alchemy.com/v2/your-api-key"),
+    [arbitrum.id]: http("https://arb-mainnet.g.alchemy.com/v2/your-api-key"),
   },
   ssr: true,
 });
 
-// BSC Network Constants
+// Network Constants (keeping for backward compatibility)
 export const BSC_NETWORKS = {
   testnet: {
     id: bscTestnet.id,
