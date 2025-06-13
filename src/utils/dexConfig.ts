@@ -166,12 +166,6 @@ export const DEX_FEATURES = {
     votingPeriod: 7, // 7 days
     proposalThreshold: 10000, // Minimum tokens to create proposal
   },
-  analytics: {
-    enabled: true,
-    trackVolume: true,
-    trackTVL: true,
-    trackFees: true,
-  },
 } as const;
 
 // Helper functions

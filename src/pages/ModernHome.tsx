@@ -50,34 +50,14 @@ const ModernHome = () => {
       hoverGradient: "from-primary-500/20 to-primary-600/20"
     },
     {
-      title: "Position",
-      description: "View and manage your trading positions",
+      title: "Pool",
+      description: "Manage liquidity positions and track your DeFi portfolio",
       icon: <IoWater size={28} />,
-      href: "/position",
+      href: "/pool",
       gradient: "from-success-500 to-success-600",
       bgGradient: "from-success-500/10 to-success-600/10",
       borderGradient: "from-success-500/30 to-success-600/30",
       hoverGradient: "from-success-500/20 to-success-600/20"
-    },
-    {
-      title: "Analytics",
-      description: "Deep insights into market trends and opportunities",
-      icon: <FaChartLine size={28} />,
-      href: "/analytics",
-      gradient: "from-accent-500 to-accent-600",
-      bgGradient: "from-accent-500/10 to-accent-600/10",
-      borderGradient: "from-accent-500/30 to-accent-600/30",
-      hoverGradient: "from-accent-500/20 to-accent-600/20"
-    },
-    {
-      title: "Portfolio",
-      description: "Track and manage your DeFi assets and positions",
-      icon: <IoWallet size={28} />,
-      href: "/wallet",
-      gradient: "from-warning-500 to-warning-600",
-      bgGradient: "from-warning-500/10 to-warning-600/10",
-      borderGradient: "from-warning-500/30 to-warning-600/30",
-      hoverGradient: "from-warning-500/20 to-warning-600/20"
     }
   ];
 
@@ -165,12 +145,11 @@ const ModernHome = () => {
                 <span>Start Trading</span>
                 <MdArrowForward className="group-hover:translate-x-1 transition-transform" />
               </Link>
-              
-              <Link 
-                to="/analytics"
+               <Link
+                to="/pool"
                 className="btn-secondary px-8 py-4 text-lg"
               >
-                Explore Analytics
+                Explore Pool
               </Link>
             </div>
           </div>
@@ -303,8 +282,8 @@ const ModernHome = () => {
                 <button className="btn-primary px-8 py-4 text-lg">
                   Connect Wallet to Start
                 </button>
-                <Link to="/analytics" className="btn-secondary px-8 py-4 text-lg">
-                  View Analytics
+                <Link to="/pool" className="btn-secondary px-8 py-4 text-lg">
+                  Explore Pool
                 </Link>
               </div>
             ) : (

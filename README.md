@@ -66,7 +66,7 @@ Universal DEX is a modern, multi-chain decentralized exchange (DEX) platform bui
 
 ### 📊 Portfolio Dashboard
 - **Asset Overview**: Complete portfolio tracking
-- **Trading History**: Transaction history and analytics
+- **Trading History**: Complete transaction history tracking
 - **Performance Metrics**: Track profits, losses, and yields
 - **Multi-chain Assets**: Unified view across all supported networks
 
@@ -339,7 +339,7 @@ We welcome contributions from the community! Here's how you can help:
 
 ### 🔄 Phase 2: Enhanced Features (In Progress)
 - Advanced order types (limit, stop-loss)
-- Price charts and analytics
+- Price charts and market data
 - Transaction history improvements
 - Mobile responsiveness
 - Performance optimizations
@@ -349,7 +349,7 @@ We welcome contributions from the community! Here's how you can help:
 - Cross-chain bridge integration
 - Yield farming and staking
 - Governance token and DAO
-- Advanced analytics dashboard
+- Enhanced portfolio tracking
 
 ### 📋 Phase 4: Ecosystem Expansion (Future)
 - Lending and borrowing protocols

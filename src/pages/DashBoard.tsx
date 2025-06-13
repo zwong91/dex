@@ -117,25 +117,18 @@ const Dashboard = () => {
       color: "from-blue-500 to-cyan-500"
     },
     {
-      title: "Add Liquidity",
-      description: "Provide liquidity and earn fees",
-      icon: <MdAccountBalance size={20} />,
-      href: "/liquidity",
+      title: "Pool & Portfolio",
+      description: "Manage liquidity and track assets",
+      icon: <IoWallet size={20} />,
+      href: "/pool",
       color: "from-green-500 to-emerald-500"
     },
     {
-      title: "Portfolio",
-      description: "View your assets and positions",
-      icon: <IoWallet size={20} />,
-      href: "/wallet",
+      title: "Market",
+      description: "Explore trading pairs and markets",
+      icon: <MdAccountBalance size={20} />,
+      href: "/market",
       color: "from-purple-500 to-violet-500"
-    },
-    {
-      title: "Analytics",
-      description: "View detailed market data",
-      icon: <FaChartLine size={20} />,
-      href: "/analytics",
-      color: "from-orange-500 to-red-500"
     }
   ];
 

@@ -16,6 +16,7 @@ import ModernHome from "./pages/ModernHome.tsx";
 import Simple from "./pages/Simple";
 import ModernSwap from "./pages/ModernSwap";
 import Position from "./pages/Position";
+import Pool from "./pages/Pool";
 import Complex from "./pages/Complex";
 
 import { WagmiProvider } from "wagmi";
@@ -38,16 +39,8 @@ const router = createBrowserRouter([
     element: <ModernSwap />,
   },
   {
-    path: "/position",
-    element: <Position />,
-  },
-  {
-    path: "/analytics",
-    element: <Dashboard />,
-  },
-  {
-    path: "/wallet",
-    element: <Wallet />,
+    path: "/pool",
+    element: <Pool />,
   },
   {
     path: "/market",

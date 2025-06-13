@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { FaExchangeAlt, FaWallet, FaChartBar, FaLayerGroup, FaCog, FaEthereum } from "react-icons/fa";
 import { MdDashboard, MdHome } from "react-icons/md";
-import { IoChevronDown, IoSettingsOutline } from "react-icons/io5";
+import { IoChevronDown, IoSettingsOutline, IoWater } from "react-icons/io5";
 import { HiSparkles } from "react-icons/hi2";
 import { RiSwapFill } from "react-icons/ri";
 import { SiBinance } from "react-icons/si";
@@ -78,19 +78,9 @@ const MainNavigation = () => {
       icon: <FaExchangeAlt size={18} />,
     },
     {
-      path: "/position",
-      label: "Position",
-      icon: <FaLayerGroup size={18} />,
-    },
-    {
-      path: "/analytics",
-      label: "Analytics",
-      icon: <FaChartBar size={18} />,
-    },
-    {
-      path: "/wallet",
-      label: "Portfolio",
-      icon: <FaWallet size={18} />,
+      path: "/pool",
+      label: "Pool",
+      icon: <IoWater size={18} />,
     },
   ];
 
