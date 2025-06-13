@@ -198,21 +198,24 @@ export const genericDexAbi = [
   }
 ] as const;
 
-// Check allowances for DEX trading
-export const checkAllowance = (address: `0x${string}`, chainId: number) => {
+// ====== REACT HOOKS VERSIONS ======
+// These are the correct hook implementations that should be used in React components
+
+// Hook to check allowances for DEX trading
+export const useCheckAllowance = (address: `0x${string}` | undefined, chainId: number) => {
   const network = getNetworkById(chainId);
   
   let tokenAAddress: `0x${string}` = network.contracts.tokenA as `0x${string}`;
   let tokenBAddress: `0x${string}` = network.contracts.tokenB as `0x${string}`;
   let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`;
 
-  let { writeContract } = useWriteContract();
+  const { writeContract } = useWriteContract();
 
   const { data: allowanceTokenB } = useReadContract({
     abi: erc20Abi,
     address: tokenBAddress,
     functionName: "allowance",
-    args: [address!, dexRouterAddress],
+    args: address ? [address, dexRouterAddress] : undefined,
     account: address,
     chainId: chainId,
   });
@@ -221,39 +224,43 @@ export const checkAllowance = (address: `0x${string}`, chainId: number) => {
     abi: erc20Abi,
     address: tokenAAddress,
     functionName: "allowance",
-    args: [address!, dexRouterAddress],
+    args: address ? [address, dexRouterAddress] : undefined,
     account: address,
     chainId: chainId,
   });
 
-  let tokenA_allowance = allowanceTokenA;
-  let tokenB_allowance = allowanceTokenB;
+  const approveTokens = () => {
+    if (!address) return;
 
-  console.log("Token A allowance", tokenA_allowance);
-  console.log("Token B allowance", tokenB_allowance);
+    if (allowanceTokenB === BigInt(0)) {
+      writeContract({
+        abi: erc20Abi,
+        address: tokenBAddress,
+        functionName: "approve",
+        args: [dexRouterAddress, ethers.parseEther("1000000")],
+        chainId: chainId,
+      });
+    }
+    if (allowanceTokenA === BigInt(0)) {
+      writeContract({
+        abi: erc20Abi,
+        address: tokenAAddress,
+        functionName: "approve",
+        args: [dexRouterAddress, ethers.parseEther("1000000")],
+        chainId: chainId,
+      });
+    }
+  };
 
-  if (tokenB_allowance == BigInt(0)) {
-    writeContract({
-      abi: erc20Abi,
-      address: tokenBAddress,
-      functionName: "approve",
-      args: [dexRouterAddress, ethers.parseEther("1000000")],
-      chainId: chainId,
-    });
-  }
-  if (tokenA_allowance == BigInt(0)) {
-    writeContract({
-      abi: erc20Abi,
-      address: tokenAAddress,
-      functionName: "approve",
-      args: [dexRouterAddress, ethers.parseEther("1000000")],
-      chainId: chainId,
-    });
-  }
+  return {
+    tokenAAllowance: allowanceTokenA || BigInt(0),
+    tokenBAllowance: allowanceTokenB || BigInt(0),
+    approveTokens
+  };
 };
 
-// Get Liquidity Token balance
-export const getLiquidityTokenBalance = (address: `0x${string}`) => {
+// Hook to get Liquidity Token balance
+export const useLiquidityTokenBalance = (address: `0x${string}` | undefined) => {
   const [balance, setBalance] = useState<string>("0");
   const chainId = useChainId();
   const network = getNetworkById(chainId);
@@ -264,7 +271,7 @@ export const getLiquidityTokenBalance = (address: `0x${string}`) => {
     abi: erc20Abi,
     address: liquidityTokenAddress,
     functionName: "balanceOf",
-    args: [address],
+    args: address ? [address] : undefined,
     account: address,
     chainId: chainId,
   });
@@ -288,8 +295,8 @@ export const getLiquidityTokenBalance = (address: `0x${string}`) => {
   return Number(balance).toFixed(4);
 };
 
-// Get Token A balance
-export const getTokenABalance = (address: `0x${string}`) => {
+// Hook to get Token A balance
+export const useTokenABalance = (address: `0x${string}` | undefined) => {
   const [balance, setBalance] = useState<string>("0");
   const chainId = useChainId();
   const network = getNetworkById(chainId);
@@ -300,7 +307,7 @@ export const getTokenABalance = (address: `0x${string}`) => {
     abi: erc20Abi,
     address: tokenAAddress,
     functionName: "balanceOf",
-    args: [address],
+    args: address ? [address] : undefined,
     account: address,
     chainId: chainId,
   });
@@ -324,8 +331,8 @@ export const getTokenABalance = (address: `0x${string}`) => {
   return Number(balance).toFixed(4);
 };
 
-// Get Token B balance
-export const getTokenBBalance = (address: `0x${string}`) => {
+// Hook to get Token B balance
+export const useTokenBBalance = (address: `0x${string}` | undefined) => {
   const [balance, setBalance] = useState<string>("0");
   const chainId = useChainId();
   const network = getNetworkById(chainId);
@@ -336,7 +343,7 @@ export const getTokenBBalance = (address: `0x${string}`) => {
     abi: erc20Abi,
     address: tokenBAddress,
     functionName: "balanceOf",
-    args: [address],
+    args: address ? [address] : undefined,
     account: address,
     chainId: chainId,
   });
@@ -360,8 +367,10 @@ export const getTokenBBalance = (address: `0x${string}`) => {
   return Number(balance).toFixed(4);
 };
 
-// Get DEX pool ratio for price calculation
-export const getPoolRatio = () => {
+// ====== ADDITIONAL UTILITY HOOKS ======
+
+// Hook to get DEX pool ratio for price calculation
+export const usePoolRatio = () => {
   const chainId = useChainId();
   const network = getNetworkById(chainId);
 
@@ -374,13 +383,11 @@ export const getPoolRatio = () => {
     chainId: chainId,
   });
 
-  console.log("Pool Ratio:", poolRatio);
-
   return poolRatio ? Number(poolRatio) : 1;
 };
 
-// Get Token A price in Token B
-export const getTokenAPrice = () => {
+// Hook to get Token A price in Token B
+export const useTokenAPrice = () => {
   const chainId = useChainId();
   const network = getNetworkById(chainId);
 
@@ -393,101 +400,78 @@ export const getTokenAPrice = () => {
     chainId: chainId,
   });
 
-  console.log("Token A Price:", tokenAPrice);
-
   return tokenAPrice ? Number(tokenAPrice) : 1;
 };
 
-// Add liquidity to DEX pool
-export const addLiquidity = (tokenAAmount: number, tokenBAmount: number) => {
-  const chainId = useChainId();
-  const network = getNetworkById(chainId);
-  
-  let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`;
-  
-  const { writeContract } = useWriteContract();
-
-  const tokenA = ethers.parseUnits((tokenAAmount * 10 ** 18).toString(), "wei");
-  const tokenB = ethers.parseUnits((tokenBAmount * 10 ** 18).toString(), "wei");
-
-  console.log("Adding liquidity - Token A:", tokenA, "Token B:", tokenB);
-
-  writeContract({
-    abi: genericDexAbi,
-    address: dexRouterAddress,
-    functionName: "addLiquidity",
-    args: [tokenA, tokenB],
-    chainId: chainId,
-  });
-
-  return;
-};
-
-// Remove liquidity from DEX pool
-export const removeLiquidity = (liquidityAmount: number) => {
+// Hook for DEX operations (add/remove liquidity, swaps)
+export const useDexOperations = () => {
   const { writeContract } = useWriteContract();
   const chainId = useChainId();
   const network = getNetworkById(chainId);
 
   let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`;
 
-  const liquidity = ethers.parseUnits((liquidityAmount * 10 ** 18).toString(), "wei");
+  const addLiquidity = (tokenAAmount: number, tokenBAmount: number) => {
+    const tokenA = ethers.parseUnits((tokenAAmount * 10 ** 18).toString(), "wei");
+    const tokenB = ethers.parseUnits((tokenBAmount * 10 ** 18).toString(), "wei");
 
-  console.log("Removing liquidity - LP tokens:", liquidity);
+    console.log("Adding liquidity - Token A:", tokenA, "Token B:", tokenB);
 
-  writeContract({
-    abi: genericDexAbi,
-    address: dexRouterAddress,
-    functionName: "removeLiquidity",
-    args: [liquidity],
-    chainId: chainId,
-  });
+    writeContract({
+      abi: genericDexAbi,
+      address: dexRouterAddress,
+      functionName: "addLiquidity",
+      args: [tokenA, tokenB],
+      chainId: chainId,
+    });
+  };
 
-  return;
-};
+  const removeLiquidity = (liquidityAmount: number) => {
+    const liquidity = ethers.parseUnits((liquidityAmount * 10 ** 18).toString(), "wei");
 
-// Swap Token A for Token B
-export const swapTokenAForB = (tokenAAmount: number) => {
-  const { writeContract } = useWriteContract();
-  const chainId = useChainId();
-  const network = getNetworkById(chainId);
+    console.log("Removing liquidity - LP tokens:", liquidity);
 
-  let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`;
+    writeContract({
+      abi: genericDexAbi,
+      address: dexRouterAddress,
+      functionName: "removeLiquidity",
+      args: [liquidity],
+      chainId: chainId,
+    });
+  };
 
-  const tokenA = ethers.parseUnits((tokenAAmount * 10 ** 18).toString(), "wei");
+  const swapTokenAForB = (tokenAAmount: number) => {
+    const tokenA = ethers.parseUnits((tokenAAmount * 10 ** 18).toString(), "wei");
 
-  console.log("Swapping Token A for B:", tokenA);
+    console.log("Swapping Token A for B:", tokenA);
 
-  writeContract({
-    abi: genericDexAbi,
-    address: dexRouterAddress,
-    functionName: "swapTokenAForB",
-    args: [tokenA],
-    chainId: chainId,
-  });
+    writeContract({
+      abi: genericDexAbi,
+      address: dexRouterAddress,
+      functionName: "swapTokenAForB",
+      args: [tokenA],
+      chainId: chainId,
+    });
+  };
 
-  return;
-};
+  const swapTokenBForA = (tokenBAmount: number) => {
+    const tokenB = ethers.parseUnits((tokenBAmount * 10 ** 18).toString(), "wei");
 
-// Swap Token B for Token A  
-export const swapTokenBForA = (tokenBAmount: number) => {
-  const { writeContract } = useWriteContract();
-  const chainId = useChainId();
-  const network = getNetworkById(chainId);
+    console.log("Swapping Token B for A:", tokenB);
 
-  let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`;
+    writeContract({
+      abi: genericDexAbi,
+      address: dexRouterAddress,
+      functionName: "swapTokenBForA",
+      args: [tokenB],
+      chainId: chainId,
+    });
+  };
 
-  const tokenB = ethers.parseUnits((tokenBAmount * 10 ** 18).toString(), "wei");
-
-  console.log("Swapping Token B for A:", tokenB);
-
-  writeContract({
-    abi: genericDexAbi,
-    address: dexRouterAddress,
-    functionName: "swapTokenBForA",
-    args: [tokenB],
-    chainId: chainId,
-  });
-
-  return;
+  return {
+    addLiquidity,
+    removeLiquidity,
+    swapTokenAForB,
+    swapTokenBForA
+  };
 };

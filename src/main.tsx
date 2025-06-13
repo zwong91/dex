@@ -12,10 +12,11 @@ import { Toaster } from "sonner";
 import Wallet from "./pages/Wallet.tsx";
 import MarketPlace from "./pages/MarketPlace.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
+import ModernHome from "./pages/ModernHome.tsx";
 import Simple from "./pages/Simple";
 import ModernSwap from "./pages/ModernSwap";
+import ModernLiquidity from "./pages/ModernLiquidity";
 import Complex from "./pages/Complex";
-import Projects from "./pages/Projects.tsx";
 
 import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
@@ -26,7 +27,7 @@ import "@rainbow-me/rainbowkit/styles.css";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Dashboard />,
+    element: <ModernHome />,
   },
   {
     path: "/dashboard",
@@ -38,7 +39,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/liquidity",
-    element: <Wallet />,
+    element: <ModernLiquidity />,
   },
   {
     path: "/analytics",
@@ -47,10 +48,6 @@ const router = createBrowserRouter([
   {
     path: "/wallet",
     element: <Wallet />,
-  },
-  {
-    path: "/projects",
-    element: <Projects />,
   },
   {
     path: "/market",

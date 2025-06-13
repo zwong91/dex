@@ -35,7 +35,7 @@ function swapUNC(uint _amountIn) external returns (uint amountOut)
 1. Calculate fee: `amountInWithFee = _amountIn * (FEE_DENOMINATOR - FEE_NUMERATOR) / FEE_DENOMINATOR`
 2. Calculate output: `amountOut = (otherTokenReserve * amountInWithFee) / (uncTokenReserve + amountInWithFee)`
 
-This function uses the constant product formula (x * y = k) to determine the output amount. Trading fees are deducted and distributed to liquidity providers. #### 2. swapToUNC (Other Token to UNC Token)
+This function uses the constant product formula (x + y = k) to determine the output amount. Trading fees are deducted and distributed to liquidity providers. #### 2. swapToUNC (Other Token to UNC Token)
 
 ```solidity
 function swapToUNC(uint _amountIn) external returns (uint amountOut)

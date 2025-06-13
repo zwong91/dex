@@ -14,9 +14,9 @@ import {
 
 import { ethers } from "ethers";
 import { 
-  getTokenABalance, 
-  getTokenBBalance, 
-  getLiquidityTokenBalance,
+  useTokenABalance, 
+  useTokenBBalance, 
+  useLiquidityTokenBalance,
   genericDexAbi 
 } from "../utils/dexUtils";
 import { erc20Abi } from "viem";
@@ -30,6 +30,11 @@ const Wallet = () => {
   const [tokenBDepositAmount, setTokenBDepositAmount] = useState(0);
   const [withdrawalAmount, setWithdrawalAmount] = useState(0);
   const [isRequesting, setIsRequesting] = useState(false);
+
+  // Use the correct hooks for token balances
+  const tokenABalance = useTokenABalance(address);
+  const tokenBBalance = useTokenBBalance(address);
+  const liquidityTokenBalance = useLiquidityTokenBalance(address);
 
   let { writeContract, isSuccess, error, isPending } = useWriteContract();
 
@@ -373,8 +378,8 @@ const Wallet = () => {
               </div>
               <div className="flex justify-between items-center">
                 <p className="text-[#76809D]">Available</p>
-                <p className="text-[#76809D]">{getTokenABalance(address!)} TOKEN A</p>
-                <p className="text-[#76809D]">{getTokenBBalance(address!)} TOKEN B</p>
+                <p className="text-[#76809D]">{tokenABalance} TOKEN A</p>
+                <p className="text-[#76809D]">{tokenBBalance} TOKEN B</p>
               </div>
               <div className="flex justify-between items-center mt-1">
                 <p className="text-[#76809D]">Allowance:</p>
@@ -431,7 +436,7 @@ const Wallet = () => {
               </div>
               <div className="flex justify-between items-center">
                 <p className="text-[#76809D]">Available LP:</p>
-                <p className="text-[#76809D]">{getLiquidityTokenBalance(address!)} LP</p>
+                <p className="text-[#76809D]">{liquidityTokenBalance} LP</p>
               </div>
 
               <button

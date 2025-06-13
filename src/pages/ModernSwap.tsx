@@ -5,11 +5,10 @@ import { FaInfoCircle } from "react-icons/fa";
 import { IoSwapVertical } from "react-icons/io5";
 import { MdKeyboardArrowDown, MdSettings } from "react-icons/md";
 import {
-  getTokenABalance,
-  getTokenBBalance,
-  getTokenAPrice,
-  swapTokenAForB,
-  swapTokenBForA,
+  useTokenABalance,
+  useTokenBBalance,
+  useTokenAPrice,
+  useDexOperations,
 } from "../utils/dexUtils";
 import MainNavigation from "../components/MainNavigation";
 
@@ -24,6 +23,12 @@ const ModernSwap = () => {
   const [selectedTokenB] = useState("TOKEN B");
   const [slippage, setSlippage] = useState("0.5");
   const [showSettings, setShowSettings] = useState(false);
+
+  // Use the correct hooks for token balances and operations
+  const tokenABalance = useTokenABalance(address);
+  const tokenBBalance = useTokenBBalance(address);
+  const tokenAPrice = useTokenAPrice();
+  const { swapTokenAForB, swapTokenBForA } = useDexOperations();
 
   // Auto-calculate output amount when input changes
   useEffect(() => {
@@ -53,7 +58,7 @@ const ModernSwap = () => {
   };
 
   const calculateEstimatedOutput = (inputAmount: number, isAToB: boolean) => {
-    const price = getTokenAPrice();
+    const price = tokenAPrice;
     const slippagePercent = parseFloat(slippage) / 100;
     const feePercent = 0.003; // 0.3% fee
     
@@ -68,11 +73,11 @@ const ModernSwap = () => {
   const getFromToken = () => isSwapReversed ? selectedTokenB : selectedTokenA;
   const getToToken = () => isSwapReversed ? selectedTokenA : selectedTokenB;
   const getFromBalance = () => isSwapReversed ? 
-    (address ? getTokenBBalance(address) : "0.0000") : 
-    (address ? getTokenABalance(address) : "0.0000");
+    (address ? tokenBBalance : "0.0000") : 
+    (address ? tokenABalance : "0.0000");
   const getToBalance = () => isSwapReversed ? 
-    (address ? getTokenABalance(address) : "0.0000") : 
-    (address ? getTokenBBalance(address) : "0.0000");
+    (address ? tokenABalance : "0.0000") : 
+    (address ? tokenBBalance : "0.0000");
 
   const getSwapButtonText = () => {
     if (!address) return "Connect Wallet";
@@ -232,7 +237,7 @@ const ModernSwap = () => {
                 <div className="flex justify-between text-[#717A8C]">
                   <span>Exchange Rate:</span>
                   <span className="text-[#fafafa]">
-                    1 {getFromToken()} = {getTokenAPrice().toFixed(6)} {getToToken()}
+                    1 {getFromToken()} = {tokenAPrice.toFixed(6)} {getToToken()}
                   </span>
                 </div>
                 <div className="flex justify-between text-[#717A8C]">

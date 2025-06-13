@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useChainId, useAccount } from "wagmi";
-import { getTokenABalance, getTokenBBalance, getLiquidityTokenBalance } from "../utils/dexUtils";
+import { useTokenABalance, useTokenBBalance, useLiquidityTokenBalance } from "../utils/dexUtils";
 import { 
   MdToken, 
   MdTrendingUp, 
@@ -17,6 +17,11 @@ const Dashboard = () => {
   const { address } = useAccount();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Use the correct hooks for token balances
+  const tokenABalance = useTokenABalance(address);
+  const tokenBBalance = useTokenBBalance(address);
+  const liquidityTokenBalance = useLiquidityTokenBalance(address);
 
   // Fetch DEX stats from API
   useEffect(() => {
@@ -213,7 +218,7 @@ const Dashboard = () => {
                   <span className="text-[#fafafa] font-medium">TOKEN A</span>
                 </div>
                 <p className="text-2xl font-bold text-[#fafafa]">
-                  {getTokenABalance(address)}
+                  {tokenABalance}
                 </p>
                 <p className="text-[#717A8C] text-sm">≈ $1,234.56</p>
               </div>
@@ -224,7 +229,7 @@ const Dashboard = () => {
                   <span className="text-[#fafafa] font-medium">TOKEN B</span>
                 </div>
                 <p className="text-2xl font-bold text-[#fafafa]">
-                  {getTokenBBalance(address)}
+                  {tokenBBalance}
                 </p>
                 <p className="text-[#717A8C] text-sm">≈ $2,456.78</p>
               </div>
@@ -235,7 +240,7 @@ const Dashboard = () => {
                   <span className="text-[#fafafa] font-medium">LP Tokens</span>
                 </div>
                 <p className="text-2xl font-bold text-[#fafafa]">
-                  {getLiquidityTokenBalance(address)}
+                  {liquidityTokenBalance}
                 </p>
                 <p className="text-[#717A8C] text-sm">≈ $987.65</p>
               </div>
