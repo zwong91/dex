@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useChainId, useAccount } from "wagmi";
+import { SUPPORTED_NETWORKS } from "../utils/dexConfig";
 import { getTokenABalance, getTokenBBalance, getLiquidityTokenBalance } from "../utils/dexUtils";
 import { 
   MdToken, 
@@ -10,13 +11,30 @@ import {
 import { IoWallet } from "react-icons/io5";
 import { RiExchangeFill } from "react-icons/ri";
 import { FaChartLine, FaCoins } from "react-icons/fa";
-import MainNavigation from "../components/MainNavigation";
+import MainNavigation from "../components/MainNavigation";e, useEffect } from "react";
+import { useChainId, useAccount } from "wagmi";
+import { switchChain } from "@wagmi/core";
+import { config } from "../utils/wagmiConfig";
+import { getNetworkById, SUPPORTED_NETWORKS } from "../utils/dexConfig";
+import { getTokenABalance, getTokenBBalance, getLiquidityTokenBalance } from "../utils/dexUtils";
+import { 
+  MdToken, 
+  MdTrendingUp, 
+  MdSwapHoriz,
+  MdAccountBalance
+} from "react-icons/md";
+import { IoWallet } from "react-icons/io5";
+import { RiExchangeFill } from "react-icons/ri";
+import { FaChartLine, FaCoins } from "react-icons/fa";
+import WalletConnector from "../components/WalletConnector";
 
-const Dashboard = () => {
+const ModernDashboard = () => {
   const chainId = useChainId();
   const { address } = useAccount();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const supportedNetworks = Object.values(SUPPORTED_NETWORKS);
 
   // Fetch DEX stats from API
   useEffect(() => {
@@ -42,7 +60,7 @@ const Dashboard = () => {
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 30000);
+    const interval = setInterval(fetchStats, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -136,8 +154,49 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#161d29] to-[#1e293b]">
-      {/* Navigation */}
-      <MainNavigation />
+      {/* Header */}
+      <header className="border-b border-[#3a4553] bg-[#1a1f2a]/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-[#516AE4] to-[#7c3aed] rounded-xl flex items-center justify-center">
+                  <RiExchangeFill className="text-white text-lg" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-[#fafafa]">Universal DEX</h1>
+                  <p className="text-[#717A8C] text-sm">Multi-chain Decentralized Exchange</p>
+                </div>
+              </div>
+              
+              {/* Network Switcher */}
+              <div className="flex items-center gap-3">
+                <span className="text-[#717A8C] text-sm">Network:</span>
+                <select
+                  className="bg-[#252b36] border border-[#3a4553] text-[#fafafa] px-3 py-2 rounded-lg text-sm focus:border-[#516AE4] outline-none"
+                  value={chainId}
+                  onChange={async (e) => {
+                    const selectedChainId = parseInt(e.target.value) as 1 | 56 | 97 | 137 | 42161;
+                    try {
+                      await switchChain(config, { chainId: selectedChainId });
+                    } catch (error) {
+                      console.error("Failed to switch network:", error);
+                    }
+                  }}
+                >
+                  {supportedNetworks.map((net) => (
+                    <option key={net.id} value={net.id}>
+                      {net.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <WalletConnector />
+          </div>
+        </div>
+      </header>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Welcome Section */}
@@ -247,4 +306,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default ModernDashboard;

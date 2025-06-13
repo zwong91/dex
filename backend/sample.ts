@@ -68,7 +68,7 @@ async function testFaucet() {
 }
 
 async function main() {
-  console.log('🚀 UNC DEX Backend Test Suite\n');
+  console.log('🚀 dex apiTest Suite\n');
   
   const args = process.argv.slice(2);
   

@@ -273,19 +273,19 @@ app.get("/api/stats", (req, res) => {
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "UNC DEX Backend is running",
+    message: "dex apiis running",
     timestamp: new Date().toISOString(),
     version: "1.0.0"
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 const httpServer = createServer(app);
 
 httpServer.listen(PORT, () => {
   console.info(
-    `🚀 UNC DEX Backend Server started on`,
+    `🚀 dex apiServer started on`,
     httpServer.address(),
     `PID ${process.pid}`
   );

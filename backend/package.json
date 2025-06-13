@@ -1,7 +1,7 @@
 {
-  "name": "api",
+  "name": "dex-api",
   "version": "1.0.0",
-  "description": "UNC DEX Backend API - Universal Decentralized Exchange",
+  "description": "dex apiAPI - Universal Decentralized Exchange",
   "main": "api.ts",
   "scripts": {
     "test": "ts-node sample.ts",

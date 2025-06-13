@@ -1,6 +1,6 @@
-import Header from "../components/Header";
 import { useEffect, useState } from "react";
 import Dropdown from "../components/Dropdown";
+import MainNavigation from "../components/MainNavigation";
 import {
   Connector,
   useConnect,
@@ -183,6 +183,39 @@ const Wallet = () => {
     onClick: () => void;
   }) {
     const [ready, setReady] = useState(false);
+    
+    // Get wallet info based on connector name
+    const getWalletInfoByName = (name: string) => {
+      const walletMap: Record<string, { icon: string; description: string }> = {
+        'MetaMask': {
+          icon: '/src/assets/metamask.png',
+          description: 'Connect using browser wallet'
+        },
+        'WalletConnect': {
+          icon: '/src/assets/WalletConnect.png',
+          description: 'Connect using mobile wallet'
+        },
+        'Coinbase Wallet': {
+          icon: '/src/assets/coinbase.svg',
+          description: 'Connect using Coinbase Wallet'
+        },
+        'Trust Wallet': {
+          icon: '/src/assets/trust.svg',
+          description: 'Connect using Trust Wallet'
+        },
+        'Rabby Wallet': {
+          icon: '/src/assets/rabby.svg',
+          description: 'Connect using Rabby Wallet'
+        }
+      };
+      
+      return walletMap[name] || {
+        icon: '/src/assets/user.png',
+        description: `Connect using ${name}`
+      };
+    };
+
+    const walletInfo = getWalletInfoByName(connector.name);
 
     useEffect(() => {
       (async () => {
@@ -195,33 +228,51 @@ const Wallet = () => {
       <button
         disabled={!ready}
         onClick={onClick}
-        className="p-2 bg-white rounded-lg flex justify-between items-center w-[30rem]"
+        className="w-full flex items-center justify-between p-4 bg-[#252b36] hover:bg-[#2d3440] border border-[#3a4553] rounded-xl transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <div className="flex items-center gap-3">
-          <img
-            src={connector.icon}
-            alt={connector.name}
-            className="w-8 h-8 rounded-md"
-          />
-          <h4 className="text-black">{connector.name}</h4>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <img
+              src={walletInfo.icon}
+              alt={connector.name}
+              className="w-10 h-10 rounded-lg"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/src/assets/user.png';
+              }}
+            />
+            {ready && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1a1f2a]" />
+            )}
+          </div>
+          <div className="text-left">
+            <h3 className="text-[#fafafa] font-semibold text-base">
+              {connector.name}
+            </h3>
+            <p className="text-[#717A8C] text-sm">
+              {walletInfo.description}
+            </p>
+          </div>
         </div>
-        {ready ? (
-          <div className="bg-green-500 p-2 rounded-lg">
-            <p className="text-white">Ready</p>
-          </div>
-        ) : (
-          <div className="bg-red-500 p-2 rounded-lg">
-            <p className="text-white">Not Ready</p>
-          </div>
-        )}
+        
+        <div className="flex items-center">
+          {ready ? (
+            <div className="px-3 py-1 bg-green-500/20 border border-green-500 rounded-lg">
+              <span className="text-green-300 text-sm font-medium">Ready</span>
+            </div>
+          ) : (
+            <div className="px-3 py-1 bg-red-500/20 border border-red-500 rounded-lg">
+              <span className="text-red-300 text-sm font-medium">Not Ready</span>
+            </div>
+          )}
+        </div>
       </button>
     );
   }
 
   return (
-    <div className="bg-[#161d29] min-h-screen">
-      <Header />
-      <div className="p-5">
+    <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#161d29] to-[#1e293b]">
+      <MainNavigation />
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <h3 className="text-[#fafafa] text-xl font-semibold">
           Liquidity Management
         </h3>
@@ -244,12 +295,18 @@ const Wallet = () => {
         </div>
 
         {!isConnected ? (
-          <div className="flex justify-center">
-            <div className="p-5 bg-white rounded-lg w-[35rem]">
-              <h3 className="text-black text-center font-semibold text-lg mb-5">
-                Connect Wallet
-              </h3>
-              <div className="space-y-3">
+          <div className="flex justify-center min-h-screen items-center">
+            <div className="p-8 bg-[#1a1f2a] border border-[#3a4553] rounded-2xl w-full max-w-md shadow-2xl">
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-[#fafafa] mb-2">
+                  Connect Your Wallet
+                </h3>
+                <p className="text-[#717A8C]">
+                  Choose a wallet to connect to Universal DEX
+                </p>
+              </div>
+              
+              <div className="space-y-4">
                 {connectors.map((connector) => (
                   <WalletOption
                     key={connector.uid}
@@ -258,9 +315,19 @@ const Wallet = () => {
                   />
                 ))}
               </div>
-              <p className="text-center text-gray-600 text-sm mt-4">
-                By connecting to a wallet, you agree to the Terms of Service
-              </p>
+              
+              <div className="mt-6 p-4 bg-[#161d29] rounded-lg border border-[#3a4553]">
+                <p className="text-[#717A8C] text-sm text-center">
+                  By connecting a wallet, you agree to Universal DEX's{' '}
+                  <a href="#" className="text-[#516AE4] hover:underline">
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a href="#" className="text-[#516AE4] hover:underline">
+                    Privacy Policy
+                  </a>
+                </p>
+              </div>
             </div>
           </div>
         ) : (

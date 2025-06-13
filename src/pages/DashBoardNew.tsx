@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useChainId, useAccount } from "wagmi";
+import { SUPPORTED_NETWORKS } from "../utils/dexConfig";
 import { getTokenABalance, getTokenBBalance, getLiquidityTokenBalance } from "../utils/dexUtils";
 import { 
   MdToken, 
@@ -12,7 +13,7 @@ import { RiExchangeFill } from "react-icons/ri";
 import { FaChartLine, FaCoins } from "react-icons/fa";
 import MainNavigation from "../components/MainNavigation";
 
-const Dashboard = () => {
+const ModernDashboard = () => {
   const chainId = useChainId();
   const { address } = useAccount();
   const [stats, setStats] = useState<any>(null);
@@ -42,7 +43,7 @@ const Dashboard = () => {
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 30000);
+    const interval = setInterval(fetchStats, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -247,4 +248,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default ModernDashboard;

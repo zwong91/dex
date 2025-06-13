@@ -11,8 +11,9 @@ import { Toaster } from "sonner";
 
 import Wallet from "./pages/Wallet.tsx";
 import MarketPlace from "./pages/MarketPlace.tsx";
-import DashBoard from "./pages/DashBoard.tsx";
+import Dashboard from "./pages/Dashboard.tsx";
 import Simple from "./pages/Simple";
+import ModernSwap from "./pages/ModernSwap";
 import Complex from "./pages/Complex";
 import Projects from "./pages/Projects.tsx";
 
@@ -25,15 +26,15 @@ import "@rainbow-me/rainbowkit/styles.css";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <DashBoard />,
+    element: <Dashboard />,
   },
   {
     path: "/dashboard",
-    element: <DashBoard />,
+    element: <Dashboard />,
   },
   {
     path: "/swap",
-    element: <Simple />,
+    element: <ModernSwap />,
   },
   {
     path: "/liquidity",
@@ -41,7 +42,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/analytics",
-    element: <DashBoard />,
+    element: <Dashboard />,
   },
   {
     path: "/wallet",
