@@ -1,4 +1,4 @@
-import { bsc, bscTestnet, mainnet, polygon, arbitrum } from "wagmi/chains";
+import { bsc, bscTestnet, mainnet } from "wagmi/chains";
 
 // Supported Networks Configuration
 export const SUPPORTED_NETWORKS = {
@@ -60,44 +60,6 @@ export const SUPPORTED_NETWORKS = {
       endpoint: "",
     },
   },
-  polygon: {
-    id: polygon.id,
-    name: "Polygon",
-    symbol: "MATIC",
-    nativeCurrency: polygon.nativeCurrency,
-    rpcUrls: polygon.rpcUrls,
-    blockExplorers: polygon.blockExplorers,
-    contracts: {
-      tokenA: "",
-      tokenB: "",
-      dexRouter: "",
-      liquidityToken: "",
-      factory: "",
-    },
-    faucet: {
-      enabled: false,
-      endpoint: "",
-    },
-  },
-  arbitrum: {
-    id: arbitrum.id,
-    name: "Arbitrum One",
-    symbol: "ETH",
-    nativeCurrency: arbitrum.nativeCurrency,
-    rpcUrls: arbitrum.rpcUrls,
-    blockExplorers: arbitrum.blockExplorers,
-    contracts: {
-      tokenA: "",
-      tokenB: "",
-      dexRouter: "",
-      liquidityToken: "",
-      factory: "",
-    },
-    faucet: {
-      enabled: false,
-      endpoint: "",
-    },
-  },
 } as const;
 
 // Current network (change this for production)
@@ -116,14 +78,6 @@ export const GAS_SETTINGS = {
   [mainnet.id]: {
     gasPrice: "20000000000", // 20 Gwei
     gasLimit: "200000",
-  },
-  [polygon.id]: {
-    gasPrice: "30000000000", // 30 Gwei
-    gasLimit: "200000",
-  },
-  [arbitrum.id]: {
-    gasPrice: "100000000", // 0.1 Gwei
-    gasLimit: "300000",
   },
 };
 

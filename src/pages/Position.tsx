@@ -4,7 +4,7 @@ import MainNavigation from "../components/MainNavigation";
 import { FaInfo } from "react-icons/fa";
 import { MdTrendingUp, MdWaves } from "react-icons/md";
 
-interface LiquidityPosition {
+interface PositionData {
   id: string;
   pair: string;
   liquidity: string;
@@ -16,11 +16,11 @@ interface LiquidityPosition {
   };
 }
 
-const ModernLiquidity = () => {
+const Position = () => {
   const { address } = useAccount();
 
   // Mock data for user positions
-  const [liquidityPositions] = useState<LiquidityPosition[]>([
+  const [positions] = useState<PositionData[]>([
     {
       id: "1",
       pair: "BNB/USDC",
@@ -45,9 +45,9 @@ const ModernLiquidity = () => {
     }
   ]);
 
-  const handleRemoveLiquidity = (position: LiquidityPosition) => {
-    console.log("Removing liquidity for:", position);
-    // Remove liquidity logic here
+  const handleClosePosition = (position: PositionData) => {
+    console.log("Closing position for:", position);
+    // Close position logic here
   };
 
   return (
@@ -66,7 +66,7 @@ const ModernLiquidity = () => {
           <div className="glass-card p-6">
             <h2 className="text-2xl font-bold text-white mb-6">Your Positions</h2>
             
-            {liquidityPositions.length === 0 ? (
+            {positions.length === 0 ? (
               <div className="text-center py-12">
                 <MdWaves className="text-6xl text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-400 text-lg">No positions found</p>
@@ -74,7 +74,7 @@ const ModernLiquidity = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {liquidityPositions.map((position) => (
+                {positions.map((position) => (
                   <div key={position.id} className="bg-zinc-800 bg-opacity-50 border border-zinc-600 rounded-xl p-6 hover:border-blue-500 hover:border-opacity-50 transition-all duration-200 group">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ const ModernLiquidity = () => {
                         <span>Active position</span>
                       </div>
                       <button 
-                        onClick={() => handleRemoveLiquidity(position)}
+                        onClick={() => handleClosePosition(position)}
                         className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all duration-200 transform group-hover:scale-105 shadow-lg"
                       >
                         Close Position
@@ -144,4 +144,4 @@ const ModernLiquidity = () => {
   );
 };
 
-export default ModernLiquidity;
+export default Position;

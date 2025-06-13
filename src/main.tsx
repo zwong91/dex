@@ -11,11 +11,11 @@ import { Toaster } from "sonner";
 
 import Wallet from "./pages/Wallet.tsx";
 import MarketPlace from "./pages/MarketPlace.tsx";
-import Dashboard from "./pages/Dashboard.tsx";
+import Dashboard from "./pages/DashBoard.tsx";
 import ModernHome from "./pages/ModernHome.tsx";
 import Simple from "./pages/Simple";
 import ModernSwap from "./pages/ModernSwap";
-import ModernLiquidity from "./pages/ModernLiquidity";
+import Position from "./pages/Position";
 import Complex from "./pages/Complex";
 
 import { WagmiProvider } from "wagmi";
@@ -38,8 +38,8 @@ const router = createBrowserRouter([
     element: <ModernSwap />,
   },
   {
-    path: "/liquidity",
-    element: <ModernLiquidity />,
+    path: "/position",
+    element: <Position />,
   },
   {
     path: "/analytics",

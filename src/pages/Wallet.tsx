@@ -191,32 +191,43 @@ const Wallet = () => {
     
     // Get wallet info based on connector name
     const getWalletInfoByName = (name: string) => {
-      const walletMap: Record<string, { icon: string; description: string }> = {
+      const walletMap: Record<string, { icon: string; description: string; displayName?: string }> = {
         'MetaMask': {
           icon: '/src/assets/metamask.png',
-          description: 'Connect using browser wallet'
+          description: 'Connect using MetaMask browser extension',
+          displayName: 'MetaMask'
         },
         'WalletConnect': {
           icon: '/src/assets/WalletConnect.png',
-          description: 'Connect using mobile wallet'
+          description: 'Connect using mobile wallet',
+          displayName: 'WalletConnect'
         },
         'Coinbase Wallet': {
           icon: '/src/assets/coinbase.svg',
-          description: 'Connect using Coinbase Wallet'
+          description: 'Connect using Coinbase Wallet',
+          displayName: 'Coinbase Wallet'
         },
         'Trust Wallet': {
           icon: '/src/assets/trust.svg',
-          description: 'Connect using Trust Wallet'
+          description: 'Connect using Trust Wallet',
+          displayName: 'Trust Wallet'
         },
         'Rabby Wallet': {
           icon: '/src/assets/rabby.svg',
-          description: 'Connect using Rabby Wallet'
+          description: 'Connect using Rabby Wallet',
+          displayName: 'Rabby Wallet'
+        },
+        'Injected': {
+          icon: '/src/assets/metamask.png',
+          description: 'Connect using browser wallet',
+          displayName: 'Browser Wallet'
         }
       };
       
       return walletMap[name] || {
-        icon: '/src/assets/user.png',
-        description: `Connect using ${name}`
+        icon: '/src/assets/user.svg',
+        description: `Connect using ${name}`,
+        displayName: name
       };
     };
 
@@ -242,7 +253,7 @@ const Wallet = () => {
               alt={connector.name}
               className="w-10 h-10 rounded-lg"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/src/assets/user.png';
+                (e.target as HTMLImageElement).src = '/src/assets/user.svg';
               }}
             />
             {ready && (
@@ -251,7 +262,7 @@ const Wallet = () => {
           </div>
           <div className="text-left">
             <h3 className="text-[#fafafa] font-semibold text-base">
-              {connector.name}
+              {walletInfo.displayName || connector.name}
             </h3>
             <p className="text-[#717A8C] text-sm">
               {walletInfo.description}
@@ -312,13 +323,18 @@ const Wallet = () => {
               </div>
               
               <div className="space-y-4">
-                {connectors.map((connector) => (
-                  <WalletOption
-                    key={connector.uid}
-                    connector={connector}
-                    onClick={() => connect({ connector })}
-                  />
-                ))}
+                {connectors
+                  .filter((connector, index, self) => 
+                    // Remove duplicates based on connector name
+                    index === self.findIndex(c => c.name === connector.name)
+                  )
+                  .map((connector) => (
+                    <WalletOption
+                      key={connector.uid}
+                      connector={connector}
+                      onClick={() => connect({ connector })}
+                    />
+                  ))}
               </div>
               
               <div className="mt-6 p-4 bg-[#161d29] rounded-lg border border-[#3a4553]">
