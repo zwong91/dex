@@ -1,316 +1,378 @@
-# UNC Protocol - Decentralized Exchange
+# Universal DEX - Multi-Chain Decentralized Exchange Platform
 
 ## Overview
 
-The UNC DEX (Decentralized Exchange) is a smart contract-based automated market maker (AMM) that facilitates the exchange between UNC (Universal Network Coin) tokens and other ERC20 tokens. It uses a constant product formula (x * y = k) to determine exchange rates and provides users with the ability to trade, provide liquidity, earn fees, and participate in yield farming.
+Universal DEX is a modern, multi-chain decentralized exchange (DEX) platform built with React, TypeScript, and wagmi. It provides a seamless trading experience across multiple blockchain networks including BSC, Ethereum, Polygon, and Arbitrum. The platform features an intuitive interface for token swapping, liquidity management, and portfolio tracking.
 
-## Key Components
+## Key Features
 
-1. **UNC Token**: The primary governance and utility token of the protocol
-2. **Paired Tokens**: Secondary ERC20 tokens for trading pairs (USDC, USDT, ETH, etc.)
-3. **UNCLT (UNC Liquidity Token)**: ERC20 tokens representing liquidity provider shares
-4. **Pool Rewards**: Yield farming rewards for liquidity providers
+1. **Multi-Chain Support**: Trade on BSC, Ethereum, Polygon, and Arbitrum
+2. **Modern UI/UX**: Clean, responsive interface with dark theme
+3. **Real-time Trading**: Instant token swaps with live price feeds
+4. **Liquidity Management**: Add/remove liquidity and earn trading fees
+5. **Wallet Integration**: Support for MetaMask, WalletConnect, Coinbase, Trust Wallet, and more
+6. **Portfolio Dashboard**: Track your assets and trading positions
+7. **Advanced Features**: Slippage protection, price impact analysis, and transaction history
 
-## Token Mechanics
+## Tech Stack
 
-### UNC Token Distribution
+### Frontend
+- **React 19**: Modern React with hooks and functional components
+- **TypeScript**: Type-safe development
+- **Vite**: Fast build tool and development server
+- **Tailwind CSS**: Utility-first CSS framework for responsive design
+- **React Router**: Client-side routing
 
-1. **Liquidity Mining**: UNC tokens are distributed to liquidity providers as rewards
-2. **Trading Fees**: A portion of trading fees is used for UNC token buybacks
-3. **Governance**: UNC token holders participate in protocol governance
-4. **Staking Rewards**: Users can stake UNC tokens to earn additional yields
+### Web3 Integration
+- **wagmi**: React hooks for Ethereum
+- **viem**: TypeScript interface for Ethereum
+- **RainbowKit**: Beautiful wallet connection UI
+- **ethers.js**: Ethereum JavaScript library
 
-## Core Functions
+### Supported Wallets
+- MetaMask
+- WalletConnect
+- Coinbase Wallet
+- Trust Wallet
+- Rabby Wallet
+- Injected wallets
 
-### Trading & Swapping
+## Supported Networks
 
-#### 1. swapUNC (UNC Token to Other Token)
+| Network | Chain ID | Status | Testnet |
+|---------|----------|--------|---------|
+| BSC Testnet | 97 | ✅ Active | Yes |
+| BSC Mainnet | 56 | 🔄 Planned | No |
+| Ethereum | 1 | 🔄 Planned | No |
+| Polygon | 137 | 🔄 Planned | No |
+| Arbitrum | 42161 | 🔄 Planned | No |
 
-```solidity
-function swapUNC(uint _amountIn) external returns (uint amountOut)
+## Core Features
+
+### 🔄 Token Swapping (ModernSwap)
+- **Instant Swaps**: Trade tokens with real-time price calculations
+- **Slippage Protection**: Configurable slippage tolerance (0.1% - 5%)
+- **Price Impact Analysis**: Real-time impact calculation for large trades
+- **Auto-calculation**: Automatic output amount calculation
+- **Swap Direction Toggle**: Easy reversal of trading pairs
+- **Gas Optimization**: Efficient smart contract interactions
+
+### 💧 Liquidity Management (Wallet)
+- **Add Liquidity**: Provide liquidity to trading pairs and earn fees
+- **Remove Liquidity**: Withdraw your liquidity position anytime
+- **LP Token Management**: Track and manage liquidity provider tokens
+- **Balance Tracking**: Real-time balance updates for all tokens
+- **Approval Management**: Streamlined token approval process
+
+### 📊 Portfolio Dashboard
+- **Asset Overview**: Complete portfolio tracking
+- **Trading History**: Transaction history and analytics
+- **Performance Metrics**: Track profits, losses, and yields
+- **Multi-chain Assets**: Unified view across all supported networks
+
+### 🔧 Advanced Trading Features
+- **Real-time Pricing**: Live price feeds and market data
+- **Fee Estimation**: Transparent fee calculation (0.3% trading fee)
+- **Transaction Status**: Real-time transaction monitoring
+- **Error Handling**: User-friendly error messages and recovery options
+
+## Contract Addresses (BSC Testnet)
+
+Current deployment on BSC Testnet for development and testing:
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| **Token A** | `0x8f6fDE1B60e0d74CA7B3fD496444Dac2f2C7d882` | Test token for trading pairs |
+| **Token B** | `0xafC9D020d0b67522337058f0fDea057769dd386A` | Test token for trading pairs |
+| **DEX Router** | `0xC8fb994B992B01C72c969eC9C077CD030eaD2A7F` | Main DEX contract for swaps |
+| **Liquidity Token** | `0x4a62fa31Cd52BE39a57621783f16DEC3c54e30ac` | LP tokens for liquidity providers |
+
+> **Note**: These are testnet addresses for development. Mainnet addresses will be updated upon deployment.
+
+## Project Structure
+
+```
+universal-dex/
+├── src/
+│   ├── components/          # Reusable UI components
+│   │   ├── Dropdown.tsx     # Token selection dropdown
+│   │   ├── MainNavigation.tsx # Main navigation component
+│   │   └── WalletConnector.tsx # Wallet connection UI
+│   ├── pages/               # Main application pages
+│   │   ├── DashBoard.tsx    # Portfolio dashboard
+│   │   ├── ModernSwap.tsx   # Token swapping interface
+│   │   ├── ModernLiquidity.tsx # Liquidity management
+│   │   ├── Wallet.tsx       # Wallet and liquidity management
+│   │   ├── MarketPlace.tsx  # Market overview
+│   │   └── Complex.tsx      # Advanced trading features
+│   ├── utils/               # Utility functions and configurations
+│   │   ├── dexConfig.ts     # Network and DEX configurations
+│   │   ├── dexUtils.ts      # DEX utility functions and hooks
+│   │   ├── wagmiConfig.ts   # Web3 wallet configuration
+│   │   └── abis/            # Smart contract ABIs
+│   └── assets/              # Static assets and images
+├── backend/                 # Backend API (optional)
+│   ├── api.ts              # Express.js API server
+│   ├── types.ts            # TypeScript type definitions
+│   └── README.md           # Backend documentation
+└── public/                 # Public static files
 ```
 
-**Arithmetic:**
+## Installation & Setup
 
-1. Calculate fee: `amountInWithFee = _amountIn * (FEE_DENOMINATOR - FEE_NUMERATOR) / FEE_DENOMINATOR`
-2. Calculate output: `amountOut = (otherTokenReserve * amountInWithFee) / (uncTokenReserve + amountInWithFee)`
+### Prerequisites
+- Node.js 18+ and npm
+- Git
+- MetaMask or other Web3 wallet
 
-This function uses the constant product formula (x + y = k) to determine the output amount. Trading fees are deducted and distributed to liquidity providers. #### 2. swapToUNC (Other Token to UNC Token)
-
-```solidity
-function swapToUNC(uint _amountIn) external returns (uint amountOut)
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-repo/universal-dex.git
+cd universal-dex
 ```
 
-**Arithmetic:**
+### 2. Install Dependencies
+```bash
+# Install frontend dependencies
+npm install
 
-1. Calculate fee: `amountInWithFee = _amountIn * (FEE_DENOMINATOR - FEE_NUMERATOR) / FEE_DENOMINATOR`
-2. Calculate output: `amountOut = (uncTokenReserve * amountInWithFee) / (otherTokenReserve + amountInWithFee)`
-
-This function allows users to buy UNC tokens with other tokens, supporting the UNC ecosystem growth.
-
-### Liquidity Pool Management
-
-#### 3. addLiquidity (Provide Liquidity)
-
-```solidity
-function addLiquidity(uint _uncTokenAmount, uint _otherTokenAmount) external returns (uint shares)
+# Install backend dependencies (optional)
+cd backend
+npm install
+cd ..
 ```
 
-**Arithmetic:**
+### 3. Environment Configuration
+Create a `.env` file in the root directory:
+```env
+# Optional: Custom RPC endpoints
+VITE_ALCHEMY_API_KEY=your_alchemy_key
+VITE_INFURA_PROJECT_ID=your_infura_project_id
 
-1. If total supply is 0:
-   `shares = sqrt(_uncTokenAmount * _otherTokenAmount)`
-2. If total supply > 0:
-   ```
-   uncTokenShare = (_uncTokenAmount * totalSupply) / uncTokenReserve
-   otherTokenShare = (_otherTokenAmount * totalSupply) / otherTokenReserve
-   shares = min(uncTokenShare, otherTokenShare)
-   ```
-
-Liquidity providers receive UNCLT tokens representing their pool share and earn trading fees plus UNC rewards.
-
-#### 4. removeLiquidity (Remove Liquidity)
-
-```solidity
-function removeLiquidity(uint _shares) external returns (uint _uncTokenAmount, uint _otherTokenAmount)
+# Backend configuration (if using backend)
+PRIVATE_KEY=your_test_private_key_for_faucet
+PORT=3000
 ```
 
-**Arithmetic:**
+### 4. Start Development Server
+```bash
+# Start frontend only
+npm run dev
 
-1. Calculate UNC token amount: `_uncTokenAmount = (_shares * uncTokenReserve) / totalSupply`
-2. Calculate other token amount: `_otherTokenAmount = (_shares * otherTokenReserve) / totalSupply`
-
-This function calculates the proportional amounts to return to liquidity providers based on their pool share.
-
-### Yield Farming & Rewards
-
-#### 5. claimRewards (Claim Liquidity Mining Rewards)
-
-```solidity
-function claimRewards() external returns (uint rewardAmount)
+# Start with backend (in separate terminals)
+npm run dev           # Frontend (port 5173)
+cd backend && npm start  # Backend API (port 3000)
 ```
 
-Liquidity providers can claim accumulated UNC token rewards based on their pool participation and duration.
+### 5. Access the Application
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:3000 (if running)
 
-#### 6. stakeLPTokens (Stake LP Tokens for Additional Rewards)
+## Usage Guide
 
-```solidity
-function stakeLPTokens(uint _amount) external
+### For Traders
+1. **Connect Wallet**: Click "Connect Wallet" and select your preferred wallet
+2. **Switch Networks**: Choose BSC Testnet for testing
+3. **Get Test Tokens**: Use the faucet in the Network Information section
+4. **Start Trading**: Navigate to Swap page and trade tokens
+5. **Track Portfolio**: View your assets and history in the Dashboard
+
+### For Liquidity Providers
+1. **Connect Wallet**: Ensure you have tokens in your wallet
+2. **Navigate to Liquidity**: Go to the Wallet page
+3. **Approve Tokens**: Click "Approve" for both tokens
+4. **Add Liquidity**: Enter amounts and click "Add Liquidity"
+5. **Earn Fees**: Receive LP tokens and earn from trading fees
+6. **Remove Liquidity**: Use the "Remove Liquidity" section when needed
+
+### For Developers
+1. **Smart Contract Integration**: Use the provided ABIs and contract addresses
+2. **Custom Network**: Add new networks in `src/utils/dexConfig.ts`
+3. **Custom Components**: Extend UI components in `src/components/`
+4. **API Integration**: Use the backend API for additional features
+
+## API Reference
+
+### Backend Endpoints (Optional)
+
+#### Get Supported Tokens
+```bash
+GET /api/tokens
 ```
+Returns list of supported tokens with metadata.
 
-Users can stake their UNCLT tokens to earn additional UNC rewards and participate in governance.
-
-## Price Functions & Analytics
-
-### 7. getUNCTokenPrice
-
-```solidity
-function getUNCTokenPrice() public view returns (uint)
+#### Get Token Price
+```bash
+GET /api/price/:tokenA/:tokenB
 ```
+Returns exchange rate between two tokens.
 
-**Arithmetic:** `return (otherTokenReserve * PRECISION) / uncTokenReserve`
-
-Calculates the current market price of UNC token in terms of the paired token.
-
-### 8. getOtherTokenPrice
-
-```solidity
-function getOtherTokenPrice() public view returns (uint)
+#### Token Faucet (Testnet)
+```bash
+POST /faucet/:address
 ```
+Mints test tokens to the specified address.
 
-**Arithmetic:** `return (uncTokenReserve * PRECISION) / otherTokenReserve`
+#### Record Swap Transaction
+```bash
+POST /api/swap
+Content-Type: application/json
 
-Calculates the price of the paired token in terms of UNC tokens.
-
-### 9. estimateUNCToOtherToken
-
-```solidity
-function estimateUNCToOtherToken(uint uncTokenAmount) public view returns (uint)
-```
-
-**Arithmetic:**
-
-1. Apply fee: `amountWithFee = uncTokenAmount * (FEE_DENOMINATOR - FEE_NUMERATOR) / FEE_DENOMINATOR`
-2. Estimate output: `return (otherTokenReserve * amountWithFee) / (uncTokenReserve + amountWithFee)`
-
-Provides price estimates for trading UNC tokens, helping users calculate slippage.
-
-### 10. estimateOtherTokenToUNC
-
-```solidity
-function estimateOtherTokenToUNC(uint otherTokenAmount) public view returns (uint)
-```
-
-**Arithmetic:**
-
-1. Apply fee: `amountWithFee = otherTokenAmount * (FEE_DENOMINATOR - FEE_NUMERATOR) / FEE_DENOMINATOR`
-2. Estimate output: `return (uncTokenReserve * amountWithFee) / (otherTokenReserve + amountWithFee)`
-
-Estimates UNC tokens received for a given amount of paired tokens.
-
-## Fee Structure & Distribution
-
-The protocol implements a multi-tier fee system:
-
-- **Trading Fees**: 0.3% on all swaps
-  - 0.25% to liquidity providers
-  - 0.05% for UNC token buybacks
-- **Withdrawal Fees**: 0.1% on liquidity removal (first 30 days)
-- **Performance Fees**: 10% on yield farming rewards
-
-## Yield Farming & Incentives
-
-### Liquidity Mining Program
-
-- **Base APR**: 15-25% in UNC tokens for LP providers
-- **Boosted APR**: Up to 50% for UNC token stakers
-- **Time Multiplier**: Longer positions earn higher multipliers
-- **Volume Bonus**: High-volume traders earn additional rewards
-
-### Governance & Staking
-
-- **Governance Rights**: UNC token holders vote on protocol parameters
-- **Staking Rewards**: Additional yield for staking UNC tokens
-- **Fee Sharing**: Stakers receive a portion of protocol revenue
-- **Buyback Program**: Regular UNC token buybacks from trading fees
-
-## Automated Market Maker (AMM) Model
-
-The UNC DEX uses the constant product formula: `x * y = k`
-
-Where:
-- x: Reserve of UNC token
-- y: Reserve of paired token  
-- k: Constant product
-
-This formula ensures that the product of reserves remains constant after each trade, creating a price curve that automatically adjusts based on supply and demand dynamics.
-
-## Liquidity Provider Tokens (UNCLT)
-
-UNCLT tokens represent a liquidity provider's proportional share of the pool. They are:
-- **Minted** when liquidity is added to pools
-- **Burned** when liquidity is removed from pools
-- **Stakeable** for additional UNC rewards
-- **Transferable** ERC20 tokens with their own market value
-
-## Pool Analytics & Metrics
-
-The protocol tracks comprehensive pool analytics:
-- **Total Value Locked (TVL)**
-- **24h Trading Volume**
-- **APR/APY for liquidity providers**
-- **Price impact for trades**
-- **Impermanent loss tracking**
-- **Fee collection statistics**
-
-## Security Features
-
-1. **Slippage Protection**: Automatic revert on excessive price impact
-2. **Reentrancy Guards**: Protection against reentrancy attacks
-3. **Access Controls**: Role-based permissions for administrative functions
-4. **Emergency Pause**: Circuit breaker for emergency situations
-5. **Time Locks**: Delays for critical parameter changes
-6. **Multi-signature**: Requirements for sensitive operations
-
-## Supported Trading Pairs
-
-### Primary Pairs
-- UNC/USDC
-- UNC/USDT  
-- UNC/ETH
-- UNC/BNB
-
-### Secondary Pairs
-- UNC/DAI
-- UNC/BUSD
-- UNC/WBTC
-
-## Integration & API
-
-### Smart Contract Integration
-```solidity
-interface IUNCDEX {
-    function swapUNC(uint amountIn) external returns (uint amountOut);
-    function swapToUNC(uint amountIn) external returns (uint amountOut);
-    function addLiquidity(uint uncAmount, uint otherAmount) external returns (uint shares);
-    function removeLiquidity(uint shares) external returns (uint, uint);
+{
+  "user": "0x...",
+  "tokenIn": "TOKEN A",
+  "tokenOut": "TOKEN B", 
+  "amountIn": "100.0",
+  "amountOut": "210.0",
+  "txHash": "0x..."
 }
 ```
 
-### Web3 Integration
-- **Frontend SDK**: JavaScript/TypeScript SDK for easy integration
-- **Subgraph**: GraphQL endpoint for historical data
-- **Price Oracle**: Real-time price feeds for external applications
+### Smart Contract Functions
 
-## Roadmap & Future Development
+#### Core DEX Functions
+```typescript
+// Add liquidity to pool
+addLiquidity(tokenAAmount: uint256, tokenBAmount: uint256) 
+  returns (uint256 shares)
 
-### Phase 1: Core DEX (Current)
-- ✅ Basic AMM functionality
-- ✅ Liquidity pools and swaps
-- ✅ Yield farming rewards
-- ✅ BSC integration
+// Remove liquidity from pool  
+removeLiquidity(shares: uint256) 
+  returns (uint256 tokenAAmount, uint256 tokenBAmount)
 
-### Phase 2: Advanced Features
-- 🔄 Multi-chain deployment (Ethereum, Polygon, Arbitrum)
-- 🔄 Advanced order types (limit orders, stop-loss)
-- 🔄 Concentrated liquidity (Uniswap V3 style)
-- 🔄 Cross-chain bridge integration
+// Swap Token A for Token B
+swapTokenAForB(amountIn: uint256) 
+  returns (uint256 amountOut)
 
-### Phase 3: DeFi Ecosystem
-- 📋 Lending and borrowing protocols
-- 📋 Synthetic assets and derivatives
-- 📋 Options and futures trading
-- 📋 Insurance and risk management
+// Swap Token B for Token A
+swapTokenBForA(amountIn: uint256) 
+  returns (uint256 amountOut)
 
-### Phase 4: Governance & DAO
-- 📋 Full DAO governance implementation
-- 📋 Treasury management
-- 📋 Community-driven development
-- 📋 Grant programs for developers
+// Get current Token A price
+getTokenAPrice() view returns (uint256)
 
-## Contract Addresses (BSC Network)
+// Get pool reserves ratio
+getPoolRatio() view returns (uint256)
+```
 
-Contract addresses for the UNC Protocol on BSC:
+## Fee Structure
 
-### BSC Testnet
-- **UNC Token**: `0x8f6fDE1B60e0d74CA7B3fD496444Dac2f2C7d882`
-- **Test Paired Token (USDT)**: `0xafC9D020d0b67522337058f0fDea057769dd386A`
-- **DEX Pool Contract**: `0xC8fb994B992B01C72c969eC9C077CD030eaD2A7F`
-- **Liquidity Token (UNCLT)**: `0x4a62fa31Cd52BE39a57621783f16DEC3c54e30ac`
+| Action | Fee | Recipient |
+|--------|-----|-----------|
+| **Token Swaps** | 0.3% | Liquidity Providers |
+| **Add Liquidity** | Free | N/A |
+| **Remove Liquidity** | Free | N/A |
+| **Network Gas** | Variable | Blockchain Network |
 
-### BSC Mainnet
-- **UNC Token**: TBD
-- **DEX Pool Contract**: TBD
-- **Liquidity Token (UNCLT)**: TBD
+## Security Features
 
-## Getting Started
+- ✅ **Slippage Protection**: Configurable slippage tolerance
+- ✅ **Input Validation**: Comprehensive input sanitization  
+- ✅ **Error Handling**: User-friendly error messages
+- ✅ **Transaction Monitoring**: Real-time transaction status
+- ✅ **Wallet Security**: Secure wallet connection protocols
+- ✅ **Smart Contract Audits**: Regular security audits (planned)
 
-### For Traders
-1. Connect your wallet (MetaMask, Trust Wallet, etc.)
-2. Switch to BSC network
-3. Buy UNC tokens or provide liquidity
-4. Start trading with low fees and fast transactions
+## Troubleshooting
 
-### For Liquidity Providers
-1. Add liquidity to UNC/USDC or other pairs
-2. Receive UNCLT tokens representing your share
-3. Earn trading fees and UNC rewards
-4. Stake UNCLT tokens for additional yields
+### Common Issues
 
-### For Developers
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Start development server: `npm run dev`
-4. Deploy to BSC testnet for testing
+#### 1. Wallet Connection Failed
+- Ensure MetaMask is installed and unlocked
+- Check if you're on the correct network
+- Try refreshing the page and reconnecting
 
-## Community & Support
+#### 2. Transaction Failed
+- Check you have sufficient balance
+- Verify token approvals are set
+- Increase slippage tolerance if needed
+- Ensure sufficient gas fees
 
-- **Website**: [unc-protocol.com](https://unc-protocol.com)
-- **Documentation**: [docs.unc-protocol.com](https://docs.unc-protocol.com)
-- **Discord**: [discord.gg/unc-protocol](https://discord.gg/unc-protocol)
-- **Twitter**: [@UNCProtocol](https://twitter.com/UNCProtocol)
-- **Telegram**: [t.me/UNCProtocol](https://t.me/UNCProtocol)
+#### 3. Price Impact Too High
+- Reduce trade amount
+- Check liquidity availability
+- Consider splitting large trades
+
+#### 4. Network Issues
+- Switch to BSC Testnet for testing
+- Check RPC endpoint connectivity
+- Verify network configuration
+
+### Getting Help
+- Check the browser console for detailed error messages
+- Ensure your wallet is connected to BSC Testnet
+- Try clearing browser cache and reconnecting wallet
+
+## Contributing
+
+We welcome contributions from the community! Here's how you can help:
+
+### Development Setup
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and test thoroughly
+4. Commit with clear messages: `git commit -m 'Add amazing feature'`
+5. Push to your branch: `git push origin feature/amazing-feature`
+6. Open a Pull Request
+
+### Code Standards
+- Follow TypeScript best practices
+- Use ESLint and Prettier for code formatting
+- Write meaningful commit messages
+- Add comments for complex logic
+- Test your changes on testnet before submitting
+
+### Reporting Issues
+- Use GitHub Issues for bug reports
+- Provide detailed reproduction steps
+- Include browser and wallet information
+- Attach screenshots if applicable
+
+## Roadmap
+
+### ✅ Phase 1: Core Platform (Completed)
+- Multi-chain wallet integration
+- Token swapping functionality
+- Liquidity management
+- Portfolio dashboard
+- BSC Testnet deployment
+
+### 🔄 Phase 2: Enhanced Features (In Progress)
+- Advanced order types (limit, stop-loss)
+- Price charts and analytics
+- Transaction history improvements
+- Mobile responsiveness
+- Performance optimizations
+
+### 📋 Phase 3: Advanced Trading (Planned)
+- Concentrated liquidity (V3 style)
+- Cross-chain bridge integration
+- Yield farming and staking
+- Governance token and DAO
+- Advanced analytics dashboard
+
+### 📋 Phase 4: Ecosystem Expansion (Future)
+- Lending and borrowing protocols
+- Options and derivatives trading
+- NFT marketplace integration
+- Mobile app development
+- Enterprise partnerships
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+⚠️ **Important Notice**: 
+- This is experimental software under active development
+- Use at your own risk, especially on mainnet
+- Always test on testnet first
+- No warranty or guarantee is provided
+- DeFi involves financial risk - only invest what you can afford to lose
 
 ---
 
-*The UNC Protocol is a decentralized, community-driven project. Trade responsibly and do your own research before investing.*
+**Built with ❤️ for the DeFi community**
+
+*Universal DEX - Making decentralized trading accessible to everyone*
