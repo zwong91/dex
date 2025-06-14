@@ -1,5 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ThemeProvider } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
+import theme from './theme';
 
 import "./index.css";
 import {
@@ -9,15 +12,12 @@ import {
 } from "react-router-dom";
 import { Toaster } from "sonner";
 
-import Wallet from "./pages/Wallet.tsx";
-import MarketPlace from "./pages/MarketPlace.tsx";
-import Dashboard from "./pages/DashBoard.tsx";
-import ModernHome from "./pages/ModernHome.tsx";
-import Simple from "./pages/Simple";
-import ModernSwap from "./pages/ModernSwap";
-import Position from "./pages/Position";
-import Pool from "./pages/Pool";
-import Complex from "./pages/Complex";
+import WalletPage from "./pages/WalletNew";
+import SwapPage from "./pages/Swap";
+import PoolPage from "./pages/PoolNew";
+import PositionPage from "./pages/PositionNew";
+import PortfolioPage from "./pages/Portfolio";
+import TestPage from "./pages/Test";
 
 import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
@@ -28,46 +28,31 @@ import "@rainbow-me/rainbowkit/styles.css";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <ModernHome />,
-  },
-  {
-    path: "/dashboard",
-    element: <Dashboard />,
+    element: <Navigate to="/swap" replace />,
   },
   {
     path: "/swap",
-    element: <ModernSwap />,
+    element: <SwapPage />,
   },
   {
     path: "/pool",
-    element: <Pool />,
+    element: <PoolPage />,
   },
   {
-    path: "/market",
-    element: <MarketPlace />,
+    path: "/position",
+    element: <PositionPage />,
   },
   {
-    path: "/trading",
-    element: <Simple />,
-    children: [
-      {
-        index: true,
-        element: <Navigate to="simple" replace />,
-      },
-      {
-        path: "simple",
-        element: <Simple />,
-      },
-      {
-        path: "advanced",
-        element: <Complex />,
-      },
-    ],
+    path: "/dashboard",
+    element: <PortfolioPage />,
   },
-  // Redirect old routes
   {
-    path: "/simple",
-    element: <Navigate to="/swap" replace />,
+    path: "/wallet",
+    element: <WalletPage />,
+  },
+  {
+    path: "/test",
+    element: <TestPage />,
   },
 ]);
 
@@ -75,13 +60,16 @@ const queryClient = new QueryClient();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <Toaster richColors position="top-center" />
-          <RouterProvider router={router} />
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <RainbowKitProvider>
+            <Toaster richColors position="top-center" />
+            <RouterProvider router={router} />
+          </RainbowKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </ThemeProvider>
   </StrictMode>
 );

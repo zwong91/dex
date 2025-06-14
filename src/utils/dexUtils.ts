@@ -314,9 +314,13 @@ export const useTokenABalance = (address: `0x${string}` | undefined) => {
 
   useEffect(() => {
     if (balanceTokenA) {
-      setBalance(ethers.formatUnits(balanceTokenA, 18));
+      const formattedBalance = ethers.formatUnits(balanceTokenA, 18);
+      setBalance(formattedBalance);
+    } else if (address) {
+      // If no balance data but address exists, set to 0
+      setBalance("0");
     }
-  }, [balanceTokenA]);
+  }, [balanceTokenA, address]);
 
   useWatchContractEvent({
     address: tokenAAddress,
@@ -328,7 +332,7 @@ export const useTokenABalance = (address: `0x${string}` | undefined) => {
     },
   });
 
-  return Number(balance).toFixed(4);
+  return balance;
 };
 
 // Hook to get Token B balance
@@ -350,9 +354,13 @@ export const useTokenBBalance = (address: `0x${string}` | undefined) => {
 
   useEffect(() => {
     if (balanceTokenB) {
-      setBalance(ethers.formatUnits(balanceTokenB, 18));
+      const formattedBalance = ethers.formatUnits(balanceTokenB, 18);
+      setBalance(formattedBalance);
+    } else if (address) {
+      // If no balance data but address exists, set to 0
+      setBalance("0");
     }
-  }, [balanceTokenB]);
+  }, [balanceTokenB, address]);
 
   useWatchContractEvent({
     address: tokenBAddress,
@@ -364,7 +372,7 @@ export const useTokenBBalance = (address: `0x${string}` | undefined) => {
     },
   });
 
-  return Number(balance).toFixed(4);
+  return balance;
 };
 
 // ====== ADDITIONAL UTILITY HOOKS ======
@@ -411,61 +419,89 @@ export const useDexOperations = () => {
 
   let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`;
 
-  const addLiquidity = (tokenAAmount: number, tokenBAmount: number) => {
-    const tokenA = ethers.parseUnits((tokenAAmount * 10 ** 18).toString(), "wei");
-    const tokenB = ethers.parseUnits((tokenBAmount * 10 ** 18).toString(), "wei");
+  const addLiquidity = async (tokenAAmount: number, tokenBAmount: number) => {
+    try {
+      const tokenA = ethers.parseUnits(tokenAAmount.toString(), 18);
+      const tokenB = ethers.parseUnits(tokenBAmount.toString(), 18);
 
-    console.log("Adding liquidity - Token A:", tokenA, "Token B:", tokenB);
+      console.log("Adding liquidity - Token A:", tokenA.toString(), "Token B:", tokenB.toString());
 
-    writeContract({
-      abi: genericDexAbi,
-      address: dexRouterAddress,
-      functionName: "addLiquidity",
-      args: [tokenA, tokenB],
-      chainId: chainId,
-    });
+      const result = await writeContract({
+        abi: genericDexAbi,
+        address: dexRouterAddress,
+        functionName: "addLiquidity",
+        args: [tokenA, tokenB],
+        chainId: chainId,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Add liquidity error:", error);
+      throw error;
+    }
   };
 
-  const removeLiquidity = (liquidityAmount: number) => {
-    const liquidity = ethers.parseUnits((liquidityAmount * 10 ** 18).toString(), "wei");
+  const removeLiquidity = async (liquidityAmount: number) => {
+    try {
+      const liquidity = ethers.parseUnits(liquidityAmount.toString(), 18);
 
-    console.log("Removing liquidity - LP tokens:", liquidity);
+      console.log("Removing liquidity - LP tokens:", liquidity.toString());
 
-    writeContract({
-      abi: genericDexAbi,
-      address: dexRouterAddress,
-      functionName: "removeLiquidity",
-      args: [liquidity],
-      chainId: chainId,
-    });
+      const result = await writeContract({
+        abi: genericDexAbi,
+        address: dexRouterAddress,
+        functionName: "removeLiquidity",
+        args: [liquidity],
+        chainId: chainId,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Remove liquidity error:", error);
+      throw error;
+    }
   };
 
-  const swapTokenAForB = (tokenAAmount: number) => {
-    const tokenA = ethers.parseUnits((tokenAAmount * 10 ** 18).toString(), "wei");
+  const swapTokenAForB = async (tokenAAmount: number) => {
+    try {
+      const tokenA = ethers.parseUnits(tokenAAmount.toString(), 18);
 
-    console.log("Swapping Token A for B:", tokenA);
+      console.log("Swapping Token A for B:", tokenA.toString());
 
-    writeContract({
-      abi: genericDexAbi,
-      address: dexRouterAddress,
-      functionName: "swapTokenAForB",
-      args: [tokenA],
-      chainId: chainId,
-    });
+      const result = await writeContract({
+        abi: genericDexAbi,
+        address: dexRouterAddress,
+        functionName: "swapTokenAForB",
+        args: [tokenA],
+        chainId: chainId,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Swap A for B error:", error);
+      throw error;
+    }
   };
 
-  const swapTokenBForA = (tokenBAmount: number) => {
-    const tokenB = ethers.parseUnits((tokenBAmount * 10 ** 18).toString(), "wei");
+  const swapTokenBForA = async (tokenBAmount: number) => {
+    try {
+      const tokenB = ethers.parseUnits(tokenBAmount.toString(), 18);
 
-    console.log("Swapping Token B for A:", tokenB);
+      console.log("Swapping Token B for A:", tokenB.toString());
 
-    writeContract({
-      abi: genericDexAbi,
-      address: dexRouterAddress,
-      functionName: "swapTokenBForA",
-      args: [tokenB],
-      chainId: chainId,
-    });
+      const result = await writeContract({
+        abi: genericDexAbi,
+        address: dexRouterAddress,
+        functionName: "swapTokenBForA",
+        args: [tokenB],
+        chainId: chainId,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Swap B for A error:", error);
+      throw error;
+    }
   };
 
   return {
@@ -473,5 +509,51 @@ export const useDexOperations = () => {
     removeLiquidity,
     swapTokenAForB,
     swapTokenBForA
+  };
+};
+
+// Hook for token approvals
+export const useTokenApproval = () => {
+  const { writeContract } = useWriteContract();
+  const chainId = useChainId();
+  const network = getNetworkById(chainId);
+
+  const approveToken = async (tokenAddress: `0x${string}`, spenderAddress: `0x${string}`, amount: string) => {
+    try {
+      const approveAmount = ethers.parseUnits(amount, 18);
+      
+      console.log("Approving token:", tokenAddress, "to spender:", spenderAddress, "amount:", approveAmount.toString());
+
+      const result = await writeContract({
+        abi: erc20Abi,
+        address: tokenAddress,
+        functionName: "approve",
+        args: [spenderAddress, approveAmount],
+        chainId: chainId,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Token approval error:", error);
+      throw error;
+    }
+  };
+
+  const approveTokenA = async (amount: string) => {
+    const tokenAAddress = network.contracts.tokenA as `0x${string}`;
+    const dexRouterAddress = network.contracts.dexRouter as `0x${string}`;
+    return approveToken(tokenAAddress, dexRouterAddress, amount);
+  };
+
+  const approveTokenB = async (amount: string) => {
+    const tokenBAddress = network.contracts.tokenB as `0x${string}`;
+    const dexRouterAddress = network.contracts.dexRouter as `0x${string}`;
+    return approveToken(tokenBAddress, dexRouterAddress, amount);
+  };
+
+  return {
+    approveToken,
+    approveTokenA,
+    approveTokenB
   };
 };
