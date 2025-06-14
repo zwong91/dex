@@ -12,10 +12,10 @@ import {
 } from "react-router-dom";
 import { Toaster } from "sonner";
 
-import WalletPage from "./pages/WalletNew";
+import WalletPage from "./pages/Wallet";
 import SwapPage from "./pages/Swap";
-import PoolPage from "./pages/PoolNew";
-import PositionPage from "./pages/PositionNew";
+import PoolPage from "./pages/Pool";
+import PositionPage from "./pages/Position";
 import PortfolioPage from "./pages/Portfolio";
 import TestPage from "./pages/Test";
 

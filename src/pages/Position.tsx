@@ -1,147 +1,617 @@
-import { useState } from "react";
-import { useAccount } from "wagmi";
-import MainNavigation from "../components/MainNavigation";
-import { FaInfo } from "react-icons/fa";
-import { MdTrendingUp, MdWaves } from "react-icons/md";
+import React, { useState } from 'react';
+import {
+  Container,
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Grid,
+  Chip,
+  Avatar,
+  LinearProgress,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  TextField,
+  Tabs,
+  Tab,
+  Divider,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
+import {
+  Add as AddIcon,
+  Remove as RemoveIcon,
+  TrendingUp as TrendingUpIcon,
+  Info as InfoIcon,
+  Close as CloseIcon,
+  Visibility as VisibilityIcon,
+  Settings as SettingsIcon,
+} from '@mui/icons-material';
+import { useAccount, useWriteContract } from 'wagmi';
+import { toast } from 'sonner';
+import Navigation from '../components/Navigation';
+import { useDexOperations, useTokenABalance, useTokenBBalance, useLiquidityTokenBalance } from '../utils/dexUtils';
 
-interface PositionData {
+interface Position {
   id: string;
-  pair: string;
+  token0: string;
+  token1: string;
+  icon0: string;
+  icon1: string;
   liquidity: string;
   value: string;
   apr: string;
-  tokens: {
-    tokenA: { symbol: string; amount: string };
-    tokenB: { symbol: string; amount: string };
+  fees24h: string;
+  feesTotal: string;
+  range: {
+    min: string;
+    max: string;
+    current: string;
   };
+  inRange: boolean;
+  performance: string;
 }
 
-const Position = () => {
-  const { address } = useAccount();
-
-  // Mock data for user positions
-  const [positions] = useState<PositionData[]>([
-    {
-      id: "1",
-      pair: "BNB/USDC",
-      liquidity: "0.5 LP",
-      value: "$150.00",
-      apr: "12.5%",
-      tokens: {
-        tokenA: { symbol: "BNB", amount: "0.45" },
-        tokenB: { symbol: "USDC", amount: "104.25" }
-      }
+const mockPositions: Position[] = [
+  {
+    id: '1',
+    token0: 'ETH',
+    token1: 'USDC',
+    icon0: '🔷',
+    icon1: '💵',
+    liquidity: '$2,450.00',
+    value: '$2,487.35',
+    apr: '12.5%',
+    fees24h: '$3.25',
+    feesTotal: '$127.50',
+    range: {
+      min: '1,750',
+      max: '2,100',
+      current: '1,851',
     },
-    {
-      id: "2", 
-      pair: "USDC/USDT",
-      liquidity: "500 LP",
-      value: "$500.00",
-      apr: "8.2%",
-      tokens: {
-        tokenA: { symbol: "USDC", amount: "250.00" },
-        tokenB: { symbol: "USDT", amount: "250.00" }
-      }
-    }
-  ]);
+    inRange: true,
+    performance: '+1.52%',
+  },
+  {
+    id: '2',
+    token0: 'DAI',
+    token1: 'USDC',
+    icon0: '🟡',
+    icon1: '💵',
+    liquidity: '$1,000.00',
+    value: '$1,012.80',
+    apr: '8.2%',
+    fees24h: '$1.15',
+    feesTotal: '$45.20',
+    range: {
+      min: '0.995',
+      max: '1.005',
+      current: '0.999',
+    },
+    inRange: true,
+    performance: '+1.28%',
+  },
+  {
+    id: '3',
+    token0: 'ETH',
+    token1: 'DAI',
+    icon0: '🔷',
+    icon1: '🟡',
+    liquidity: '$800.00',
+    value: '$785.20',
+    apr: '0%',
+    fees24h: '$0.00',
+    feesTotal: '$12.30',
+    range: {
+      min: '1,600',
+      max: '1,800',
+      current: '1,851',
+    },
+    inRange: false,
+    performance: '-1.85%',
+  },
+];
 
-  const handleClosePosition = (position: PositionData) => {
-    console.log("Closing position for:", position);
-    // Close position logic here
+const PositionPage = () => {
+  const { address } = useAccount();
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [showManageDialog, setShowManageDialog] = useState(false);
+  const [manageTab, setManageTab] = useState(0);
+  const [removeAmount, setRemoveAmount] = useState('25');
+  const [addAmount0, setAddAmount0] = useState('');
+  const [addAmount1, setAddAmount1] = useState('');
+  
+  // Web3 hooks
+  const { addLiquidity, removeLiquidity } = useDexOperations();
+  const { isSuccess, error, isPending } = useWriteContract();
+  const tokenABalance = useTokenABalance(address);
+  const tokenBBalance = useTokenBBalance(address);
+  const liquidityBalance = useLiquidityTokenBalance(address);
+
+  const handleManagePosition = (position: Position) => {
+    setSelectedPosition(position);
+    setShowManageDialog(true);
+    setAddAmount0('');
+    setAddAmount1('');
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <MainNavigation />
+  const handleAddLiquidity = async () => {
+    if (!addAmount0 || !addAmount1) {
+      toast.error('Please enter both token amounts');
+      return;
+    }
+
+    if (!address) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
+    try {
+      const amt0 = parseFloat(addAmount0);
+      const amt1 = parseFloat(addAmount1);
       
-      <div className="container mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">Position</h1>
-          <p className="text-gray-400 text-lg">
-            View and manage your trading positions
-          </p>
-        </div>
-        
-        <div className="max-w-4xl mx-auto">
-          <div className="glass-card p-6">
-            <h2 className="text-2xl font-bold text-white mb-6">Your Positions</h2>
-            
-            {positions.length === 0 ? (
-              <div className="text-center py-12">
-                <MdWaves className="text-6xl text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-400 text-lg">No positions found</p>
-                <p className="text-gray-500 text-sm mt-2">Start trading to create positions</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {positions.map((position) => (
-                  <div key={position.id} className="bg-zinc-800 bg-opacity-50 border border-zinc-600 rounded-xl p-6 hover:border-blue-500 hover:border-opacity-50 transition-all duration-200 group">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                            {position.tokens.tokenA.symbol.charAt(0)}
-                          </div>
-                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full -ml-2 flex items-center justify-center text-white font-bold text-sm">
-                            {position.tokens.tokenB.symbol.charAt(0)}
-                          </div>
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-white">{position.pair}</h3>
-                          <p className="text-gray-400 text-sm">Position: {position.liquidity}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-white">{position.value}</div>
-                        <div className="text-green-400 font-semibold text-sm">APR: {position.apr}</div>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="bg-zinc-900 bg-opacity-50 rounded-lg p-3 border border-zinc-600">
-                        <div className="text-gray-400 text-sm">{position.tokens.tokenA.symbol}</div>
-                        <div className="text-white font-semibold">{position.tokens.tokenA.amount}</div>
-                      </div>
-                      <div className="bg-zinc-900 bg-opacity-50 rounded-lg p-3 border border-zinc-600">
-                        <div className="text-gray-400 text-sm">{position.tokens.tokenB.symbol}</div>
-                        <div className="text-white font-semibold">{position.tokens.tokenB.amount}</div>
-                      </div>
-                    </div>
+      if (amt0 <= 0 || amt1 <= 0) {
+        toast.error('Please enter valid amounts');
+        return;
+      }
 
-                    <div className="flex items-center justify-between pt-4 border-t border-zinc-600">
-                      <div className="flex items-center gap-2 text-gray-400 text-sm">
-                        <MdTrendingUp className="text-green-400" />
-                        <span>Active position</span>
-                      </div>
-                      <button 
-                        onClick={() => handleClosePosition(position)}
-                        className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all duration-200 transform group-hover:scale-105 shadow-lg"
+      await addLiquidity(amt0, amt1);
+      toast.success('Adding liquidity to position...');
+      setShowManageDialog(false);
+    } catch (err: any) {
+      console.error('Add liquidity error:', err);
+      toast.error('Failed to add liquidity: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  const handleRemoveLiquidity = async () => {
+    if (!removeAmount) {
+      toast.error('Please enter amount to remove');
+      return;
+    }
+
+    if (!address) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
+    try {
+      const percentage = parseFloat(removeAmount);
+      if (percentage <= 0 || percentage > 100) {
+        toast.error('Please enter a valid percentage (1-100)');
+        return;
+      }
+
+      // Calculate actual liquidity tokens to remove based on percentage
+      const liquidityToRemove = (parseFloat(liquidityBalance || '0') * percentage) / 100;
+      
+      if (liquidityToRemove <= 0) {
+        toast.error('No liquidity tokens to remove');
+        return;
+      }
+
+      await removeLiquidity(liquidityToRemove);
+      toast.success('Removing liquidity from position...');
+      setShowManageDialog(false);
+    } catch (err: any) {
+      console.error('Remove liquidity error:', err);
+      toast.error('Failed to remove liquidity: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  const handleCollectFees = async () => {
+    // This would typically be a separate contract call
+    toast.info('Collect fees functionality not implemented yet');
+  };
+
+  const getStatusColor = (inRange: boolean) => {
+    return inRange ? 'success' : 'warning';
+  };
+
+  const getStatusText = (inRange: boolean) => {
+    return inRange ? 'In Range' : 'Out of Range';
+  };
+
+  const getPerformanceColor = (performance: string) => {
+    return performance.startsWith('+') ? 'success.main' : 'warning.main';
+  };
+
+  if (!address) {
+    return (
+      <>
+        <Navigation />
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Card elevation={0} sx={{ textAlign: 'center', py: 8 }}>
+            <CardContent>
+              <Typography variant="h5" color="text.secondary" gutterBottom>
+                Connect your wallet to view your positions
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Connect a wallet to see your liquidity positions and manage them.
+              </Typography>
+            </CardContent>
+          </Card>
+        </Container>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Navigation />
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Box>
+            <Typography variant="h4" fontWeight={600} gutterBottom>
+              Your Positions
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Manage your liquidity positions and collect fees
+            </Typography>
+          </Box>
+          <Button variant="contained" startIcon={<AddIcon />}>
+            New Position
+          </Button>
+        </Box>
+
+        {mockPositions.length === 0 ? (
+          <Card elevation={0} sx={{ textAlign: 'center', py: 6 }}>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No liquidity positions found
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Create your first position to start earning fees
+              </Typography>
+              <Button variant="contained" startIcon={<AddIcon />}>
+                Create Position
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Grid container spacing={3}>
+            {mockPositions.map((position) => (
+              <Grid item xs={12} md={6} lg={4} key={position.id}>
+                <Card elevation={0} sx={{ height: '100%' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Avatar sx={{ width: 32, height: 32, fontSize: '1rem' }}>
+                            {position.icon0}
+                          </Avatar>
+                          <Avatar sx={{ width: 32, height: 32, fontSize: '1rem', ml: -1, zIndex: 1 }}>
+                            {position.icon1}
+                          </Avatar>
+                        </Box>
+                        <Typography variant="h6" fontWeight={600}>
+                          {position.token0}/{position.token1}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={getStatusText(position.inRange)}
+                        color={getStatusColor(position.inRange)}
+                        size="small"
+                      />
+                    </Box>
+
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Total Value
+                      </Typography>
+                      <Typography variant="h5" fontWeight={600}>
+                        {position.value}
+                      </Typography>
+                      <Typography variant="body2" color={getPerformanceColor(position.performance)}>
+                        {position.performance}
+                      </Typography>
+                    </Box>
+
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          APR
+                        </Typography>
+                        <Typography variant="body1" fontWeight={600}>
+                          {position.apr}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          24h Fees
+                        </Typography>
+                        <Typography variant="body1" fontWeight={600}>
+                          {position.fees24h}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Price Range
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="body2">
+                          {position.range.min} - {position.range.max}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          (Current: {position.range.current})
+                        </Typography>
+                      </Box>
+                      <LinearProgress
+                        variant="determinate"
+                        value={position.inRange ? 65 : 0}
+                        color={position.inRange ? 'success' : 'warning'}
+                        sx={{ height: 6, borderRadius: 3 }}
+                      />
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<VisibilityIcon />}
+                        onClick={() => handleManagePosition(position)}
+                        sx={{ flex: 1 }}
                       >
-                        Close Position
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                        Manage
+                      </Button>
+                      <IconButton size="small" onClick={() => handleManagePosition(position)}>
+                        <SettingsIcon />
+                      </IconButton>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
 
-          <div className="mt-8 glass-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <FaInfo className="text-blue-400" />
-              <h3 className="text-xl font-bold text-white">Position Information</h3>
-            </div>
-            <div className="space-y-3 text-gray-300">
-              <p>• Monitor your trading positions and performance</p>
-              <p>• Track profits and losses in real-time</p>
-              <p>• Manage risk with position sizing tools</p>
-              <p>• Close positions when you're ready to take profits</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+        {/* Manage Position Dialog */}
+        <Dialog
+          open={showManageDialog}
+          onClose={() => setShowManageDialog(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {selectedPosition && (
+                  <>
+                    <Avatar sx={{ width: 32, height: 32 }}>{selectedPosition.icon0}</Avatar>
+                    <Avatar sx={{ width: 32, height: 32, ml: -1 }}>{selectedPosition.icon1}</Avatar>
+                    <Typography variant="h6">
+                      {selectedPosition.token0}/{selectedPosition.token1}
+                    </Typography>
+                  </>
+                )}
+              </Box>
+              <IconButton onClick={() => setShowManageDialog(false)}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {selectedPosition && (
+              <>
+                {/* Position Overview */}
+                <Card elevation={0} sx={{ mb: 3, backgroundColor: 'grey.50' }}>
+                  <CardContent>
+                    <Grid container spacing={3}>
+                      <Grid item xs={6} md={3}>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Value
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600}>
+                          {selectedPosition.value}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6} md={3}>
+                        <Typography variant="body2" color="text.secondary">
+                          Unclaimed Fees
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600}>
+                          {selectedPosition.feesTotal}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6} md={3}>
+                        <Typography variant="body2" color="text.secondary">
+                          APR
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600}>
+                          {selectedPosition.apr}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6} md={3}>
+                        <Typography variant="body2" color="text.secondary">
+                          Status
+                        </Typography>
+                        <Chip
+                          label={getStatusText(selectedPosition.inRange)}
+                          color={getStatusColor(selectedPosition.inRange)}
+                          size="small"
+                        />
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {!selectedPosition.inRange && (
+                  <Alert severity="warning" sx={{ mb: 3 }}>
+                    Your position is out of range and not earning fees. Consider adjusting your position.
+                  </Alert>
+                )}
+
+                <Tabs value={manageTab} onChange={(e, v) => setManageTab(v)} sx={{ mb: 3 }}>
+                  <Tab label="Add Liquidity" />
+                  <Tab label="Remove Liquidity" />
+                  <Tab label="Collect Fees" />
+                </Tabs>
+
+                {manageTab === 0 && (
+                  <Box>
+                    <Typography variant="h6" gutterBottom>
+                      Add Liquidity
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <TextField
+                          fullWidth
+                          label={`Amount of ${selectedPosition.token0}`}
+                          placeholder="0.0"
+                          type="number"
+                          value={addAmount0}
+                          onChange={(e) => setAddAmount0(e.target.value)}
+                          InputProps={{
+                            endAdornment: (
+                              <Button
+                                size="small"
+                                onClick={() => setAddAmount0(tokenABalance?.toString() || "0")}
+                                sx={{ textTransform: 'none' }}
+                              >
+                                Max
+                              </Button>
+                            ),
+                          }}
+                        />
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          Balance: {tokenABalance || '0'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <TextField
+                          fullWidth
+                          label={`Amount of ${selectedPosition.token1}`}
+                          placeholder="0.0"
+                          type="number"
+                          value={addAmount1}
+                          onChange={(e) => setAddAmount1(e.target.value)}
+                          InputProps={{
+                            endAdornment: (
+                              <Button
+                                size="small"
+                                onClick={() => setAddAmount1(tokenBBalance?.toString() || "0")}
+                                sx={{ textTransform: 'none' }}
+                              >
+                                Max
+                              </Button>
+                            ),
+                          }}
+                        />
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          Balance: {tokenBBalance || '0'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                    <Button 
+                      variant="contained" 
+                      fullWidth 
+                      sx={{ mt: 2 }}
+                      disabled={!addAmount0 || !addAmount1 || isPending || !address}
+                      onClick={handleAddLiquidity}
+                      startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
+                    >
+                      {!address ? 'Connect Wallet' : 
+                       isPending ? 'Adding Liquidity...' : 
+                       'Add Liquidity'}
+                    </Button>
+                  </Box>
+                )}
+
+                {manageTab === 1 && (
+                  <Box>
+                    <Typography variant="h6" gutterBottom>
+                      Remove Liquidity
+                    </Typography>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Amount to remove: {removeAmount}%
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                        {['25', '50', '75', '100'].map((value) => (
+                          <Chip
+                            key={value}
+                            label={`${value}%`}
+                            variant={removeAmount === value ? 'filled' : 'outlined'}
+                            onClick={() => setRemoveAmount(value)}
+                            sx={{ cursor: 'pointer' }}
+                          />
+                        ))}
+                      </Box>
+                      <TextField
+                        fullWidth
+                        label="Custom percentage"
+                        value={removeAmount}
+                        onChange={(e) => setRemoveAmount(e.target.value)}
+                        type="number"
+                        InputProps={{ endAdornment: '%' }}
+                      />
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Your LP Balance: {liquidityBalance || '0'} tokens
+                      </Typography>
+                    </Box>
+                    <Button 
+                      variant="contained" 
+                      fullWidth
+                      disabled={!removeAmount || isPending || !address}
+                      onClick={handleRemoveLiquidity}
+                      startIcon={isPending ? <CircularProgress size={20} /> : <RemoveIcon />}
+                    >
+                      {!address ? 'Connect Wallet' : 
+                       isPending ? 'Removing Liquidity...' : 
+                       'Remove Liquidity'}
+                    </Button>
+                  </Box>
+                )}
+
+                {manageTab === 2 && (
+                  <Box>
+                    <Typography variant="h6" gutterBottom>
+                      Collect Fees
+                    </Typography>
+                    <Card elevation={0} sx={{ mb: 2, backgroundColor: 'grey.50' }}>
+                      <CardContent>
+                        <Typography variant="body2" color="text.secondary">
+                          Unclaimed fees
+                        </Typography>
+                        <Typography variant="h5" fontWeight={600}>
+                          {selectedPosition.feesTotal}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                    <Button 
+                      variant="contained" 
+                      fullWidth
+                      disabled={!address}
+                      onClick={handleCollectFees}
+                    >
+                      {!address ? 'Connect Wallet' : 'Collect Fees'}
+                    </Button>
+                  </Box>
+                )}
+
+                {/* Success/Error Messages */}
+                {isSuccess && (
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    Transaction completed successfully!
+                  </Alert>
+                )}
+                {error && (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    Transaction failed: {error.message}
+                  </Alert>
+                )}
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      </Container>
+    </>
   );
 };
 
-export default Position;
+export default PositionPage;
