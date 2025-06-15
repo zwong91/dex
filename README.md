@@ -1,4 +1,4 @@
-# UniDEX - Decentralized Exchange
+# EntySquare DEX - Decentralized Exchange
 
 A modern, multi-chain DEX platform built with React, Material-UI, and Web3 technologies. Inspired by Uniswap V3's clean and intuitive design.
 
