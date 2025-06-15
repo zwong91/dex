@@ -647,35 +647,45 @@ const PoolPage = () => {
 
                 {/* Liquidity Strategy Selection */}
                 <Box sx={{ mb: 4 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h6" fontWeight={600}>
                       Choose Liquidity Shape
                     </Typography>
-                    <Button 
-                      size="small" 
-                      endIcon={<InfoIcon />}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      Learn more
-                    </Button>
                   </Box>
                   
-                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                  <Grid container spacing={2} sx={{ mb: 4 }}>
                     <Grid item xs={4}>
                       <Card 
                         elevation={0} 
                         sx={{ 
                           cursor: 'pointer',
                           border: 2,
-                          borderColor: liquidityStrategy === 'spot' ? 'primary.main' : 'grey.200',
-                          backgroundColor: liquidityStrategy === 'spot' ? 'primary.50' : 'transparent',
-                          '&:hover': { borderColor: 'primary.main' }
+                          borderColor: liquidityStrategy === 'spot' ? '#FF6B35' : 'rgba(255, 255, 255, 0.1)',
+                          borderRadius: 3,
+                          backgroundColor: '#1A1B2E',
+                          transition: 'all 0.2s ease',
+                          '&:hover': { borderColor: liquidityStrategy === 'spot' ? '#FF6B35' : 'rgba(255, 255, 255, 0.2)' }
                         }}
                         onClick={() => setLiquidityStrategy('spot')}
                       >
-                        <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                          <BarChartIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-                          <Typography variant="subtitle1" fontWeight={600}>
+                        <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                          {/* Spot - Asymmetric bars with center peak */}
+                          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center', alignItems: 'end', gap: 0.5 }}>
+                            {[10, 15, 20, 25, 30, 35, 25, 20, 15, 10, 8, 6].map((height, index) => (
+                              <Box
+                                key={index}
+                                sx={{
+                                  width: 4,
+                                  height: height,
+                                  borderRadius: '2px 2px 0 0',
+                                  background: liquidityStrategy === 'spot' && index < 6
+                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)' 
+                                    : '#4A5568'
+                                }}
+                              />
+                            ))}
+                          </Box>
+                          <Typography variant="h6" fontWeight={600} color="white">
                             Spot
                           </Typography>
                         </CardContent>
@@ -687,15 +697,32 @@ const PoolPage = () => {
                         sx={{ 
                           cursor: 'pointer',
                           border: 2,
-                          borderColor: liquidityStrategy === 'curve' ? 'primary.main' : 'grey.200',
-                          backgroundColor: liquidityStrategy === 'curve' ? 'primary.50' : 'transparent',
-                          '&:hover': { borderColor: 'primary.main' }
+                          borderColor: liquidityStrategy === 'curve' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.1)',
+                          borderRadius: 3,
+                          backgroundColor: '#1A1B2E',
+                          transition: 'all 0.2s ease',
+                          '&:hover': { borderColor: liquidityStrategy === 'curve' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)' }
                         }}
                         onClick={() => setLiquidityStrategy('curve')}
                       >
-                        <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                          <ShowChartIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-                          <Typography variant="subtitle1" fontWeight={600}>
+                        <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                          {/* Curve - Bell curve distribution */}
+                          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center', alignItems: 'end', gap: 0.5 }}>
+                            {[8, 12, 16, 20, 25, 30, 35, 30, 25, 20, 16, 12].map((height, index) => (
+                              <Box
+                                key={index}
+                                sx={{
+                                  width: 4,
+                                  height: height,
+                                  borderRadius: '2px 2px 0 0',
+                                  background: liquidityStrategy === 'curve' && index < 6
+                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)' 
+                                    : '#4A5568'
+                                }}
+                              />
+                            ))}
+                          </Box>
+                          <Typography variant="h6" fontWeight={600} color="white">
                             Curve
                           </Typography>
                         </CardContent>
@@ -707,15 +734,32 @@ const PoolPage = () => {
                         sx={{ 
                           cursor: 'pointer',
                           border: 2,
-                          borderColor: liquidityStrategy === 'bid-ask' ? 'primary.main' : 'grey.200',
-                          backgroundColor: liquidityStrategy === 'bid-ask' ? 'primary.50' : 'transparent',
-                          '&:hover': { borderColor: 'primary.main' }
+                          borderColor: liquidityStrategy === 'bid-ask' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.1)',
+                          borderRadius: 3,
+                          backgroundColor: '#1A1B2E',
+                          transition: 'all 0.2s ease',
+                          '&:hover': { borderColor: liquidityStrategy === 'bid-ask' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)' }
                         }}
                         onClick={() => setLiquidityStrategy('bid-ask')}
                       >
-                        <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                          <TimelineIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-                          <Typography variant="subtitle1" fontWeight={600}>
+                        <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                          {/* Bid-Ask - Two separate peaks */}
+                          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center', alignItems: 'end', gap: 0.5 }}>
+                            {[25, 30, 25, 20, 15, 10, 8, 10, 15, 20, 25, 30].map((height, index) => (
+                              <Box
+                                key={index}
+                                sx={{
+                                  width: 4,
+                                  height: height,
+                                  borderRadius: '2px 2px 0 0',
+                                  background: liquidityStrategy === 'bid-ask' && index < 6
+                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)' 
+                                    : '#4A5568'
+                                }}
+                              />
+                            ))}
+                          </Box>
+                          <Typography variant="h6" fontWeight={600} color="white">
                             Bid-Ask
                           </Typography>
                         </CardContent>

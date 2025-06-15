@@ -701,15 +701,28 @@ export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, t
 			try {
 				setQuote(prev => ({ ...prev, loading: true }));
 
-				// For reverse calculation, we use the exchange rate to estimate
-				// In a real implementation, you would call a contract method that calculates
-				// the required input amount for a desired output amount
-				const exchangeRate = tokenIn === tokenOut ? 1 : 0.95; // Simplified rate
-				const estimatedAmountIn = amountOut / exchangeRate;
+				// Calculate reverse quote based on the output amount
+				// For demonstration, we use the inverse of the normal exchange rate
+				// In a real DEX, this would call a specific contract method for reverse quotes
+				
+				// Simple reverse calculation with some slippage
+				const baseRate = 1850.5; // ETH price in USDC (example)
+				let estimatedAmountIn: number;
+				
+				if (tokenIn.toLowerCase().includes('usdc') || tokenIn.toLowerCase().includes('usdt')) {
+					// Input is stablecoin, output is ETH
+					estimatedAmountIn = amountOut * baseRate * 1.01; // Add 1% for slippage
+				} else {
+					// Input is ETH, output is stablecoin  
+					estimatedAmountIn = amountOut / baseRate * 1.01; // Add 1% for slippage
+				}
+
+				// Simulate some network delay
+				await new Promise(resolve => setTimeout(resolve, 500));
 
 				setQuote({
 					amountIn: estimatedAmountIn.toFixed(6),
-					priceImpact: "0.05", // 0.05% estimated price impact
+					priceImpact: "0.08", // Slightly higher impact for reverse quotes
 					path: [tokenIn, tokenOut],
 					loading: false,
 				});
@@ -720,10 +733,7 @@ export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, t
 			}
 		};
 
-		// Debounce the quote requests
-		const timeoutId = setTimeout(getQuote, 300);
-		return () => clearTimeout(timeoutId);
-
+		getQuote();
 	}, [amountOut, tokenIn, tokenOut, chainId]);
 
 	return quote;
