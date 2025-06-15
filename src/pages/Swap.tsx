@@ -39,7 +39,6 @@ import {
   useDexOperations,
 } from "../utils/dexUtils";
 import Navigation from "../components/Navigation";
-import { toast } from 'sonner';
 
 const tokens = [
   { symbol: 'ETH', name: 'Ethereum', address: '0x...', icon: '🔷' },
@@ -110,7 +109,6 @@ const SwapPage = () => {
 
   const handleSwap = async () => {
     if (!fromAmount || !address) {
-      toast.error('Please connect wallet and enter amount');
       return;
     }
     
@@ -121,7 +119,6 @@ const SwapPage = () => {
     try {
       const amount = parseFloat(fromAmount);
       if (amount <= 0) {
-        toast.error('Please enter a valid amount');
         setIsSwapping(false);
         return;
       }
@@ -129,7 +126,6 @@ const SwapPage = () => {
       // Check if user has sufficient balance
       const effectiveBalance = getEffectiveBalance(fromToken.symbol);
       if (parseFloat(effectiveBalance) < amount) {
-        toast.error('Insufficient balance');
         setIsSwapping(false);
         return;
       }
@@ -145,7 +141,6 @@ const SwapPage = () => {
       
       console.log('Swap result:', result);
       setSwapSuccess(true);
-      toast.success('Swap initiated successfully!');
       
       // Reset form after successful swap
       setTimeout(() => {
@@ -158,7 +153,6 @@ const SwapPage = () => {
       console.error('Swap error:', err);
       const errorMessage = err.message || err.toString() || 'Unknown error';
       setSwapError(errorMessage);
-      toast.error('Swap failed: ' + errorMessage);
     } finally {
       setIsSwapping(false);
     }
