@@ -6,6 +6,10 @@ npm-debug.log*
 dist/
 *.tsbuildinfo
 
+# Coverage reports
+coverage/
+*.lcov
+
 # Environment and config
 .env
 .env.local

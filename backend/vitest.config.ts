@@ -9,5 +9,26 @@ export default defineConfig({
 		reporter: ["verbose"],
 		include: ["test/**/*.spec.ts"],
 		exclude: ["node_modules/**", "dist/**"],
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'json', 'html', 'lcov'],
+			reportsDirectory: './coverage',
+			include: [
+				'src/**/*.{ts,js}',
+			],
+			exclude: [
+				'node_modules/**',
+				'dist/**',
+				'test/**',
+				'**/*.d.ts',
+				'**/*.config.{ts,js}',
+				'**/wrangler.*.toml',
+			],
+			all: true,
+			lines: 80,
+			functions: 80,
+			branches: 70,
+			statements: 80,
+		},
 	},
 });

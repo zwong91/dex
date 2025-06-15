@@ -5,7 +5,37 @@
 
 set -e
 
+# Check for coverage flag
+COVERAGE_FLAG=""
+SHOW_COVERAGE_REPORT=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --coverage)
+            COVERAGE_FLAG="--coverage"
+            SHOW_COVERAGE_REPORT=true
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: $0 [--coverage] [--help]"
+            echo ""
+            echo "Options:"
+            echo "  --coverage    Run tests with coverage report"
+            echo "  --help        Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 echo "🧪 Starting DEX Backend Test Suite"
+if [ "$SHOW_COVERAGE_REPORT" = true ]; then
+    echo "📊 Coverage reporting enabled"
+fi
 echo "=================================="
 
 # Colors for output
@@ -72,7 +102,7 @@ failed_tests=()
 
 for test_file in "${test_files[@]}"; do
     print_status "Running $test_file..."
-    if npx vitest run "$test_file"; then
+    if npx vitest run "$test_file" $COVERAGE_FLAG; then
         print_success "✓ $test_file passed"
     else
         print_error "✗ $test_file failed"
@@ -85,7 +115,7 @@ echo ""
 print_status "Running Integration Tests..."
 echo "============================"
 
-if npx vitest run test/integration.spec.ts; then
+if npx vitest run test/integration.spec.ts $COVERAGE_FLAG; then
     print_success "✓ Integration tests passed"
 else
     print_error "✗ Integration tests failed"
@@ -96,7 +126,7 @@ echo ""
 print_status "Running Performance Tests..."
 echo "============================"
 
-if npx vitest run test/performance.spec.ts; then
+if npx vitest run test/performance.spec.ts $COVERAGE_FLAG; then
     print_success "✓ Performance tests passed"
 else
     print_error "✗ Performance tests failed"
@@ -107,7 +137,7 @@ echo ""
 print_status "Running Security Tests..."
 echo "========================="
 
-if npx vitest run test/security.spec.ts; then
+if npx vitest run test/security.spec.ts $COVERAGE_FLAG; then
     print_success "✓ Security tests passed"
 else
     print_error "✗ Security tests failed"
@@ -127,6 +157,19 @@ if [ ${#failed_tests[@]} -eq 0 ]; then
     echo "✅ Performance Tests: PASSED"
     echo "✅ Security Tests: PASSED"
     echo ""
+    
+    if [ "$SHOW_COVERAGE_REPORT" = true ]; then
+        echo "📊 Coverage Report"
+        echo "=================="
+        print_status "Coverage reports generated in ./coverage/"
+        print_status "HTML report: ./coverage/index.html"
+        print_status "LCOV report: ./coverage/lcov.info"
+        echo ""
+        print_status "To view HTML coverage report:"
+        echo "  npm run coverage:open"
+        echo ""
+    fi
+    
     print_status "Your DEX Backend is ready for deployment!"
     exit 0
 else
