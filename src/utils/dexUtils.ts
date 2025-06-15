@@ -94,6 +94,30 @@ export const genericDexAbi = [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_positionId",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimFees",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenAFees",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenBFees",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "getTokenAPrice",
     "outputs": [
@@ -504,11 +528,31 @@ export const useDexOperations = () => {
     }
   };
 
+  const claimFees = async (positionId: number) => {
+    try {
+      console.log("Claiming fees for position:", positionId);
+
+      const result = await writeContract({
+        abi: genericDexAbi,
+        address: dexRouterAddress,
+        functionName: "claimFees",
+        args: [BigInt(positionId)],
+        chainId: chainId,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Claim fees error:", error);
+      throw error;
+    }
+  };
+
   return {
     addLiquidity,
     removeLiquidity,
     swapTokenAForB,
-    swapTokenBForA
+    swapTokenBForA,
+    claimFees
   };
 };
 

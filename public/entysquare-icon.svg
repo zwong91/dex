@@ -1,0 +1,25 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0891b2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Back layer - Purple -->
+  <rect x="16" y="4" width="12" height="16" rx="2" fill="url(#grad1)" transform="skewY(-10)"/>
+  
+  <!-- Middle layer - Teal -->
+  <rect x="10" y="8" width="12" height="16" rx="2" fill="url(#grad2)" transform="skewY(5)"/>
+  
+  <!-- Front layer - Green -->
+  <rect x="4" y="12" width="12" height="16" rx="2" fill="url(#grad3)" transform="skewY(10)"/>
+</svg>

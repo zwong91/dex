@@ -1,8 +1,8 @@
 {
-  "name": "universal-dex",
+  "name": "entysquare",
   "private": true,
   "version": "1.0.0",
-  "description": "Universal DEX - Multi-chain Decentralized Exchange Platform",
+  "description": "EntySquare - Multi-chain Decentralized Exchange Platform",
   "type": "module",
   "scripts": {
     "dev": "vite",

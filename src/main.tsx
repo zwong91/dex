@@ -15,9 +15,7 @@ import { Toaster } from "sonner";
 import WalletPage from "./pages/Wallet";
 import SwapPage from "./pages/Swap";
 import PoolPage from "./pages/Pool";
-import PositionPage from "./pages/Position";
 import PortfolioPage from "./pages/Portfolio";
-import TestPage from "./pages/Test";
 
 import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
@@ -39,20 +37,12 @@ const router = createBrowserRouter([
     element: <PoolPage />,
   },
   {
-    path: "/position",
-    element: <PositionPage />,
-  },
-  {
     path: "/dashboard",
     element: <PortfolioPage />,
   },
   {
     path: "/wallet",
     element: <WalletPage />,
-  },
-  {
-    path: "/test",
-    element: <TestPage />,
   },
 ]);
 
@@ -64,7 +54,7 @@ createRoot(document.getElementById("root")!).render(
       <CssBaseline />
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider>
+          <RainbowKitProvider locale="en">
             <Toaster richColors position="top-center" />
             <RouterProvider router={router} />
           </RainbowKitProvider>

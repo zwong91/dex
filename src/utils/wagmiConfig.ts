@@ -30,7 +30,7 @@ const connectors = connectorsForWallets(
     },
   ],
   {
-    appName: "Universal DEX",
+    appName: "EntySquare",
     projectId: projectId,
   }
 );

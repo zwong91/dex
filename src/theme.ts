@@ -4,19 +4,34 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#ffa500', // Orange/Yellow primary
-      light: '#ffb84d',
-      dark: '#e6940e',
+      main: '#10b981', // Green primary (emerald-500)
+      light: '#34d399', // emerald-400
+      dark: '#059669', // emerald-600
     },
     secondary: {
-      main: '#ffdd44', // Bright yellow accent
-      light: '#ffe066',
-      dark: '#e6c73d',
+      main: '#06b6d4', // Cyan secondary (cyan-500)
+      light: '#22d3ee', // cyan-400
+      dark: '#0891b2', // cyan-600
     },
     warning: {
-      main: '#ff9800', // Orange warning
-      light: '#ffb74d',
-      dark: '#f57c00',
+      main: '#f59e0b', // Amber warning (amber-500)
+      light: '#fbbf24', // amber-400
+      dark: '#d97706', // amber-600
+    },
+    info: {
+      main: '#8b5cf6', // Purple info (violet-500)
+      light: '#a78bfa', // violet-400
+      dark: '#7c3aed', // violet-600
+    },
+    success: {
+      main: '#10b981', // Same as primary for consistency
+      light: '#34d399',
+      dark: '#059669',
+    },
+    error: {
+      main: '#ef4444', // Red error (red-500)
+      light: '#f87171', // red-400
+      dark: '#dc2626', // red-600
     },
     background: {
       default: '#fcfcfd',
@@ -103,16 +118,16 @@ const theme = createTheme({
           },
         },
         contained: {
-          background: 'linear-gradient(45deg, #ffa500 30%, #ffb84d 90%)',
+          background: 'linear-gradient(45deg, #10b981 30%, #06b6d4 90%)',
           '&:hover': {
-            background: 'linear-gradient(45deg, #e6940e 30%, #ffa500 90%)',
+            background: 'linear-gradient(45deg, #059669 30%, #0891b2 90%)',
           },
         },
         outlined: {
           borderColor: 'rgba(93, 103, 133, 0.24)',
           '&:hover': {
-            borderColor: '#ffa500',
-            backgroundColor: 'rgba(255, 165, 0, 0.04)',
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.04)',
           },
         },
       },
@@ -139,7 +154,7 @@ const theme = createTheme({
               borderColor: 'rgba(93, 103, 133, 0.48)',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#ffa500',
+              borderColor: '#10b981',
             },
           },
         },

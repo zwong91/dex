@@ -34,8 +34,7 @@ const Navigation = () => {
 
   const navigationItems = [
     { name: 'Swap', path: '/swap', icon: <SwapIcon /> },
-    { name: 'Pool', path: '/pool', icon: <PoolIcon /> },
-    { name: 'Position', path: '/position', icon: <DashboardIcon /> },
+    { name: 'Pools', path: '/pool', icon: <PoolIcon /> },
     { name: 'Portfolio', path: '/dashboard', icon: <DashboardIcon /> },
   ];
 
@@ -84,20 +83,76 @@ const Navigation = () => {
         <Container maxWidth="xl">
           <Toolbar sx={{ justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography
-                variant="h5"
-                component="div"
-                sx={{
-                  fontWeight: 700,
-                  background: 'linear-gradient(45deg, #ffa500 30%, #ffb84d 90%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  color: 'transparent',
-                  mr: 4,
-                }}
-              >
-                UniDEX
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', mr: 4 }}>
+                <Box
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    mr: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                  }}
+                >
+                  {/* Back layer - Purple */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      width: 20,
+                      height: 24,
+                      background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                      borderRadius: '4px',
+                      transform: 'perspective(100px) rotateY(-15deg) rotateX(5deg)',
+                      top: 2,
+                      right: 2,
+                      zIndex: 1,
+                    }}
+                  />
+                  {/* Middle layer - Teal */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      width: 20,
+                      height: 24,
+                      background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+                      borderRadius: '4px',
+                      transform: 'perspective(100px) rotateY(0deg) rotateX(5deg)',
+                      top: 6,
+                      left: '50%',
+                      marginLeft: '-10px',
+                      zIndex: 2,
+                    }}
+                  />
+                  {/* Front layer - Green */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      width: 20,
+                      height: 24,
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      borderRadius: '4px',
+                      transform: 'perspective(100px) rotateY(15deg) rotateX(5deg)',
+                      top: 10,
+                      left: 2,
+                      zIndex: 3,
+                    }}
+                  />
+                </Box>
+                <Typography
+                  variant="h5"
+                  component="div"
+                  sx={{
+                    fontWeight: 700,
+                    background: 'linear-gradient(45deg, #10b981 0%, #06b6d4 50%, #8b5cf6 100%)',
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    color: 'transparent',
+                  }}
+                >
+                  EntySquare
+                </Typography>
+              </Box>
 
               {!isMobile && (
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -124,7 +179,159 @@ const Navigation = () => {
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <ConnectButton />
+              <ConnectButton.Custom>
+                {({
+                  account,
+                  chain,
+                  openAccountModal,
+                  openChainModal,
+                  openConnectModal,
+                  authenticationStatus,
+                  mounted,
+                }) => {
+                  const ready = mounted && authenticationStatus !== 'loading';
+                  const connected =
+                    ready &&
+                    account &&
+                    chain &&
+                    (!authenticationStatus ||
+                      authenticationStatus === 'authenticated');
+
+                  return (
+                    <div
+                      {...(!ready && {
+                        'aria-hidden': true,
+                        'style': {
+                          opacity: 0,
+                          pointerEvents: 'none',
+                          userSelect: 'none',
+                        },
+                      })}
+                    >
+                      {(() => {
+                        if (!connected) {
+                          return (
+                            <Button
+                              onClick={openConnectModal}
+                              variant="contained"
+                              sx={{
+                                background: 'linear-gradient(45deg, #10b981 30%, #06b6d4 90%)',
+                                color: 'white',
+                                fontWeight: 600,
+                                px: 3,
+                                py: 1.5,
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontSize: '0.95rem',
+                                boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.25)',
+                                border: 'none',
+                                '&:hover': {
+                                  background: 'linear-gradient(45deg, #059669 30%, #0891b2 90%)',
+                                  boxShadow: '0 6px 20px 0 rgba(16, 185, 129, 0.35)',
+                                  transform: 'translateY(-1px)',
+                                },
+                                transition: 'all 0.2s ease-in-out',
+                              }}
+                            >
+                              Connect Wallet
+                            </Button>
+                          );
+                        }
+
+                        if (chain.unsupported) {
+                          return (
+                            <Button
+                              onClick={openChainModal}
+                              variant="outlined"
+                              color="error"
+                              sx={{
+                                fontWeight: 600,
+                                px: 2,
+                                py: 1,
+                                borderRadius: 2,
+                                textTransform: 'none',
+                              }}
+                            >
+                              Wrong network
+                            </Button>
+                          );
+                        }
+
+                        return (
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              onClick={openChainModal}
+                              variant="outlined"
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                px: 2,
+                                py: 1,
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                borderColor: 'divider',
+                                color: 'text.primary',
+                                '&:hover': {
+                                  borderColor: 'primary.main',
+                                  backgroundColor: 'primary.50',
+                                },
+                              }}
+                            >
+                              {chain.hasIcon && (
+                                <div
+                                  style={{
+                                    background: chain.iconBackground,
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: '50%',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {chain.iconUrl && (
+                                    <img
+                                      alt={chain.name ?? 'Chain icon'}
+                                      src={chain.iconUrl}
+                                      style={{ width: 20, height: 20 }}
+                                    />
+                                  )}
+                                </div>
+                              )}
+                              {chain.name}
+                            </Button>
+
+                            <Button
+                              onClick={openAccountModal}
+                              variant="contained"
+                              sx={{
+                                background: 'linear-gradient(45deg, #10b981 30%, #06b6d4 90%)',
+                                color: 'white',
+                                fontWeight: 600,
+                                px: 2.5,
+                                py: 1,
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontSize: '0.9rem',
+                                boxShadow: '0 2px 8px 0 rgba(16, 185, 129, 0.2)',
+                                '&:hover': {
+                                  background: 'linear-gradient(45deg, #059669 30%, #0891b2 90%)',
+                                  boxShadow: '0 4px 12px 0 rgba(16, 185, 129, 0.3)',
+                                },
+                              }}
+                            >
+                              {account.displayName}
+                              {account.displayBalance
+                                ? ` (${account.displayBalance})`
+                                : ''}
+                            </Button>
+                          </Box>
+                        );
+                      })()}
+                    </div>
+                  );
+                }}
+              </ConnectButton.Custom>
               {isMobile && (
                 <IconButton
                   color="inherit"
