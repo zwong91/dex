@@ -41,11 +41,6 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 
-
-
-
-
-
 import Navigation from "../components/Navigation";
 
 const tokens = [
@@ -268,10 +263,14 @@ const SwapPage = () => {
                     placeholder="0.0"
                     value={fromAmount}
                     onChange={(e) => {
-                      setFromAmount(e.target.value);
-                      setLastEditedField('from');
+                      const val = e.target.value;
+                      if (val === '' || parseFloat(val) >= 0) {
+                        setFromAmount(val);
+                        setLastEditedField('from');
+                      }
                     }}
                     type="number"
+                    inputProps={{ min: 0 }}
                     InputProps={{
                       style: { fontSize: '1.5rem', fontWeight: 600 },
                       endAdornment: (
@@ -357,10 +356,14 @@ const SwapPage = () => {
                       (swapQuote.loading && lastEditedField === 'from') ? "" : toAmount
                     }
                     onChange={(e) => {
-                      setToAmount(e.target.value);
-                      setLastEditedField('to');
+                      const val = e.target.value;
+                      if (val === '' || parseFloat(val) >= 0) {
+                        setToAmount(val);
+                        setLastEditedField('to');
+                      }
                     }}
                     type="number"
+                    inputProps={{ min: 0 }}
                     InputProps={{
                       style: { fontSize: '1.5rem', fontWeight: 600 },
                       endAdornment: (swapQuote.loading && lastEditedField === 'from') ? (
@@ -536,9 +539,15 @@ const SwapPage = () => {
               fullWidth
               label="Custom slippage (%)"
               value={slippage}
-              onChange={(e) => setSlippage(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '' || parseFloat(val) >= 0) {
+                  setSlippage(val);
+                }
+              }}
               type="number"
               size="small"
+              inputProps={{ min: 0 }}
             />
           </DialogContent>
         </Dialog>
