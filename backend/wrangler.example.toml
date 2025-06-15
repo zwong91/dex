@@ -1,0 +1,59 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "dex-backend-serverless"
+main = "src/index.ts"
+compatibility_date = "2024-05-12"
+compatibility_flags = ["nodejs_compat"]
+
+# Replace with your Cloudflare account ID
+account_id = "YOUR_ACCOUNT_ID_HERE"
+
+# Cloudflare AI binding for AI functionality
+[ai]
+binding = "AI"
+
+# D1 Database binding for storage
+# Create a new D1 database using: wrangler d1 create d1-dex-database
+# Then replace YOUR_DATABASE_ID_HERE with the actual database ID
+[[d1_databases]]
+binding = "DB"
+database_name = "d1-dex-database"
+database_id = "YOUR_DATABASE_ID_HERE"
+
+# R2 Storage binding for file storage
+# Create a new R2 bucket using: wrangler r2 bucket create dex-storage
+# Then replace YOUR_BUCKET_NAME_HERE with the actual bucket name
+[[r2_buckets]]
+binding = 'R2'
+bucket_name = 'YOUR_BUCKET_NAME_HERE'
+preview_bucket_name = 'YOUR_PREVIEW_BUCKET_NAME_HERE'
+
+# Environment variables
+[vars]
+# Authentication and Security
+KEY = "YOUR_SECRET_KEY_HERE"
+
+# Blockchain Configuration  
+PRIVATE_KEY = "your_private_key_here_for_faucet_functionality"
+
+# Token Addresses (BSC Testnet)
+TOKEN_A_ADDRESS = "0xafC9D020d0b67522337058f0fDea057769dd386A"
+TOKEN_B_ADDRESS = "0x8f6fDE1B60e0d74CA7B3fD496444Dac2f2C7d882"
+
+# RPC URLs
+BSC_RPC_URL = "https://bsc-dataseed.binance.org/"
+ETH_RPC_URL = "https://mainnet.infura.io/v3/YOUR_PROJECT_ID"
+POLYGON_RPC_URL = "https://polygon-rpc.com/"
+
+# API Keys (optional)
+INFURA_PROJECT_ID = "your_infura_project_id"
+ALCHEMY_API_KEY = "your_alchemy_api_key"
+
+# CORS Settings (comma-separated origins)
+CORS_ORIGIN = "http://localhost:5173,http://localhost:3000"
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS = "900000"
+RATE_LIMIT_MAX_REQUESTS = "100"
+
+# Application Environment
+NODE_ENV = "development"
