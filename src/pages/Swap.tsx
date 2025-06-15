@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import {
+  useTokenABalance,
+  useTokenBBalance,
+  useTokenAPrice,
+  useDexOperations,
+  useSwapQuote,
+  useReverseSwapQuote,
+} from '../utils/dexUtils';
+import {
   Container,
   Box,
   Card,
@@ -32,19 +40,13 @@ import {
   CheckCircle as CheckIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import {
-  useTokenABalance,
-  useTokenBBalance,
-  useTokenAPrice,
-  useDexOperations,
-} from "../utils/dexUtils";
 import Navigation from "../components/Navigation";
 
 const tokens = [
-  { symbol: 'ETH', name: 'Ethereum', address: '0x...', icon: '🔷' },
-  { symbol: 'USDC', name: 'USD Coin', address: '0x...', icon: '💵' },
-  { symbol: 'USDT', name: 'Tether', address: '0x...', icon: '💰' },
-  { symbol: 'DAI', name: 'DAI', address: '0x...', icon: '🟡' },
+  { symbol: 'ETH', name: 'Ethereum', address: '0xETH', icon: '🔷' },
+  { symbol: 'USDC', name: 'USD Coin', address: '0xUSDC', icon: '💵' },
+  { symbol: 'USDT', name: 'Tether', address: '0xUSDT', icon: '💰' },
+  { symbol: 'DAI', name: 'DAI', address: '0xDAI', icon: '🟡' },
 ];
 
 const SwapPage = () => {
@@ -56,6 +58,7 @@ const SwapPage = () => {
   const [isTokenSelectOpen, setIsTokenSelectOpen] = useState(false);
   const [selectingToken, setSelectingToken] = useState<'from' | 'to'>('from');
   const [slippage, setSlippage] = useState("0.5");
+  const [lastEditedField, setLastEditedField] = useState<'from' | 'to'>('from');
   const [showSettings, setShowSettings] = useState(false);
   const [showSwapDetails, setShowSwapDetails] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
@@ -67,6 +70,20 @@ const SwapPage = () => {
   const tokenBBalance = useTokenBBalance(address);
   const tokenAPrice = useTokenAPrice();
   const { swapTokenAForB, swapTokenBForA } = useDexOperations();
+
+  // Get swap quote for dynamic pricing
+  const swapQuote = useSwapQuote(
+    lastEditedField === 'from' ? parseFloat(fromAmount) || 0 : 0,
+    fromToken.address,
+    toToken.address
+  );
+
+  // Get reverse swap quote when user edits output amount
+  const reverseSwapQuote = useReverseSwapQuote(
+    lastEditedField === 'to' ? parseFloat(toAmount) || 0 : 0,
+    fromToken.address,
+    toToken.address
+  );
 
   const exchangeRate = tokenAPrice || 1850.5;
   const priceImpact = 0.05;
@@ -81,13 +98,50 @@ const SwapPage = () => {
   };
 
   useEffect(() => {
-    if (fromAmount && !isNaN(parseFloat(fromAmount))) {
-      const output = parseFloat(fromAmount) * exchangeRate;
-      setToAmount(output.toFixed(6));
-    } else {
-      setToAmount('');
+    // Avoid circular updates by checking if the calculation is needed
+    if (lastEditedField === 'from' && fromAmount) {
+      if (!isNaN(parseFloat(fromAmount))) {
+        // Use quote data if available, otherwise fallback to exchange rate
+        if (swapQuote.amountOut && !swapQuote.loading) {
+          const quotedAmount = swapQuote.amountOut;
+          if (quotedAmount !== toAmount) {
+            setToAmount(quotedAmount);
+          }
+        } else if (!swapQuote.loading) {
+          const output = parseFloat(fromAmount) * exchangeRate;
+          const calculatedAmount = output.toFixed(6);
+          if (calculatedAmount !== toAmount) {
+            setToAmount(calculatedAmount);
+          }
+        }
+      } else if (fromAmount === '') {
+        if (toAmount !== '') {
+          setToAmount('');
+        }
+      }
+    } else if (lastEditedField === 'to' && toAmount) {
+      if (!isNaN(parseFloat(toAmount))) {
+        // Use reverse quote data if available, otherwise fallback to reverse exchange rate
+        if (reverseSwapQuote.amountIn && !reverseSwapQuote.loading) {
+          const quotedAmount = reverseSwapQuote.amountIn;
+          if (quotedAmount !== fromAmount) {
+            setFromAmount(quotedAmount);
+          }
+        } else if (!reverseSwapQuote.loading) {
+          const reverseRate = 1 / exchangeRate;
+          const input = parseFloat(toAmount) * reverseRate;
+          const calculatedAmount = input.toFixed(6);
+          if (calculatedAmount !== fromAmount) {
+            setFromAmount(calculatedAmount);
+          }
+        }
+      } else if (toAmount === '') {
+        if (fromAmount !== '') {
+          setFromAmount('');
+        }
+      }
     }
-  }, [fromAmount, exchangeRate]);
+  }, [fromAmount, toAmount, exchangeRate, swapQuote.amountOut, swapQuote.loading, reverseSwapQuote.amountIn, reverseSwapQuote.loading, lastEditedField]);
 
   const handleTokenSelect = (token: typeof tokens[0]) => {
     if (selectingToken === 'from') {
@@ -105,6 +159,7 @@ const SwapPage = () => {
     setToToken(tempToken);
     setFromAmount(toAmount);
     setToAmount(tempAmount);
+    setLastEditedField('from'); // Reset to 'from' after swap
   };
 
   const handleSwap = async () => {
@@ -146,6 +201,7 @@ const SwapPage = () => {
       setTimeout(() => {
         setFromAmount('');
         setToAmount('');
+        setLastEditedField('from');
         setSwapSuccess(false);
       }, 3000);
       
@@ -205,17 +261,24 @@ const SwapPage = () => {
                     fullWidth
                     placeholder="0.0"
                     value={fromAmount}
-                    onChange={(e) => setFromAmount(e.target.value)}
+                    onChange={(e) => {
+                      setFromAmount(e.target.value);
+                      setLastEditedField('from');
+                    }}
                     type="number"
                     InputProps={{
                       style: { fontSize: '1.5rem', fontWeight: 600 },
                       endAdornment: (
                         <InputAdornment position="end">
+                          {reverseSwapQuote.loading && lastEditedField === 'to' ? (
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                          ) : null}
                           <Button
                             size="small"
                             onClick={() => {
                               const balance = getEffectiveBalance(fromToken.symbol);
                               setFromAmount(balance);
+                              setLastEditedField('from');
                             }}
                             sx={{ textTransform: 'none' }}
                           >
@@ -281,11 +344,24 @@ const SwapPage = () => {
                   </Button>
                   <TextField
                     fullWidth
-                    placeholder="0.0"
-                    value={toAmount}
-                    disabled
+                    placeholder={
+                      (swapQuote.loading && lastEditedField === 'from') ? "Calculating..." : "0.0"
+                    }
+                    value={
+                      (swapQuote.loading && lastEditedField === 'from') ? "" : toAmount
+                    }
+                    onChange={(e) => {
+                      setToAmount(e.target.value);
+                      setLastEditedField('to');
+                    }}
+                    type="number"
                     InputProps={{
                       style: { fontSize: '1.5rem', fontWeight: 600 },
+                      endAdornment: (swapQuote.loading && lastEditedField === 'from') ? (
+                        <InputAdornment position="end">
+                          <CircularProgress size={20} />
+                        </InputAdornment>
+                      ) : null,
                     }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
@@ -312,18 +388,30 @@ const SwapPage = () => {
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2" color="text.secondary">Price Impact</Typography>
-                      <Typography variant="body2" color={priceImpact > 2 ? 'warning.main' : 'success.main'}>
-                        {priceImpact}%
+                      <Typography variant="body2" color={parseFloat(swapQuote.priceImpact) > 2 ? 'warning.main' : 'success.main'}>
+                        {swapQuote.priceImpact}%
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2" color="text.secondary">Network Fee</Typography>
                       <Typography variant="body2">~${networkFee}</Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2" color="text.secondary">Slippage</Typography>
                       <Typography variant="body2">{slippage}%</Typography>
                     </Box>
+                    {swapQuote.path.length > 0 && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">Route</Typography>
+                        <Typography variant="body2">
+                          {swapQuote.path.map((token, index) => 
+                            index === swapQuote.path.length - 1 
+                              ? tokens.find(t => t.address === token)?.symbol || 'Unknown'
+                              : `${tokens.find(t => t.address === token)?.symbol || 'Unknown'} → `
+                          )}
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
                 </Collapse>
               )}

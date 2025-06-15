@@ -25,6 +25,10 @@ import {
   Divider,
   Alert,
   CircularProgress,
+  ToggleButton,
+  ToggleButtonGroup,
+  Slider,
+  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -32,11 +36,32 @@ import {
   TrendingUp as TrendingUpIcon,
   Info as InfoIcon,
   Close as CloseIcon,
+  Refresh as RefreshIcon,
+  Timeline as TimelineIcon,
+  ShowChart as ShowChartIcon,
+  BarChart as BarChartIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
 } from '@mui/icons-material';
 import { useAccount, useWriteContract } from 'wagmi';
 import { toast } from 'sonner';
 import Navigation from '../components/Navigation';
 import { useDexOperations, useTokenABalance, useTokenBBalance, useLiquidityTokenBalance } from '../utils/dexUtils';
+
+const tokens = [
+  { symbol: 'AVAX', name: 'Avalanche', address: '0x...', icon: '🔴' },
+  { symbol: 'BTC.b', name: 'Bitcoin', address: '0x...', icon: '🟠' },
+  { symbol: 'ETH', name: 'Ethereum', address: '0x...', icon: '🔷' },
+  { symbol: 'USDC', name: 'USD Coin', address: '0x...', icon: '💵' },
+  { symbol: 'USDT', name: 'Tether', address: '0x...', icon: '💰' },
+  { symbol: 'DAI', name: 'DAI', address: '0x...', icon: '🟡' },
+];
+
+const binStepOptions = [
+  { value: '0.1%', baseFee: '0.1%', label: '0.1%' },
+  { value: '0.25%', baseFee: '0.25%', label: '0.25%' },
+  { value: '0.5%', baseFee: '0.4%', label: '0.5%' },
+  { value: '1%', baseFee: '0.8%', label: '1%' },
+];
 
 interface PoolData {
   id: string;
@@ -158,6 +183,14 @@ const PoolPage = () => {
   const [amount0, setAmount0] = useState('');
   const [amount1, setAmount1] = useState('');
   
+  // Liquidity strategy states
+  const [liquidityStrategy, setLiquidityStrategy] = useState<'spot' | 'curve' | 'bid-ask'>('spot');
+  const [priceMode, setPriceMode] = useState<'range' | 'radius'>('range');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [numBins, setNumBins] = useState('149');
+  const [activeBinPrice, setActiveBinPrice] = useState('19.09372774');
+  
   // New Pool creation states
   const [newPoolToken0, setNewPoolToken0] = useState('');
   const [newPoolToken1, setNewPoolToken1] = useState('');
@@ -165,6 +198,11 @@ const PoolPage = () => {
   const [newPoolToken1Address, setNewPoolToken1Address] = useState('');
   const [newPoolInitialAmount0, setNewPoolInitialAmount0] = useState('');
   const [newPoolInitialAmount1, setNewPoolInitialAmount1] = useState('');
+  const [selectedBinStep, setSelectedBinStep] = useState('0.25%');
+  const [activePrice, setActivePrice] = useState('0.000180248259123320014');
+  const [currentPrice, setCurrentPrice] = useState('1 AVAX = 0.018024825 BTC.b');
+  const [isTokenSelectOpen, setIsTokenSelectOpen] = useState(false);
+  const [selectingPoolToken, setSelectingPoolToken] = useState<'token' | 'quote'>('token');
   
   // Position management states
   const [showClaimsFees, setShowClaimsFees] = useState(false);
@@ -191,6 +229,12 @@ const PoolPage = () => {
     setShowAddLiquidity(true);
     setAmount0('');
     setAmount1('');
+    // Reset liquidity strategy settings
+    setLiquidityStrategy('spot');
+    setPriceMode('range');
+    setMinPrice('17.7324');
+    setMaxPrice('20.5594');
+    setNumBins('149');
   };
 
   const handleAddLiquiditySubmit = async () => {
@@ -335,6 +379,9 @@ const PoolPage = () => {
       setNewPoolToken1Address('');
       setNewPoolInitialAmount0('');
       setNewPoolInitialAmount1('');
+      setSelectedBinStep('0.25%');
+      setActivePrice('0.000180248259123320014');
+      setCurrentPrice('1 AVAX = 0.018024825 BTC.b');
     } catch (err: any) {
       console.error('Create new pool error:', err);
     }
@@ -576,7 +623,7 @@ const PoolPage = () => {
         <Dialog
           open={showAddLiquidity}
           onClose={() => setShowAddLiquidity(false)}
-          maxWidth="sm"
+          maxWidth="md"
           fullWidth
         >
           <DialogTitle>
@@ -598,6 +645,196 @@ const PoolPage = () => {
                   </Typography>
                 </Box>
 
+                {/* Liquidity Strategy Selection */}
+                <Box sx={{ mb: 4 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" fontWeight={600}>
+                      Choose Liquidity Shape
+                    </Typography>
+                    <Button 
+                      size="small" 
+                      endIcon={<InfoIcon />}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Learn more
+                    </Button>
+                  </Box>
+                  
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={4}>
+                      <Card 
+                        elevation={0} 
+                        sx={{ 
+                          cursor: 'pointer',
+                          border: 2,
+                          borderColor: liquidityStrategy === 'spot' ? 'primary.main' : 'grey.200',
+                          backgroundColor: liquidityStrategy === 'spot' ? 'primary.50' : 'transparent',
+                          '&:hover': { borderColor: 'primary.main' }
+                        }}
+                        onClick={() => setLiquidityStrategy('spot')}
+                      >
+                        <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                          <BarChartIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            Spot
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Card 
+                        elevation={0} 
+                        sx={{ 
+                          cursor: 'pointer',
+                          border: 2,
+                          borderColor: liquidityStrategy === 'curve' ? 'primary.main' : 'grey.200',
+                          backgroundColor: liquidityStrategy === 'curve' ? 'primary.50' : 'transparent',
+                          '&:hover': { borderColor: 'primary.main' }
+                        }}
+                        onClick={() => setLiquidityStrategy('curve')}
+                      >
+                        <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                          <ShowChartIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            Curve
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Card 
+                        elevation={0} 
+                        sx={{ 
+                          cursor: 'pointer',
+                          border: 2,
+                          borderColor: liquidityStrategy === 'bid-ask' ? 'primary.main' : 'grey.200',
+                          backgroundColor: liquidityStrategy === 'bid-ask' ? 'primary.50' : 'transparent',
+                          '&:hover': { borderColor: 'primary.main' }
+                        }}
+                        onClick={() => setLiquidityStrategy('bid-ask')}
+                      >
+                        <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                          <TimelineIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            Bid-Ask
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                {/* Price Range Configuration */}
+                <Box sx={{ mb: 4 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" fontWeight={600}>
+                      Price
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={priceMode}
+                      exclusive
+                      onChange={(e, newValue) => newValue && setPriceMode(newValue)}
+                      size="small"
+                    >
+                      <ToggleButton value="range">By Range</ToggleButton>
+                      <ToggleButton value="radius">By Radius</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+
+                  <Box sx={{ mb: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Active Bin: {activeBinPrice} USDC per AVAX
+                    </Typography>
+                    
+                    {/* Price Range Slider */}
+                    <Box sx={{ px: 2, mb: 3 }}>
+                      <Slider
+                        value={[parseFloat(minPrice || '17.7324'), parseFloat(maxPrice || '20.5594')]}
+                        onChange={(e, newValue) => {
+                          if (Array.isArray(newValue)) {
+                            setMinPrice(newValue[0].toString());
+                            setMaxPrice(newValue[1].toString());
+                          }
+                        }}
+                        valueLabelDisplay="auto"
+                        min={15}
+                        max={25}
+                        step={0.001}
+                        marks={[
+                          { value: parseFloat(activeBinPrice), label: 'Current' }
+                        ]}
+                        sx={{
+                          '& .MuiSlider-thumb': {
+                            backgroundColor: 'primary.main',
+                          },
+                          '& .MuiSlider-track': {
+                            backgroundColor: 'primary.main',
+                          }
+                        }}
+                      />
+                    </Box>
+
+                    <Grid container spacing={3}>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Min Price:
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600}>
+                          {parseFloat(minPrice || '17.7324').toFixed(4)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          USDC per AVAX
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Max Price:
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600}>
+                          {parseFloat(maxPrice || '20.5594').toFixed(4)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          USDC per AVAX
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Num Bins:
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600}>
+                          {numBins}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+
+                    <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                      <Button
+                        size="small"
+                        startIcon={<TrendingUpIcon />}
+                        onClick={() => {
+                          // Select rewarded range functionality
+                        }}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        Select rewarded range
+                      </Button>
+                      <Button
+                        size="small"
+                        startIcon={<RefreshIcon />}
+                        onClick={() => {
+                          setMinPrice('17.7324');
+                          setMaxPrice('20.5594');
+                          setNumBins('149');
+                        }}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        Reset price
+                      </Button>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Token Amounts */}
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Amount of {selectedPool.token0}
@@ -964,50 +1201,182 @@ const PoolPage = () => {
           </DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Token Pair Configuration
+              {/* Select Token */}
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                Select Token
               </Typography>
               
-              <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Token A Symbol"
-                    placeholder="ETH"
-                    value={newPoolToken0}
-                    onChange={(e) => setNewPoolToken0(e.target.value)}
-                    sx={{ mb: 2 }}
-                  />
-                  <TextField
-                    fullWidth
-                    label="Token A Contract Address"
-                    placeholder="0x..."
-                    value={newPoolToken0Address}
-                    onChange={(e) => setNewPoolToken0Address(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Token B Symbol"
-                    placeholder="USDC"
-                    value={newPoolToken1}
-                    onChange={(e) => setNewPoolToken1(e.target.value)}
-                    sx={{ mb: 2 }}
-                  />
-                  <TextField
-                    fullWidth
-                    label="Token B Contract Address"
-                    placeholder="0x..."
-                    value={newPoolToken1Address}
-                    onChange={(e) => setNewPoolToken1Address(e.target.value)}
-                  />
-                </Grid>
-              </Grid>
+              <Button
+                fullWidth
+                variant="outlined"
+                onClick={() => {
+                  setSelectingPoolToken('token');
+                  setIsTokenSelectOpen(true);
+                }}
+                sx={{
+                  p: 2,
+                  mb: 3,
+                  justifyContent: 'space-between',
+                  border: '1px solid #e0e0e0',
+                  backgroundColor: '#f8f9ff',
+                  '&:hover': { backgroundColor: '#f0f2ff' }
+                }}
+                endIcon={<KeyboardArrowDownIcon />}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Avatar sx={{ width: 24, height: 24, fontSize: '14px', bgcolor: 'red.500' }}>
+                    A
+                  </Avatar>
+                  <Box sx={{ textAlign: 'left' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'black' }}>
+                      {newPoolToken0 || 'AVAX'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {tokens.find(t => t.symbol === newPoolToken0)?.name || 'Avalanche'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Button>
 
+              {/* Select Quote Asset */}
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                Select Quote Asset
+              </Typography>
+              
+              <Button
+                fullWidth
+                variant="outlined"
+                onClick={() => {
+                  setSelectingPoolToken('quote');
+                  setIsTokenSelectOpen(true);
+                }}
+                sx={{
+                  p: 2,
+                  mb: 3,
+                  justifyContent: 'space-between',
+                  border: '1px solid #e0e0e0',
+                  backgroundColor: '#f8f9ff',
+                  '&:hover': { backgroundColor: '#f0f2ff' }
+                }}
+                endIcon={<KeyboardArrowDownIcon />}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Avatar sx={{ width: 24, height: 24, fontSize: '14px', bgcolor: 'orange.500' }}>
+                    B
+                  </Avatar>
+                  <Box sx={{ textAlign: 'left' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'black' }}>
+                      {newPoolToken1 || 'BTC.b'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {tokens.find(t => t.symbol === newPoolToken1)?.name || 'Bitcoin'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Button>
+
+              {/* Select Bin Step */}
+              <Box
+                sx={{
+                  bgcolor: '#4A90E2',
+                  color: 'white',
+                  p: 1,
+                  borderRadius: '4px 4px 0 0',
+                  mb: 0
+                }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Select Bin Step
+                </Typography>
+              </Box>
+              
+              <Box
+                sx={{
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '0 0 8px 8px',
+                  p: 2,
+                  mb: 3,
+                  bgcolor: '#f8f9ff'
+                }}
+              >
+                <Grid container spacing={1}>
+                  {binStepOptions.map((option) => (
+                    <Grid item xs={3} key={option.value}>
+                      <Button
+                        fullWidth
+                        variant={selectedBinStep === option.value ? 'contained' : 'outlined'}
+                        onClick={() => setSelectedBinStep(option.value)}
+                        sx={{
+                          py: 2,
+                          flexDirection: 'column',
+                          bgcolor: selectedBinStep === option.value ? '#d4c5f9' : 'white',
+                          color: selectedBinStep === option.value ? '#6b21d4' : 'black',
+                          border: selectedBinStep === option.value ? '2px solid #6b21d4' : '1px solid #e0e0e0',
+                          '&:hover': {
+                            bgcolor: selectedBinStep === option.value ? '#c4b5f8' : '#f5f5f5'
+                          }
+                        }}
+                      >
+                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          {option.label}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          Base Fee: {option.baseFee}
+                        </Typography>
+                      </Button>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+
+              {/* Enter Active Price */}
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                Enter Active Price
+              </Typography>
+              
+              <Box sx={{ mb: 3 }}>
+                <Box
+                  sx={{
+                    border: '2px solid #4A90E2',
+                    borderRadius: 2,
+                    p: 2,
+                    mb: 2,
+                    backgroundColor: '#f0f8ff'
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: '#4A90E2', fontWeight: 600 }}>
+                    Current price: {currentPrice}
+                  </Typography>
+                </Box>
+                
+                <TextField
+                  fullWidth
+                  value={activePrice}
+                  onChange={(e) => setActivePrice(e.target.value)}
+                  placeholder="0.000180248259123320014"
+                  InputProps={{
+                    endAdornment: (
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mr: 1 }}>
+                        ~$18.98 {newPoolToken1 || 'BTC.b'} per {newPoolToken0 || 'AVAX'}
+                      </Typography>
+                    ),
+                    sx: {
+                      fontSize: '1.1rem',
+                      fontFamily: 'monospace'
+                    }
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'white',
+                    }
+                  }}
+                />
+              </Box>
+
+              {/* Initial Liquidity */}
               <Divider sx={{ my: 3 }} />
-
-              <Typography variant="h6" gutterBottom>
+              
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
                 Initial Liquidity
               </Typography>
 
@@ -1015,7 +1384,7 @@ const PoolPage = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label={`Initial ${newPoolToken0 || 'Token A'} Amount`}
+                    label={`Initial ${newPoolToken0 || 'AVAX'} Amount`}
                     placeholder="0.0"
                     type="number"
                     value={newPoolInitialAmount0}
@@ -1039,7 +1408,7 @@ const PoolPage = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label={`Initial ${newPoolToken1 || 'Token B'} Amount`}
+                    label={`Initial ${newPoolToken1 || 'BTC.b'} Amount`}
                     placeholder="0.0"
                     type="number"
                     value={newPoolInitialAmount1}
@@ -1066,15 +1435,73 @@ const PoolPage = () => {
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={!newPoolToken0Address || !newPoolToken1Address || !newPoolInitialAmount0 || !newPoolInitialAmount1 || isPending || !address}
+                disabled={!newPoolToken0 || !newPoolToken1 || !newPoolInitialAmount0 || !newPoolInitialAmount1 || !activePrice || isPending || !address}
                 onClick={handleCreateNewPool}
                 startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
+                sx={{
+                  py: 2,
+                  fontSize: '1.1rem',
+                  fontWeight: 600
+                }}
               >
                 {!address ? 'Connect Wallet' : 
                  isPending ? 'Creating Pool...' : 
                  'Create Pool'}
               </Button>
             </Box>
+          </DialogContent>
+        </Dialog>
+
+        {/* Token Selection Dialog for Create Pool */}
+        <Dialog
+          open={isTokenSelectOpen}
+          onClose={() => setIsTokenSelectOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              Select {selectingPoolToken === 'token' ? 'Token' : 'Quote Asset'}
+              <IconButton onClick={() => setIsTokenSelectOpen(false)}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <List>
+              {tokens.map((token) => (
+                <ListItem key={token.symbol} disablePadding>
+                  <ListItemButton
+                    onClick={() => {
+                      if (selectingPoolToken === 'token') {
+                        setNewPoolToken0(token.symbol);
+                        setNewPoolToken0Address(token.address);
+                      } else {
+                        setNewPoolToken1(token.symbol);
+                        setNewPoolToken1Address(token.address);
+                      }
+                      // Update current price display based on selected tokens
+                      if (selectingPoolToken === 'token') {
+                        setCurrentPrice(`1 ${token.symbol} = 0.018024825 ${newPoolToken1 || 'BTC.b'}`);
+                      } else {
+                        setCurrentPrice(`1 ${newPoolToken0 || 'AVAX'} = 0.018024825 ${token.symbol}`);
+                      }
+                      setIsTokenSelectOpen(false);
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'primary.main' }}>
+                        {token.icon}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={token.symbol}
+                      secondary={token.name}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
           </DialogContent>
         </Dialog>
       </Container>
