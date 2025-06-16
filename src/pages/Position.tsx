@@ -1,36 +1,37 @@
 import {
-    Add as AddIcon,
-    Close as CloseIcon,
-    Remove as RemoveIcon,
-    Settings as SettingsIcon,
-    Visibility as VisibilityIcon,
+  Add as AddIcon,
+  Close as CloseIcon,
+  Remove as RemoveIcon,
+  Settings as SettingsIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import {
-    Alert,
-    Avatar,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    CircularProgress,
-    Container,
-    Dialog,
-    DialogContent,
-    DialogTitle,
-    Grid,
-    IconButton,
-    LinearProgress,
-    Tab,
-    Tabs,
-    TextField,
-    Typography,
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  IconButton,
+  LinearProgress,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, useChainId, useWriteContract } from 'wagmi';
 import Navigation from '../components/Navigation';
-import { useDexOperations, useLiquidityTokenBalance, useTokenBalance } from '../utils/dexUtils';
+import { useDexOperations, useLiquidityTokenBalance, useTokenBalanceByAddress } from '../utils/dexUtils';
+import { getTokensForChain } from '../utils/networkTokens';
 
 interface Position {
   id: string;
@@ -124,8 +125,14 @@ const PositionPage = () => {
   // Web3 hooks
   const { addLiquidity, removeLiquidity } = useDexOperations();
   const { isSuccess, error, isPending } = useWriteContract();
-  const tokenXBalance = useTokenBalance(address);
-  const tokenYBalance = useTokenBalance(address);
+  const chainId = useChainId();
+
+  // Get tokens for current chain
+  const tokens = getTokensForChain(chainId);
+
+  // Use dynamic token addresses based on current chain
+  const tokenXBalance = useTokenBalanceByAddress(address, tokens[0]?.address as `0x${string}`);
+  const tokenYBalance = useTokenBalanceByAddress(address, tokens[1]?.address as `0x${string}`);
   const liquidityBalance = useLiquidityTokenBalance(address);
 
   const handleManagePosition = (position: Position) => {

@@ -36,41 +36,19 @@ import {
   useDexOperations,
   useReverseSwapQuote,
   useSwapQuote,
-  useTokenBalance,
+  useTokenBalanceByAddress,
   useTokenPrice
 } from '../utils/dexUtils';
 
+import { useChainId } from "wagmi";
 import Navigation from "../components/Navigation";
-
-const tokens = [
-  {
-    symbol: 'ETH',
-    name: 'Ethereum',
-    address: '0x8babbb98678facc7342735486c851abd7a0d17ca',
-    icon: 'https://cryptologos.cc/logos/ethereum-eth-logo.png'
-  },
-  {
-    symbol: 'USDC',
-    name: 'USD Coin',
-    address: '0x64544969ed7EBf5f083679233325356EbE738930',
-    icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
-  },
-  {
-    symbol: 'USDT',
-    name: 'Tether',
-    address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
-    icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png'
-  },
-  {
-    symbol: 'WBNB',
-    name: 'Wrapped BNB',
-    address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd',
-    icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png'
-  },
-];
+import { getTokensForChain } from "../utils/networkTokens";
 
 const SwapPage = () => {
   const { address } = useAccount();
+  const chainId = useChainId();  // Get tokens for current chain
+  const tokens = getTokensForChain(chainId);
+
   const [fromAmount, setFromAmount] = useState("");
   const [toAmount, setToAmount] = useState("");
   const [fromToken, setFromToken] = useState(tokens[0]);
@@ -86,8 +64,8 @@ const SwapPage = () => {
   const [swapError, setSwapError] = useState<string | null>(null);
 
   // Web3 hooks
-  const tokenXBalance = useTokenBalance(address);
-  const tokenYBalance = useTokenBalance(address);
+  const fromTokenBalance = useTokenBalanceByAddress(address, fromToken.address as `0x${string}`);
+  const toTokenBalance = useTokenBalanceByAddress(address, toToken.address as `0x${string}`);
   const tokenAPrice = useTokenPrice();
   const { swapTokenXForY, swapTokenYForX } = useDexOperations();
 
@@ -105,15 +83,16 @@ const SwapPage = () => {
     toToken.address as `0x${string}`
   );
 
-  const exchangeRate = tokenAPrice || 1850.5;
+  const exchangeRate = tokenAPrice || 1.0;
   const networkFee = 0.0023;
 
   // Get effective balance for UI display
   const getEffectiveBalance = (tokenSymbol: string) => {
-    const realBalance = tokenSymbol === 'ETH' ? tokenXBalance : tokenYBalance;
-    const realBalanceNum = parseFloat(realBalance || '0');
+    const isFromToken = tokenSymbol === fromToken.symbol;
+    const tokenBalance = isFromToken ? fromTokenBalance : toTokenBalance;
+    const realBalanceNum = parseFloat(tokenBalance || '0');
     // Use real balance if available, otherwise default test balance for development
-    return realBalanceNum > 0.001 ? realBalance : '0.0';
+    return realBalanceNum > 0.001 ? tokenBalance : '0.0';
   };
 
   useEffect(() => {
@@ -161,6 +140,15 @@ const SwapPage = () => {
       }
     }
   }, [fromAmount, toAmount, exchangeRate, swapQuote.amountOut, swapQuote.loading, reverseSwapQuote.amountIn, reverseSwapQuote.loading, lastEditedField]);
+
+  // Update tokens when chain changes
+  useEffect(() => {
+    const newTokens = getTokensForChain(chainId);
+    setFromToken(newTokens[0]);
+    setToToken(newTokens[1]);
+    setFromAmount('');
+    setToAmount('');
+  }, [chainId]);
 
   const handleTokenSelect = (token: typeof tokens[0]) => {
     if (selectingToken === 'from') {
@@ -497,6 +485,16 @@ const SwapPage = () => {
           {swapError && (
             <Alert severity="warning">
               Swap failed: {swapError}
+            </Alert>
+          )}
+          {swapQuote.error && (
+            <Alert severity="info">
+              {swapQuote.error}
+            </Alert>
+          )}
+          {reverseSwapQuote.error && (
+            <Alert severity="info">
+              {reverseSwapQuote.error}
             </Alert>
           )}
         </Box>

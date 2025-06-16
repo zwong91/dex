@@ -1,10 +1,96 @@
+import {
+	ChainId,
+	Token,
+	TokenAmount,
+	WNATIVE,
+} from "@lb-xyz/sdk-core";
+import {
+	PairV2,
+	RouteV2,
+	TradeV2,
+} from "@lb-xyz/sdk-v2";
 import * as ethers from "ethers";
 import { useEffect, useState } from "react";
-import { erc20Abi } from "viem";
+import { createPublicClient, erc20Abi, http, parseUnits } from "viem";
+import { bsc, bscTestnet } from "viem/chains";
 import { useChainId, useReadContract, useWatchContractEvent, useWriteContract } from "wagmi";
 import { genericDexAbi } from "./abis/dex";
 import { getNetworkById } from "./dexConfig";
 
+// ====== LB SDK CONFIGURATION ======
+
+// Multi-network token definitions
+const TOKEN_CONFIGS = {
+	[ChainId.BNB_TESTNET]: {
+		WBNB: new Token(ChainId.BNB_TESTNET, "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd", 18, "WBNB", "Wrapped BNB"),
+		ETH: new Token(ChainId.BNB_TESTNET, "0x8babbb98678facc7342735486c851abd7a0d17ca", 18, "ETH", "Ethereum"),
+		USDC: new Token(ChainId.BNB_TESTNET, "0x64544969ed7EBf5f083679233325356EbE738930", 18, "USDC", "USD Coin"),
+		USDT: new Token(ChainId.BNB_TESTNET, "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd", 18, "USDT", "Tether"),
+	},
+	[ChainId.BNB_CHAIN]: {
+		WBNB: new Token(ChainId.BNB_CHAIN, "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", 18, "WBNB", "Wrapped BNB"),
+		ETH: new Token(ChainId.BNB_CHAIN, "0x2170Ed0880ac9A755fd29B2688956BD959F933F8", 18, "ETH", "Ethereum"),
+		USDC: new Token(ChainId.BNB_CHAIN, "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", 18, "USDC", "USD Coin"),
+		USDT: new Token(ChainId.BNB_CHAIN, "0x55d398326f99059fF775485246999027B3197955", 18, "USDT", "Tether"),
+	},
+	[ChainId.ETHEREUM]: {
+		WETH: new Token(ChainId.ETHEREUM, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", 18, "WETH", "Wrapped Ether"),
+		USDC: new Token(ChainId.ETHEREUM, "0xA0b86a33E6441E3073E86c9Ed3B3Ad5e32E6f50A", 6, "USDC", "USD Coin"),
+		USDT: new Token(ChainId.ETHEREUM, "0xdAC17F958D2ee523a2206206994597C13D831ec7", 6, "USDT", "Tether"),
+	},
+};
+
+// Convert wagmi chain ID to SDK chain ID
+const wagmiChainIdToSDKChainId = (wagmiChainId: number): ChainId => {
+	switch (wagmiChainId) {
+		case 97: // BSC Testnet
+			return ChainId.BNB_TESTNET;
+		case 56: // BSC Mainnet
+			return ChainId.BNB_CHAIN;
+		case 1: // Ethereum Mainnet
+			return ChainId.ETHEREUM;
+		default:
+			return ChainId.BNB_TESTNET; // Default fallback
+	}
+};
+
+// Get SDK tokens for specific chain (for trading operations)
+const getSDKTokensForChain = (chainId: number) => {
+	const sdkChainId = wagmiChainIdToSDKChainId(chainId);
+	return TOKEN_CONFIGS[sdkChainId as keyof typeof TOKEN_CONFIGS] || TOKEN_CONFIGS[ChainId.BNB_TESTNET];
+};
+
+// Helper function to get SDK token by address for specific chain
+const getSDKTokenByAddress = (address: string, chainId: number): Token | undefined => {
+	const tokens = getSDKTokensForChain(chainId);
+	return Object.values(tokens as Record<string, Token>).find(token =>
+		token.address.toLowerCase() === address.toLowerCase()
+	);
+};
+
+// Create public client for blockchain interaction
+const createViemClient = (chainId: number) => {
+	let chain;
+	switch (chainId) {
+		case 97: // BSC Testnet
+			chain = bscTestnet;
+			break;
+		case 56: // BSC Mainnet
+			chain = bsc;
+			break;
+		case 1: // Ethereum Mainnet
+			// Note: You'll need to import mainnet from viem/chains if using Ethereum
+			chain = bscTestnet; // Fallback for now
+			break;
+		default:
+			chain = bscTestnet;
+	}
+
+	return createPublicClient({
+		chain,
+		transport: http(),
+	});
+};
 
 // ====== REACT HOOKS VERSIONS ======
 // These are the correct hook implementations that should be used in React components
@@ -103,7 +189,7 @@ export const useLiquidityTokenBalance = (address: `0x${string}` | undefined) => 
 	return Number(balance).toFixed(4);
 };
 
-// Hook to get Token balance
+// Hook to get specific Token balance (tokenA only)
 export const useTokenBalance = (address: `0x${string}` | undefined) => {
 	const [balance, setBalance] = useState<string>("0");
 	const chainId = useChainId();
@@ -138,6 +224,41 @@ export const useTokenBalance = (address: `0x${string}` | undefined) => {
 			console.log("Token A transfer event:", logs);
 			refetch();
 		},
+	});
+
+	return balance;
+};
+
+// Hook to get any token balance by address
+export const useTokenBalanceByAddress = (userAddress: `0x${string}` | undefined, tokenAddress: `0x${string}` | undefined) => {
+	const [balance, setBalance] = useState<string>("0");
+
+	const { data: balanceToken, refetch } = useReadContract({
+		abi: erc20Abi,
+		address: tokenAddress,
+		functionName: "balanceOf",
+		args: userAddress && tokenAddress ? [userAddress] : undefined,
+		account: userAddress,
+	});
+
+	useEffect(() => {
+		if (balanceToken) {
+			const formattedBalance = ethers.formatUnits(balanceToken, 18);
+			setBalance(formattedBalance);
+		} else if (userAddress && tokenAddress) {
+			setBalance("0");
+		}
+	}, [balanceToken, userAddress, tokenAddress]);
+
+	useWatchContractEvent({
+		address: tokenAddress,
+		abi: erc20Abi,
+		eventName: "Transfer",
+		onLogs(logs) {
+			console.log(`Token ${tokenAddress} transfer event:`, logs);
+			refetch();
+		},
+		enabled: !!tokenAddress,
 	});
 
 	return balance;
@@ -346,7 +467,7 @@ export const useTokenApproval = () => {
 	};
 };
 
-// Hook to get swap quotes with real-time pricing
+// Hook to get swap quotes with real-time pricing using LB SDK
 export const useSwapQuote = (
 	amountIn: string,
 	tokenInAddress: string,
@@ -376,41 +497,106 @@ export const useSwapQuote = (
 			setQuote(prev => ({ ...prev, loading: true, error: null }));
 
 			try {
-				// For now, use simple calculation based on exchange rate
-				// In production, this would call actual DEX contracts
-				const amountInNum = parseFloat(amountIn);
+				// Get tokens by address
+				const tokenIn = getSDKTokenByAddress(tokenInAddress, chainId);
+				const tokenOut = getSDKTokenByAddress(tokenOutAddress, chainId);
 
-				// Mock exchange rates (in production, fetch from contracts)
-				let exchangeRate = 1850.5; // ETH/USDC rate
-
-				if (tokenInAddress.includes('USDC') && tokenOutAddress.includes('ETH')) {
-					exchangeRate = 1 / 1850.5;
-				} else if (tokenInAddress.includes('ETH') && tokenOutAddress.includes('USDT')) {
-					exchangeRate = 1850.0;
-				} else if (tokenInAddress.includes('USDT') && tokenOutAddress.includes('ETH')) {
-					exchangeRate = 1 / 1850.0;
+				if (!tokenIn || !tokenOut) {
+					throw new Error("Token not found");
 				}
 
-				const amountOut = amountInNum * exchangeRate;
+				// Create public client
+				const publicClient = createViemClient(chainId);
+				const CHAIN_ID = wagmiChainIdToSDKChainId(chainId);
 
-				// Simulate network delay
-				await new Promise(resolve => setTimeout(resolve, 500));
+				// Parse input amount
+				const typedValueInParsed = parseUnits(amountIn, tokenIn.decimals);
+				const amountInToken = new TokenAmount(tokenIn, typedValueInParsed);
+
+				// Check if tokens are native
+				const nativeToken = WNATIVE[CHAIN_ID];
+				const isNativeIn = nativeToken ? tokenIn.equals(nativeToken) : false;
+				const isNativeOut = nativeToken ? tokenOut.equals(nativeToken) : false;
+
+				// Build routes - get tokens for current chain
+				const currentChainTokens = getSDKTokensForChain(chainId);
+				const BASES = Object.values(currentChainTokens as Record<string, Token>);
+
+				console.log('SDK Debug Info:', {
+					chainId: CHAIN_ID,
+					tokenIn: tokenIn.symbol,
+					tokenOut: tokenOut.symbol,
+					basesCount: BASES.length,
+					amountIn: amountInToken.toFixed(),
+				});
+
+				const allTokenPairs = PairV2.createAllTokenPairs(tokenIn, tokenOut, BASES);
+				const allPairs = PairV2.initPairs(allTokenPairs);
+				const allRoutes = RouteV2.createAllRoutes(allPairs, tokenIn, tokenOut);
+
+				console.log('Route Info:', {
+					tokenPairsCount: allTokenPairs.length,
+					pairsCount: allPairs.length,
+					routesCount: allRoutes.length,
+				});
+
+				// Create trades with better error handling
+				let trades: (TradeV2 | undefined)[] = [];
+				try {
+					trades = await TradeV2.getTradesExactIn(
+						allRoutes,
+						amountInToken,
+						tokenOut,
+						isNativeIn,
+						isNativeOut,
+						publicClient,
+						CHAIN_ID
+					);
+					console.log('Raw trades result:', trades.length, 'trades returned');
+				} catch (tradeError) {
+					console.warn('LB SDK trade creation failed:', tradeError);
+					// If trade creation fails, fall through to fallback
+					trades = [];
+				}
+
+				// Filter out undefined trades
+				const validTrades = trades.filter((trade): trade is TradeV2 => trade !== undefined);
+				console.log('Valid trades after filtering:', validTrades.length);
+
+				const bestTrade = validTrades.length > 0 ? TradeV2.chooseBestTrade(validTrades, true) : null;
+
+				if (!bestTrade) {
+					console.warn("No valid trade found via LB SDK");
+					// Use fallback instead of throwing error
+					throw new Error("No valid trade found via LB SDK");
+				}
+
+				console.log("Best trade log:", bestTrade.toLog());
+
+				// Extract quote data
+				const outputAmount = bestTrade.outputAmount.toFixed(6);
+				const priceImpact = bestTrade.priceImpact.toSignificant(2);
+				const routePath = bestTrade.route.path.map(token => token.address);
 
 				setQuote({
-					amountOut: amountOut.toFixed(6),
-					priceImpact: '0.05',
-					path: [tokenInAddress, tokenOutAddress],
+					amountOut: outputAmount,
+					priceImpact: priceImpact,
+					path: routePath,
 					loading: false,
 					error: null,
 				});
 
 			} catch (error) {
-				console.error('Quote error:', error);
-				setQuote(prev => ({
-					...prev,
+				console.warn('LB SDK quote failed:', error);
+
+				// Simple fallback with default values
+				setQuote({
+					amountOut: '0.0',
+					priceImpact: '0.05',
+					path: [tokenInAddress, tokenOutAddress],
 					loading: false,
-					error: 'Failed to get quote',
-				}));
+					error: 'No liquidity data available',
+				});
 			}
 		};
 
@@ -423,20 +609,21 @@ export const useSwapQuote = (
 	return quote;
 };
 
-// Hook to get estimated swap input amount based on desired output amount
+// Hook to get estimated swap input amount based on desired output amount using LB SDK
 export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, tokenOut: `0x${string}`) => {
 	const [quote, setQuote] = useState({
 		amountIn: null as string | null,
 		priceImpact: null as string | null,
 		path: [] as string[],
 		loading: false,
+		error: null as string | null,
 	});
 
 	const chainId = useChainId();
 
 	useEffect(() => {
 		if (!amountOut || amountOut <= 0 || !tokenIn || !tokenOut) {
-			setQuote({ amountIn: null, priceImpact: null, path: [], loading: false });
+			setQuote({ amountIn: null, priceImpact: null, path: [], loading: false, error: null });
 			return;
 		}
 
@@ -444,35 +631,86 @@ export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, t
 			try {
 				setQuote(prev => ({ ...prev, loading: true }));
 
-				// Calculate reverse quote based on the output amount
-				// For demonstration, we use the inverse of the normal exchange rate
-				// In a real DEX, this would call a specific contract method for reverse quotes
+				// Get tokens by address
+				const tokenInObj = getSDKTokenByAddress(tokenIn, chainId);
+				const tokenOutObj = getSDKTokenByAddress(tokenOut, chainId);
 
-				// Simple reverse calculation with some slippage
-				const baseRate = 1850.5; // ETH price in USDC (example)
-				let estimatedAmountIn: number;
-
-				if (tokenIn.toLowerCase().includes('usdc') || tokenIn.toLowerCase().includes('usdt')) {
-					// Input is stablecoin, output is ETH
-					estimatedAmountIn = amountOut * baseRate * 1.01; // Add 1% for slippage
-				} else {
-					// Input is ETH, output is stablecoin
-					estimatedAmountIn = amountOut / baseRate * 1.01; // Add 1% for slippage
+				if (!tokenInObj || !tokenOutObj) {
+					throw new Error("Token not found");
 				}
 
-				// Simulate some network delay
-				await new Promise(resolve => setTimeout(resolve, 500));
+				// Create public client
+				const publicClient = createViemClient(chainId);
+				const CHAIN_ID = wagmiChainIdToSDKChainId(chainId);
+
+				// Parse output amount
+				const typedValueOutParsed = parseUnits(amountOut.toString(), tokenOutObj.decimals);
+				const amountOutToken = new TokenAmount(tokenOutObj, typedValueOutParsed);
+
+				// Check if tokens are native
+				const nativeToken = WNATIVE[CHAIN_ID];
+				const isNativeIn = nativeToken ? tokenInObj.equals(nativeToken) : false;
+				const isNativeOut = nativeToken ? tokenOutObj.equals(nativeToken) : false;
+
+				// Build routes - get tokens for current chain
+				const currentChainTokens = getSDKTokensForChain(chainId);
+				const BASES = Object.values(currentChainTokens as Record<string, Token>);
+				const allTokenPairs = PairV2.createAllTokenPairs(tokenInObj, tokenOutObj, BASES);
+				const allPairs = PairV2.initPairs(allTokenPairs);
+				const allRoutes = RouteV2.createAllRoutes(allPairs, tokenInObj, tokenOutObj);
+
+				// Create trades for exact output with better error handling
+				let trades: (TradeV2 | undefined)[] = [];
+				try {
+					trades = await TradeV2.getTradesExactOut(
+						allRoutes,
+						amountOutToken,
+						tokenInObj,
+						isNativeIn,
+						isNativeOut,
+						publicClient,
+						CHAIN_ID
+					);
+				} catch (tradeError) {
+					console.warn('LB SDK reverse trade creation failed:', tradeError);
+					trades = [];
+				}
+
+				// Filter out undefined trades
+				const validTrades = trades.filter((trade): trade is TradeV2 => trade !== undefined);
+				const bestTrade = validTrades.length > 0 ? TradeV2.chooseBestTrade(validTrades, false) : null; // false for exact out
+
+				if (!bestTrade) {
+					console.warn("No valid reverse trade found via LB SDK");
+					throw new Error("No valid reverse trade found via LB SDK");
+				}
+
+				console.log("Best reverse trade log:", bestTrade.toLog());
+
+				// Extract quote data
+				const inputAmount = bestTrade.inputAmount.toFixed(6);
+				const priceImpact = bestTrade.priceImpact.toSignificant(2);
+				const routePath = bestTrade.route.path.map(token => token.address);
 
 				setQuote({
-					amountIn: estimatedAmountIn.toFixed(6),
-					priceImpact: "0.08", // Slightly higher impact for reverse quotes
-					path: [tokenIn, tokenOut],
+					amountIn: inputAmount,
+					priceImpact: priceImpact,
+					path: routePath,
 					loading: false,
+					error: null,
 				});
 
 			} catch (error) {
-				console.error('Error getting reverse quote:', error);
-				setQuote({ amountIn: null, priceImpact: null, path: [], loading: false });
+				console.warn('LB SDK reverse quote failed:', error);
+
+				// Simple fallback with default values
+				setQuote({
+					amountIn: '0.0',
+					priceImpact: "0.08",
+					path: [tokenIn, tokenOut],
+					loading: false,
+					error: 'No liquidity data available',
+				});
 			}
 		};
 

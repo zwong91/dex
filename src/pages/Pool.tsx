@@ -1,55 +1,47 @@
 import {
-    Add as AddIcon,
-    Close as CloseIcon,
-    KeyboardArrowDown as KeyboardArrowDownIcon,
-    Refresh as RefreshIcon,
-    Remove as RemoveIcon,
-    TrendingUp as TrendingUpIcon,
+  Add as AddIcon,
+  Close as CloseIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  Refresh as RefreshIcon,
+  Remove as RemoveIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import {
-    Alert,
-    Avatar,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    CircularProgress,
-    Container,
-    Dialog,
-    DialogContent,
-    DialogTitle,
-    Divider,
-    Grid,
-    IconButton,
-    LinearProgress,
-    List,
-    ListItem,
-    ListItemAvatar,
-    ListItemButton,
-    ListItemText,
-    Slider,
-    Tab,
-    Tabs,
-    TextField,
-    ToggleButton,
-    ToggleButtonGroup,
-    Typography,
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Grid,
+  IconButton,
+  LinearProgress,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemButton,
+  ListItemText,
+  Slider,
+  Tab,
+  Tabs,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
 } from '@mui/material';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, useChainId, useWriteContract } from 'wagmi';
 import Navigation from '../components/Navigation';
-import { useDexOperations, useLiquidityTokenBalance, useTokenBalance } from '../utils/dexUtils';
-
-const tokens = [
-  { symbol: 'AVAX', name: 'Avalanche', address: '0x...', icon: '🔴' },
-  { symbol: 'BTC.b', name: 'Bitcoin', address: '0x...', icon: '🟠' },
-  { symbol: 'ETH', name: 'Ethereum', address: '0x...', icon: '🔷' },
-  { symbol: 'USDC', name: 'USD Coin', address: '0x...', icon: '💵' },
-  { symbol: 'USDT', name: 'Tether', address: '0x...', icon: '💰' },
-  { symbol: 'DAI', name: 'DAI', address: '0x...', icon: '🟡' },
-];
+import { useDexOperations, useLiquidityTokenBalance, useTokenBalanceByAddress } from '../utils/dexUtils';
+import { getTokensForChain } from '../utils/networkTokens';
 
 const binStepOptions = [
   { value: '0.1%', baseFee: '0.1%', label: '0.1%' },
@@ -211,8 +203,14 @@ const PoolPage = () => {
   // Web3 hooks
   const { addLiquidity, claimFees, removeLiquidity } = useDexOperations();
   const { isSuccess, error, isPending } = useWriteContract();
-  const tokenXBalance = useTokenBalance(address);
-  const tokenYBalance = useTokenBalance(address);
+  const chainId = useChainId();
+
+  // Get tokens for current chain
+  const tokens = getTokensForChain(chainId);
+
+  // Use dynamic token addresses based on current chain
+  const tokenXBalance = useTokenBalanceByAddress(address, tokens[0]?.address as `0x${string}`);
+  const tokenYBalance = useTokenBalanceByAddress(address, tokens[1]?.address as `0x${string}`);
   const liquidityBalance = useLiquidityTokenBalance(address);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
