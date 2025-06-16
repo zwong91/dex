@@ -1,112 +1,188 @@
-import { Bin, LB_FACTORY_V22_ADDRESS, jsonAbis } from "@lb-xyz/sdk-v2"
+import { Bin, LB_FACTORY_V22_ADDRESS, LB_ROUTER_V22_ADDRESS, jsonAbis } from "@lb-xyz/sdk-v2"
 import * as ethers from "ethers"
 import { useCallback } from "react"
-import { useChainId, useReadContract, useWriteContract } from "wagmi"
-import { genericDexAbi } from "../abis/dex"
-import { getNetworkById } from "../dexConfig"
+import { useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { createViemClient } from "../viemClient"
 
-// Hook to get DEX pool ratio for price calculation
-export const usePoolRatio = () => {
-	const chainId = useChainId()
-	const network = getNetworkById(chainId)
-
-	let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`
-
-	const { data: poolRatio } = useReadContract({
-		abi: genericDexAbi,
-		address: dexRouterAddress,
-		functionName: "getPoolRatio",
-		chainId: chainId,
-	})
-
-	return poolRatio ? Number(poolRatio) : 1
-}
-
-// Hook to get Token X price in Token Y
-export const useTokenPrice = () => {
-	const chainId = useChainId()
-	const network = getNetworkById(chainId)
-
-	let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`
-
-	const { data: tokenAPrice } = useReadContract({
-		abi: genericDexAbi,
-		address: dexRouterAddress,
-		functionName: "getTokenAPrice",
-		chainId: chainId,
-	})
-
-	return tokenAPrice ? Number(tokenAPrice) : 1
-}
-
-// Hook for DEX operations (add/remove liquidity, swaps)
+// Hook for LB DEX operations (add/remove liquidity, claim fees)
 export const useDexOperations = () => {
 	const { writeContractAsync } = useWriteContract()
 	const chainId = useChainId()
-	const network = getNetworkById(chainId)
 
-	let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`
-
-	const addLiquidity = async (tokenAAmount: number, tokenBAmount: number) => {
+	// Real LB Router operations for adding liquidity to specific pair and bins
+	const addLiquidity = async (
+		pairAddress: string,
+		tokenXAddress: string,
+		tokenYAddress: string,
+		tokenAAmount: number,
+		tokenBAmount: number,
+		activeBinId?: number,
+		deltaIds?: number[],
+		distributionX?: bigint[],
+		distributionY?: bigint[]
+	) => {
 		try {
+			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
+			const lbRouterAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID]
+
+			if (!lbRouterAddress) {
+				throw new Error("LB Router not supported on this chain")
+			}
+
+			// Convert amounts to proper decimals
 			const tokenA = ethers.parseUnits(tokenAAmount.toString(), 18)
 			const tokenB = ethers.parseUnits(tokenBAmount.toString(), 18)
 
-			console.log("Adding liquidity - Token A:", tokenA.toString(), "Token B:", tokenB.toString())
+			// Get the active bin ID if not provided
+			let activeBin = activeBinId
+			if (!activeBin) {
+				const publicClient = createViemClient(chainId)
+				activeBin = await publicClient.readContract({
+					address: pairAddress as `0x${string}`,
+					abi: [{
+						inputs: [],
+						name: 'getActiveId',
+						outputs: [{ internalType: 'uint24', name: '', type: 'uint24' }],
+						stateMutability: 'view',
+						type: 'function'
+					}],
+					functionName: 'getActiveId',
+					args: []
+				}) as number
+			}
+
+			// Default distribution: add liquidity around active bin
+			const defaultDeltaIds = deltaIds || [-2, -1, 0, 1, 2] // 5 bins around active
+			const totalBins = defaultDeltaIds.length
+
+			// Simple uniform distribution if not provided
+			const defaultDistributionX = distributionX || Array(totalBins).fill(BigInt(ethers.parseUnits("0.2", 18))) // 20% each
+			const defaultDistributionY = distributionY || Array(totalBins).fill(BigInt(ethers.parseUnits("0.2", 18))) // 20% each
+
+			console.log("Adding LB liquidity:", {
+				pairAddress,
+				tokenXAddress,
+				tokenYAddress,
+				tokenA: tokenA.toString(),
+				tokenB: tokenB.toString(),
+				activeBin,
+				deltaIds: defaultDeltaIds,
+				routerAddress: lbRouterAddress
+			})
+
+			// Use LB Router's addLiquidity function
+			const deadline = Math.floor(Date.now() / 1000) + 1200 // 20 minutes from now
 
 			const result = await writeContractAsync({
-				abi: genericDexAbi,
-				address: dexRouterAddress,
+				abi: jsonAbis.LBRouterV22ABI,
+				address: lbRouterAddress as `0x${string}`,
 				functionName: "addLiquidity",
-				args: [tokenA, tokenB],
+				args: [
+					{
+						tokenX: tokenXAddress as `0x${string}`,
+						tokenY: tokenYAddress as `0x${string}`,
+						binStep: BigInt(25), // 0.25% fee tier
+						amountX: tokenA,
+						amountY: tokenB,
+						amountXMin: BigInt(tokenA * BigInt(95) / BigInt(100)), // 5% slippage
+						amountYMin: BigInt(tokenB * BigInt(95) / BigInt(100)), // 5% slippage
+						activeIdDesired: BigInt(activeBin),
+						idSlippage: BigInt(5), // Allow 5 bins of slippage
+						deltaIds: defaultDeltaIds.map(id => BigInt(id)),
+						distributionX: defaultDistributionX,
+						distributionY: defaultDistributionY,
+						to: undefined as any, // Will be filled by the contract call
+						deadline: BigInt(deadline)
+					}
+				],
 				chainId: chainId,
 			})
 
 			return result
 		} catch (error) {
-			console.error("Add liquidity error:", error)
+			console.error("Add LB liquidity error:", error)
 			throw error
 		}
 	}
 
-	const removeLiquidity = async (liquidityAmount: number) => {
+	// Real LB Router operation for removing liquidity from specific bins
+	const removeLiquidity = async (
+		pairAddress: string,
+		tokenXAddress: string,
+		tokenYAddress: string,
+		binIds: number[],
+		amounts: bigint[]
+	) => {
 		try {
-			const liquidity = ethers.parseUnits(liquidityAmount.toString(), 18)
+			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
+			const lbRouterAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID]
 
-			console.log("Removing liquidity - LP tokens:", liquidity.toString())
+			if (!lbRouterAddress) {
+				throw new Error("LB Router not supported on this chain")
+			}
+
+			console.log("Removing LB liquidity:", {
+				pairAddress,
+				tokenXAddress,
+				tokenYAddress,
+				binIds,
+				amounts: amounts.map(a => a.toString()),
+				routerAddress: lbRouterAddress
+			})
+
+			const deadline = Math.floor(Date.now() / 1000) + 1200 // 20 minutes from now
 
 			const result = await writeContractAsync({
-				abi: genericDexAbi,
-				address: dexRouterAddress,
+				abi: jsonAbis.LBRouterV22ABI,
+				address: lbRouterAddress as `0x${string}`,
 				functionName: "removeLiquidity",
-				args: [liquidity],
+				args: [
+					{
+						tokenX: tokenXAddress as `0x${string}`,
+						tokenY: tokenYAddress as `0x${string}`,
+						binStep: BigInt(25), // 0.25% fee tier
+						amountXMin: BigInt(0), // Accept any amount out (could add slippage protection)
+						amountYMin: BigInt(0),
+						ids: binIds.map(id => BigInt(id)),
+						amounts: amounts,
+						to: undefined as any, // Will be filled by the contract call
+						deadline: BigInt(deadline)
+					}
+				],
 				chainId: chainId,
 			})
 
 			return result
 		} catch (error) {
-			console.error("Remove liquidity error:", error)
+			console.error("Remove LB liquidity error:", error)
 			throw error
 		}
 	}
 
-	const claimFees = async (positionId: number) => {
+	// Real LB Pair operation for claiming collected fees
+	const claimFees = async (pairAddress: string, binIds: number[]) => {
 		try {
-			console.log("Claiming fees for position:", positionId)
+			console.log("Claiming LB fees:", {
+				pairAddress,
+				binIds
+			})
 
+			// Use the LB Pair's collectFees function directly
 			const result = await writeContractAsync({
-				abi: genericDexAbi,
-				address: dexRouterAddress,
-				functionName: "claimFees",
-				args: [BigInt(positionId)],
+				abi: jsonAbis.LBPairABI,
+				address: pairAddress as `0x${string}`,
+				functionName: "collectFees",
+				args: [
+					undefined as any, // account (will be msg.sender)
+					binIds.map(id => BigInt(id))
+				],
 				chainId: chainId,
 			})
 
 			return result
 		} catch (error) {
-			console.error("Claim fees error:", error)
+			console.error("Claim LB fees error:", error)
 			throw error
 		}
 	}
@@ -132,7 +208,7 @@ export const useDexOperations = () => {
 			try {
 				const pairInfo = await publicClient.readContract({
 					address: factoryAddress as `0x${string}`,
-					abi: jsonAbis.LBFactoryABI,
+					abi: jsonAbis.LBFactoryV21ABI,
 					functionName: "getLBPairInformation",
 					args: [
 						tokenXAddress as `0x${string}`,
@@ -215,7 +291,7 @@ export const useDexOperations = () => {
 			// Call createLBPair function on the factory
 			const result = await writeContractAsync({
 				address: factoryAddress as `0x${string}`,
-				abi: jsonAbis.LBFactoryABI,
+				abi: jsonAbis.LBFactoryV21ABI,
 				functionName: "createLBPair",
 				args: [
 					tokenXAddress as `0x${string}`,

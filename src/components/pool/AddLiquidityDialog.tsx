@@ -1,27 +1,27 @@
 import {
-  Add as AddIcon,
-  Close as CloseIcon,
-  Refresh as RefreshIcon,
-  TrendingUp as TrendingUpIcon,
+    Add as AddIcon,
+    Close as CloseIcon,
+    Refresh as RefreshIcon,
+    TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material'
 import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  IconButton,
-  Slider,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
+    Alert,
+    Avatar,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CircularProgress,
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    Grid,
+    IconButton,
+    Slider,
+    TextField,
+    ToggleButton,
+    ToggleButtonGroup,
+    Typography,
 } from '@mui/material'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -40,6 +40,10 @@ interface PoolData {
 	volume24h: string
 	fees24h: string
 	userLiquidity?: string
+	pairAddress?: string
+	binStep?: number
+	tokenXAddress?: string
+	tokenYAddress?: string
 }
 
 interface AddLiquidityDialogProps {
@@ -107,7 +111,26 @@ const AddLiquidityDialog = ({
 				return
 			}
 
-			await addLiquidity(amt0, amt1)
+			// Get token addresses for the selected pool
+			const tokens = getTokensForChain(chainId)
+			const token0 = tokens.find(t => t.symbol === selectedPool.token0)
+			const token1 = tokens.find(t => t.symbol === selectedPool.token1)
+
+			if (!token0 || !token1) {
+				toast.error('Token addresses not found')
+				return
+			}
+
+			// Use the pool's pair address if available, otherwise we need to find it
+			const pairAddress = selectedPool.pairAddress || selectedPool.id
+
+			await addLiquidity(
+				pairAddress,
+				token0.address,
+				token1.address,
+				amt0,
+				amt1
+			)
 			toast.success('Adding liquidity...')
 			setIsSuccess(true)
 			onClose()

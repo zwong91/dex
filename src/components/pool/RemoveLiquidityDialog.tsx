@@ -1,47 +1,27 @@
 import { Close as CloseIcon, Remove as RemoveIcon } from '@mui/icons-material'
 import {
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  TextField,
-  Typography,
+	Avatar,
+	Box,
+	Button,
+	Card,
+	CardContent,
+	Chip,
+	CircularProgress,
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	IconButton,
+	TextField,
+	Typography,
 } from '@mui/material'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useDexOperations, useLiquidityTokenBalance } from '../../dex'
-
-interface Position {
-	id: string
-	token0: string
-	token1: string
-	icon0: string
-	icon1: string
-	liquidity: string
-	value: string
-	apr: string
-	fees24h: string
-	feesTotal: string
-	range: {
-		min: string
-		max: string
-		current: string
-	}
-	inRange: boolean
-	performance: string
-}
+import { useDexOperations, type UserPosition } from '../../dex'
 
 interface RemoveLiquidityDialogProps {
 	open: boolean
 	onClose: () => void
-	selectedPosition: Position | null
+	selectedPosition: UserPosition | null
 }
 
 const RemoveLiquidityDialog = ({
@@ -55,7 +35,6 @@ const RemoveLiquidityDialog = ({
 
 	// Web3 hooks
 	const { removeLiquidity } = useDexOperations()
-	const liquidityBalance = useLiquidityTokenBalance(userWalletAddress)
 
 	const handleRemovePositionSubmit = async () => {
 		if (!removePercentage || !selectedPosition) {
@@ -74,13 +53,31 @@ const RemoveLiquidityDialog = ({
 				return
 			}
 
-			// Calculate the amount of LP tokens to remove based on percentage
-			const currentLiquidityBalance = liquidityBalance || 0
-			const liquidityToRemove =
-				(Number(currentLiquidityBalance) * percentage) / 100
+			// For LB, we need to remove liquidity from specific bins
+			// Use the position's bin ID - for now we'll work with single bin
+			const binIds = [selectedPosition.binId]
 
-			// Call the removeLiquidity contract function
-			await removeLiquidity(liquidityToRemove)
+			// Calculate amounts to remove based on percentage
+			// Parse the liquidity value (remove currency formatting)
+			const totalLiquidityValue = parseFloat(selectedPosition.liquidity.replace(/[,$]/g, ''))
+			const amountToRemove = (totalLiquidityValue * percentage) / 100
+
+			// Convert to proper format for LB removal
+			const amounts = [BigInt(Math.floor(amountToRemove * 1e18))]
+
+			// Get token addresses from the position data
+			// We'll need to add these to UserPosition interface or derive them
+			const tokenXAddress = selectedPosition.token0 // This is symbol, we need address
+			const tokenYAddress = selectedPosition.token1 // This is symbol, we need address
+
+			// Call the removeLiquidity contract function with LB parameters
+			await removeLiquidity(
+				selectedPosition.pairAddress,
+				tokenXAddress,
+				tokenYAddress,
+				binIds,
+				amounts
+			)
 			onClose()
 		} catch (err: any) {
 			console.error('Remove position error:', err)
@@ -173,7 +170,7 @@ const RemoveLiquidityDialog = ({
 								color="text.secondary"
 								sx={{ mt: 1 }}
 							>
-								Your LP Token Balance: {liquidityBalance || '0'} tokens
+								Your Position Liquidity: {selectedPosition?.liquidity || '0'}
 							</Typography>
 						</Box>
 

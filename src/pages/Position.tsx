@@ -30,102 +30,33 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAccount, useChainId, useWriteContract } from 'wagmi';
 import Navigation from '../components/Navigation';
-import { useDexOperations, useLiquidityTokenBalance, useTokenBalanceByAddress } from '../dex';
+import AddLiquidityDialog from '../components/pool/AddLiquidityDialog';
+import {
+  useDexOperations,
+  useLiquidityTokenBalance,
+  useTokenBalanceByAddress,
+  useUserLiquidityPositions
+} from '../dex';
+import { type UserPosition } from '../dex/hooks/useUserPositions';
 import { getTokensForChain } from '../dex/networkTokens';
-
-interface Position {
-  id: string;
-  token0: string;
-  token1: string;
-  icon0: string;
-  icon1: string;
-  liquidity: string;
-  value: string;
-  apr: string;
-  fees24h: string;
-  feesTotal: string;
-  range: {
-    min: string;
-    max: string;
-    current: string;
-  };
-  inRange: boolean;
-  performance: string;
-}
-
-const mockPositions: Position[] = [
-  {
-    id: '1',
-    token0: 'ETH',
-    token1: 'USDC',
-    icon0: '🔷',
-    icon1: '💵',
-    liquidity: '$2,450.00',
-    value: '$2,487.35',
-    apr: '12.5%',
-    fees24h: '$3.25',
-    feesTotal: '$127.50',
-    range: {
-      min: '1,750',
-      max: '2,100',
-      current: '1,851',
-    },
-    inRange: true,
-    performance: '+1.52%',
-  },
-  {
-    id: '2',
-    token0: 'DAI',
-    token1: 'USDC',
-    icon0: '🟡',
-    icon1: '💵',
-    liquidity: '$1,000.00',
-    value: '$1,012.80',
-    apr: '8.2%',
-    fees24h: '$1.15',
-    feesTotal: '$45.20',
-    range: {
-      min: '0.995',
-      max: '1.005',
-      current: '0.999',
-    },
-    inRange: true,
-    performance: '+1.28%',
-  },
-  {
-    id: '3',
-    token0: 'ETH',
-    token1: 'DAI',
-    icon0: '🔷',
-    icon1: '🟡',
-    liquidity: '$800.00',
-    value: '$785.20',
-    apr: '0%',
-    fees24h: '$0.00',
-    feesTotal: '$12.30',
-    range: {
-      min: '1,600',
-      max: '1,800',
-      current: '1,851',
-    },
-    inRange: false,
-    performance: '-1.85%',
-  },
-];
 
 const PositionPage = () => {
   const { address: userWalletAddress } = useAccount();
-  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<UserPosition | null>(null);
   const [showManageDialog, setShowManageDialog] = useState(false);
   const [manageTab, setManageTab] = useState(0);
   const [removeAmount, setRemoveAmount] = useState('25');
   const [addAmount0, setAddAmount0] = useState('');
   const [addAmount1, setAddAmount1] = useState('');
+  const [showAddLiquidity, setShowAddLiquidity] = useState(false);
 
   // Web3 hooks
   const { addLiquidity, removeLiquidity } = useDexOperations();
   const { isSuccess, error, isPending } = useWriteContract();
   const chainId = useChainId();
+
+  // Get user's liquidity positions using the new hook
+  const { positions, loading: positionsLoading, error: positionsError } = useUserLiquidityPositions(userWalletAddress);
 
   // Get tokens for current chain
   const tokens = getTokensForChain(chainId);
@@ -135,7 +66,7 @@ const PositionPage = () => {
   const tokenYBalance = useTokenBalanceByAddress(userWalletAddress, tokens[1]?.address as `0x${string}`);
   const liquidityBalance = useLiquidityTokenBalance(userWalletAddress);
 
-  const handleManagePosition = (position: Position) => {
+  const handleManagePosition = (position: UserPosition) => {
     setSelectedPosition(position);
     setShowManageDialog(true);
     setAddAmount0('');
@@ -162,7 +93,27 @@ const PositionPage = () => {
         return;
       }
 
-      await addLiquidity(amt0, amt1);
+      if (!selectedPosition) {
+        toast.error('No position selected');
+        return;
+      }
+
+      // Get token addresses from the tokens config
+      const token0 = tokens.find(t => t.symbol === selectedPosition.token0);
+      const token1 = tokens.find(t => t.symbol === selectedPosition.token1);
+
+      if (!token0 || !token1) {
+        toast.error('Token addresses not found');
+        return;
+      }
+
+      await addLiquidity(
+        selectedPosition.pairAddress,
+        token0.address,
+        token1.address,
+        amt0,
+        amt1
+      );
       toast.success('Adding liquidity to position...');
       setShowManageDialog(false);
     } catch (err: any) {
@@ -190,14 +141,39 @@ const PositionPage = () => {
       }
 
       // Calculate actual liquidity tokens to remove based on percentage
-      const liquidityToRemove = (parseFloat(liquidityBalance || '0') * percentage) / 100;
+      const liquidityValue = parseFloat(selectedPosition?.liquidity.replace(/[,$]/g, '') || '0');
+      const liquidityToRemove = (liquidityValue * percentage) / 100;
 
       if (liquidityToRemove <= 0) {
-        toast.error('No liquidity tokens to remove');
+        toast.error('No liquidity to remove');
         return;
       }
 
-      await removeLiquidity(liquidityToRemove);
+      if (!selectedPosition) {
+        toast.error('No position selected');
+        return;
+      }
+
+      // Get token addresses from the tokens config
+      const token0 = tokens.find(t => t.symbol === selectedPosition.token0);
+      const token1 = tokens.find(t => t.symbol === selectedPosition.token1);
+
+      if (!token0 || !token1) {
+        toast.error('Token addresses not found');
+        return;
+      }
+
+      // For LB, remove from the specific bin
+      const binIds = [selectedPosition.binId];
+      const amounts = [BigInt(Math.floor(liquidityToRemove * 1e18))];
+
+      await removeLiquidity(
+        selectedPosition.pairAddress,
+        token0.address,
+        token1.address,
+        binIds,
+        amounts
+      );
       toast.success('Removing liquidity from position...');
       setShowManageDialog(false);
     } catch (err: any) {
@@ -271,12 +247,20 @@ const PositionPage = () => {
               Manage your liquidity positions and collect fees
             </Typography>
           </Box>
-          <Button variant="contained" startIcon={<AddIcon />}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAddLiquidity(true)}>
             New Position
           </Button>
         </Box>
 
-        {mockPositions.length === 0 ? (
+        {positionsLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : positionsError ? (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            Failed to load positions: {positionsError}
+          </Alert>
+        ) : positions.length === 0 ? (
           <Card elevation={0} sx={{ textAlign: 'center', py: 6 }}>
             <CardContent>
               <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -285,14 +269,14 @@ const PositionPage = () => {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 Create your first position to start earning fees
               </Typography>
-              <Button variant="contained" startIcon={<AddIcon />}>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAddLiquidity(true)}>
                 Create Position
               </Button>
             </CardContent>
           </Card>
         ) : (
           <Grid container spacing={3}>
-            {mockPositions.map((position) => (
+            {positions.map((position: UserPosition) => (
               <Grid size={{ xs: 12, md: 6, lg: 4 }} key={position.id}>
                 <Card elevation={0} sx={{ height: '100%' }}>
                   <CardContent>
@@ -705,6 +689,13 @@ const PositionPage = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Add Liquidity Dialog */}
+        <AddLiquidityDialog
+          open={showAddLiquidity}
+          onClose={() => setShowAddLiquidity(false)}
+          selectedPool={null}
+        />
       </Container>
     </>
   );

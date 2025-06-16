@@ -1,4 +1,4 @@
-import { LB_FACTORY_V22_ADDRESS } from '@lb-xyz/sdk-v2'
+import { LB_FACTORY_V22_ADDRESS, jsonAbis } from '@lb-xyz/sdk-v2'
 import { useCallback, useEffect, useState } from 'react'
 import { useChainId } from 'wagmi'
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from '../lbSdkConfig'
@@ -46,15 +46,7 @@ export const useRealPoolData = () => {
 			// Step 1: Get total number of pairs from factory
 			const numberOfPairs = await publicClient.readContract({
 				address: factoryAddress as `0x${string}`,
-				abi: [
-					{
-						"inputs": [],
-						"name": "getNumberOfLBPairs",
-						"outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-						"stateMutability": "view",
-						"type": "function"
-					}
-				],
+				abi: jsonAbis.LBFactoryV21ABI,
 				functionName: 'getNumberOfLBPairs'
 			})
 
@@ -77,15 +69,7 @@ export const useRealPoolData = () => {
 				try {
 					const pairAddress = await publicClient.readContract({
 						address: factoryAddress as `0x${string}`,
-						abi: [
-							{
-								"inputs": [{ "internalType": "uint256", "name": "index", "type": "uint256" }],
-								"name": "getLBPairAtIndex",
-								"outputs": [{ "internalType": "address", "name": "lbPair", "type": "address" }],
-								"stateMutability": "view",
-								"type": "function"
-							}
-						],
+						abi: jsonAbis.LBFactoryV21ABI,
 						functionName: "getLBPairAtIndex",
 						args: [BigInt(i)]
 					})
@@ -109,41 +93,17 @@ export const useRealPoolData = () => {
 					const [tokenX, tokenY, binStep] = await Promise.all([
 						publicClient.readContract({
 							address: pairAddress as `0x${string}`,
-							abi: [
-								{
-									"inputs": [],
-									"name": "getTokenX",
-									"outputs": [{ "internalType": "contract IERC20", "name": "tokenX", "type": "address" }],
-									"stateMutability": "view",
-									"type": "function"
-								}
-							],
+							abi: jsonAbis.LBPairV21ABI,
 							functionName: 'getTokenX'
 						}),
 						publicClient.readContract({
 							address: pairAddress as `0x${string}`,
-							abi: [
-								{
-									"inputs": [],
-									"name": "getTokenY",
-									"outputs": [{ "internalType": "contract IERC20", "name": "tokenY", "type": "address" }],
-									"stateMutability": "view",
-									"type": "function"
-								}
-							],
+							abi: jsonAbis.LBPairV21ABI,
 							functionName: 'getTokenY'
 						}),
 						publicClient.readContract({
 							address: pairAddress as `0x${string}`,
-							abi: [
-								{
-									"inputs": [],
-									"name": "getBinStep",
-									"outputs": [{ "internalType": "uint16", "name": "", "type": "uint16" }],
-									"stateMutability": "view",
-									"type": "function"
-								}
-							],
+							abi: jsonAbis.LBPairV21ABI,
 							functionName: 'getBinStep'
 						})
 					])
@@ -177,18 +137,7 @@ export const useRealPoolData = () => {
 					try {
 						const reserves = await publicClient.readContract({
 							address: pairAddress as `0x${string}`,
-							abi: [
-								{
-									"inputs": [],
-									"name": "getReserves",
-									"outputs": [
-										{ "internalType": "uint128", "name": "reserveX", "type": "uint128" },
-										{ "internalType": "uint128", "name": "reserveY", "type": "uint128" }
-									],
-									"stateMutability": "view",
-									"type": "function"
-								}
-							],
+							abi: jsonAbis.LBPairV21ABI,
 							functionName: 'getReserves'
 						}) as [bigint, bigint]
 

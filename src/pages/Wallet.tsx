@@ -1,32 +1,40 @@
 import {
-  Container,
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  Grid,
-  Chip,
-  IconButton,
-  Divider,
-} from '@mui/material';
-import {
-  AccountBalanceWallet as WalletIcon,
+  Add as AddIcon,
   ContentCopy as CopyIcon,
   ExitToApp as DisconnectIcon,
+  Refresh as RefreshIcon,
   SwapHoriz as SwapIcon,
-  Add as AddIcon,
   TrendingUp as TrendingUpIcon,
+  AccountBalanceWallet as WalletIcon,
 } from '@mui/icons-material';
-import { useAccount, useDisconnect, useChainId } from 'wagmi';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Divider,
+  Grid,
+  IconButton,
+  Typography,
+} from '@mui/material';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import Navigation from '../components/Navigation';
 import { toast } from 'sonner';
+import { useAccount, useChainId, useDisconnect } from 'wagmi';
+import Navigation from '../components/Navigation';
+import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
 
 const WalletPage = () => {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
+
+  // Use real wallet data instead of mock data
+  const walletSummary = useWalletSummary();
+  const { tokenBalances, lpPositions, loading, error, refetch } = useWalletData();
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -171,50 +179,69 @@ const WalletPage = () => {
           <Grid size={{ xs: 12, md: 4 }}>
             <Card elevation={0}>
               <CardContent>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Wallet Overview
-                </Typography>
-                
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Total Portfolio Value
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" fontWeight={600}>
+                    Wallet Overview
                   </Typography>
-                  <Typography variant="h4" fontWeight={700} color="primary">
-                    $8,947.23
-                  </Typography>
-                  <Typography variant="body2" color="success.main">
-                    +12.5% (24h)
-                  </Typography>
+                  {!loading && (
+                    <IconButton size="small" onClick={refetch}>
+                      <RefreshIcon />
+                    </IconButton>
+                  )}
                 </Box>
 
-                <Divider sx={{ my: 2 }} />
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : error ? (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                  </Alert>
+                ) : (
+                  <>
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Total Portfolio Value
+                      </Typography>
+                      <Typography variant="h4" fontWeight={700} color="primary">
+                        {walletSummary.totalValue}
+                      </Typography>
+                      <Typography variant="body2" color="success.main">
+                        Real-time data
+                      </Typography>
+                    </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Tokens
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    $6,807.17
-                  </Typography>
-                </Box>
+                    <Divider sx={{ my: 2 }} />
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    LP Positions
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    $2,140.06
-                  </Typography>
-                </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Tokens ({walletSummary.tokenCount})
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>
+                        {walletSummary.tokensValue}
+                      </Typography>
+                    </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Unclaimed Fees
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600} color="success.main">
-                    $127.50
-                  </Typography>
-                </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        LP Positions ({walletSummary.positionCount})
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>
+                        {walletSummary.lpValue}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Unclaimed Fees
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600} color="success.main">
+                        {walletSummary.unclaimedFees}
+                      </Typography>
+                    </Box>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -224,31 +251,68 @@ const WalletPage = () => {
                 <Typography variant="h6" fontWeight={600} gutterBottom>
                   Recent Activity
                 </Typography>
-                
-                {[
-                  { type: 'Swap', tokens: 'ETH → USDC', amount: '1.5 ETH', time: '2h ago' },
-                  { type: 'Add LP', tokens: 'ETH/USDC', amount: '$500', time: '1d ago' },
-                  { type: 'Collect', tokens: 'Fees', amount: '$12.50', time: '3d ago' },
-                ].map((activity, index) => (
-                  <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Box>
-                      <Typography variant="body2" fontWeight={600}>
-                        {activity.type}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {activity.tokens}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="body2" fontWeight={600}>
-                        {activity.amount}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {activity.time}
-                      </Typography>
-                    </Box>
+
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                    <CircularProgress size={20} />
                   </Box>
-                ))}
+                ) : tokenBalances.length > 0 || lpPositions.length > 0 ? (
+                  <>
+                    {/* Show token balances as activity */}
+                    {tokenBalances.slice(0, 2).map((token) => (
+                      <Box key={token.symbol} sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>
+                            Token Balance
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {token.symbol}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {token.balanceFormatted} {token.symbol}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            ${token.value}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ))}
+
+                    {/* Show LP positions as activity */}
+                    {lpPositions.slice(0, 1).map((position) => (
+                      <Box key={position.id} sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>
+                            LP Position
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {position.token0}/{position.token1}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            ${position.value}
+                          </Typography>
+                          <Typography variant="body2" color={position.inRange ? 'success.main' : 'warning.main'}>
+                            {position.inRange ? 'In Range' : 'Out of Range'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ))}
+
+                    {tokenBalances.length === 0 && lpPositions.length === 0 && (
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                        No recent activity
+                      </Typography>
+                    )}
+                  </>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                    No activity found
+                  </Typography>
+                )}
               </CardContent>
             </Card>
           </Grid>

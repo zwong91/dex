@@ -1,45 +1,25 @@
 import { Close as CloseIcon } from '@mui/icons-material'
 import {
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Typography,
+	Avatar,
+	Box,
+	Button,
+	Card,
+	CardContent,
+	CircularProgress,
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	IconButton,
+	Typography,
 } from '@mui/material'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useDexOperations } from '../../dex'
-
-interface Position {
-	id: string
-	token0: string
-	token1: string
-	icon0: string
-	icon1: string
-	liquidity: string
-	value: string
-	apr: string
-	fees24h: string
-	feesTotal: string
-	range: {
-		min: string
-		max: string
-		current: string
-	}
-	inRange: boolean
-	performance: string
-}
+import { useDexOperations, type UserPosition } from '../../dex'
 
 interface ClaimsFeesDialogProps {
 	open: boolean
 	onClose: () => void
-	selectedPosition: Position | null
+	selectedPosition: UserPosition | null
 }
 
 const ClaimsFeesDialog = ({
@@ -60,8 +40,11 @@ const ClaimsFeesDialog = ({
 
 		try {
 			setIsPending(true)
-			const positionId = parseInt(selectedPosition.id)
-			await claimFees(positionId)
+
+			// For LB, claim fees for the specific bin in this position
+			const binIds = [selectedPosition.binId]
+
+			await claimFees(selectedPosition.pairAddress, binIds)
 			onClose()
 		} catch (err: any) {
 			console.error('Claims fees error:', err)

@@ -37,8 +37,7 @@ import {
   useReverseSwapQuote,
   useSwapQuote,
   useSwapWithSDK,
-  useTokenBalanceByAddress,
-  useTokenPrice
+  useTokenBalanceByAddress
 } from '../dex';
 
 import Navigation from "../components/Navigation";
@@ -67,7 +66,6 @@ const SwapPage = () => {
   // Web3 hooks
   const fromTokenBalance = useTokenBalanceByAddress(userWalletAddress, fromToken.address as `0x${string}`);
   const toTokenBalance = useTokenBalanceByAddress(userWalletAddress, toToken.address as `0x${string}`);
-  const tokenAPrice = useTokenPrice();
   const { swapWithSDK } = useSwapWithSDK();
 
   // Get swap quote for dynamic pricing
@@ -84,7 +82,7 @@ const SwapPage = () => {
     toToken.address as `0x${string}`
   );
 
-  const exchangeRate = tokenAPrice || 1.0;
+  const exchangeRate = 1.0; // We now get accurate rates from LB SDK swap quotes
   const networkFee = 0.0023;
 
   // Get effective balance for UI display

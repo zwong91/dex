@@ -101,7 +101,7 @@ const MainNavigation = () => {
                       key={network.id}
                       onClick={async () => {
                         try {
-                          await switchChain(config, { chainId: network.id as 1 | 56 | 97 | 137 | 42161 });
+                          await switchChain(config, { chainId: network.id });
                           setShowNetworkDropdown(false);
                         } catch (error) {
                           console.error("Failed to switch network:", error);

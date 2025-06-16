@@ -13,6 +13,11 @@ export {
 	getSDKTokenByAddress, getSDKTokensForChain, TOKEN_CONFIGS, wagmiChainIdToSDKChainId
 } from './lbSdkConfig'
 
+// DEX configuration and utilities
+export {
+	formatTokenAmount
+} from './dexConfig'
+
 // Viem client configuration
 export { createViemClient } from './viemClient'
 
@@ -25,8 +30,7 @@ export {
 
 // DEX operation hooks
 export {
-	useDexOperations, usePoolRatio,
-	useTokenPrice
+	useDexOperations
 } from './hooks/useDexOperations'
 
 // Swap quotes hooks
@@ -38,3 +42,16 @@ export {
 export {
 	useRealPoolData
 } from './hooks/usePoolData'
+
+// User liquidity position hooks
+export {
+	useUserLiquidityPositions
+} from './hooks/useUserPositions'
+
+// LB Pair data hooks
+export {
+	useAllLBPairs, useUserActiveBins, useUserLPBalances
+} from './hooks/useLBPairData'
+
+// Export UserPosition type
+export type { UserPosition } from './hooks/useUserPositions'

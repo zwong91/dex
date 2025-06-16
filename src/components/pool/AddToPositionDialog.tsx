@@ -1,16 +1,16 @@
 import { Add as AddIcon, Close as CloseIcon } from '@mui/icons-material'
 import {
-  Avatar,
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  IconButton,
-  TextField,
-  Typography,
+    Avatar,
+    Box,
+    Button,
+    CircularProgress,
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    Grid,
+    IconButton,
+    TextField,
+    Typography,
 } from '@mui/material'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
@@ -85,7 +85,23 @@ const AddToPositionDialog = ({
 				return
 			}
 
-			await addLiquidity(amt0, amt1)
+			// Use the position's pair data for adding to existing position
+			if (!selectedPosition) {
+				throw new Error('No position selected')
+			}
+
+			// Extract pair address from position (assuming it has pairAddress or id as pair address)
+			const pairAddress = (selectedPosition as any).pairAddress || selectedPosition.id
+			const tokenXAddress = (selectedPosition as any).tokenXAddress || ''
+			const tokenYAddress = (selectedPosition as any).tokenYAddress || ''
+
+			await addLiquidity(
+				pairAddress,
+				tokenXAddress,
+				tokenYAddress,
+				amt0,
+				amt1
+			)
 			onClose()
 		} catch (err: any) {
 			console.error('Add to position error:', err)

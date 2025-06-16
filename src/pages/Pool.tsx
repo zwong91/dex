@@ -28,6 +28,7 @@ import CreatePoolDialog from '../components/pool/CreatePoolDialog';
 import RemoveLiquidityDialog from '../components/pool/RemoveLiquidityDialog';
 import TokenSelectionDialog from '../components/pool/TokenSelectionDialog';
 import { useRealPoolData } from '../dex';
+import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUserPositions';
 import { getTokensForChain } from '../dex/networkTokens';
 
 interface PoolData {
@@ -45,26 +46,6 @@ interface PoolData {
   binStep?: number;
   tokenXAddress?: string;
   tokenYAddress?: string;
-}
-
-interface Position {
-  id: string;
-  token0: string;
-  token1: string;
-  icon0: string;
-  icon1: string;
-  liquidity: string;
-  value: string;
-  apr: string;
-  fees24h: string;
-  feesTotal: string;
-  range: {
-    min: string;
-    max: string;
-    current: string;
-  };
-  inRange: boolean;
-  performance: string;
 }
 
 const PoolPage = () => {
@@ -86,58 +67,19 @@ const PoolPage = () => {
   const [showClaimsFees, setShowClaimsFees] = useState(false);
   const [showAddToPosition, setShowAddToPosition] = useState(false);
   const [showRemovePosition, setShowRemovePosition] = useState(false);
-  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<UserPosition | null>(null);
 
   // Web3 hooks
   const chainId = useChainId();
 
   // Fetch real pool data from blockchain
-  const { pools: realPoolData, loading: poolsLoading, refetch: refetchPools } = useRealPoolData();
+  const { pools: realPoolData, loading: poolsLoading } = useRealPoolData();
+
+  // Get real user positions instead of mock data
+  const { positions: userPositions, loading: positionsLoading } = useUserLiquidityPositions(userWalletAddress);
 
   // Get tokens for current chain
   const tokens = getTokensForChain(chainId);
-
-  // Mock positions data - TODO: Replace with real position data from blockchain
-  const mockPositions: Position[] = [
-    {
-      id: '1',
-      token0: 'ETH',
-      token1: 'USDC',
-      icon0: '🔷',
-      icon1: '💵',
-      liquidity: '$2,450.00',
-      value: '$2,487.35',
-      apr: '12.5%',
-      fees24h: '$3.25',
-      feesTotal: '$127.50',
-      range: {
-        min: '1,750',
-        max: '2,100',
-        current: '1,851',
-      },
-      inRange: true,
-      performance: '+1.52%',
-    },
-    {
-      id: '2',
-      token0: 'DAI',
-      token1: 'USDC',
-      icon0: '🟡',
-      icon1: '💵',
-      liquidity: '$1,000.00',
-      value: '$1,012.80',
-      apr: '8.2%',
-      fees24h: '$1.15',
-      feesTotal: '$45.20',
-      range: {
-        min: '0.995',
-        max: '1.005',
-        current: '0.999',
-      },
-      inRange: true,
-      performance: '+1.28%',
-    },
-  ];
 
   // Initialize default token addresses when component mounts or chain changes
   useEffect(() => {
@@ -164,17 +106,17 @@ const PoolPage = () => {
     setShowAddLiquidity(true);
   };
 
-  const handleClaimsFees = (position: Position) => {
+  const handleClaimsFees = (position: UserPosition) => {
     setSelectedPosition(position);
     setShowClaimsFees(true);
   };
 
-  const handleAddToPosition = (position: Position) => {
+  const handleAddToPosition = (position: UserPosition) => {
     setSelectedPosition(position);
     setShowAddToPosition(true);
   };
 
-  const handleRemovePosition = (position: Position) => {
+  const handleRemovePosition = (position: UserPosition) => {
     setSelectedPosition(position);
     setShowRemovePosition(true);
   };
@@ -257,7 +199,7 @@ const PoolPage = () => {
     </Card>
   );
 
-  const renderPositionCard = (position: Position) => (
+  const renderPositionCard = (position: UserPosition) => (
     <Card key={position.id} elevation={0} sx={{ mb: 2 }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -321,7 +263,7 @@ const PoolPage = () => {
               Value
             </Typography>
             <Typography variant="body1" fontWeight={600} color="primary">
-              {position.value}
+              ${position.value}
             </Typography>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
@@ -329,7 +271,7 @@ const PoolPage = () => {
               24h Fees
             </Typography>
             <Typography variant="body1" fontWeight={600}>
-              {position.fees24h}
+              ${position.fees24h}
             </Typography>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
@@ -436,7 +378,11 @@ const PoolPage = () => {
                   </Button>
                 </CardContent>
               </Card>
-            ) : mockPositions.length === 0 ? (
+            ) : positionsLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : userPositions.length === 0 ? (
               <Card elevation={0} sx={{ textAlign: 'center', py: 6 }}>
                 <CardContent>
                   <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -445,13 +391,17 @@ const PoolPage = () => {
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                     Create your first liquidity position to start earning fees.
                   </Typography>
-                  <Button variant="contained" startIcon={<AddIcon />}>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => setCurrentTab(0)} // Switch to All Pools tab to add liquidity
+                  >
                     Add Liquidity
                   </Button>
                 </CardContent>
               </Card>
             ) : (
-              mockPositions.map(position => renderPositionCard(position))
+              userPositions.map(position => renderPositionCard(position))
             )}
           </Box>
         )}
