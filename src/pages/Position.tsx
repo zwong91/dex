@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Container,
   Box,
@@ -17,15 +17,12 @@ import {
   TextField,
   Tabs,
   Tab,
-  Divider,
   Alert,
   CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Remove as RemoveIcon,
-  TrendingUp as TrendingUpIcon,
-  Info as InfoIcon,
   Close as CloseIcon,
   Visibility as VisibilityIcon,
   Settings as SettingsIcon,
@@ -274,7 +271,7 @@ const PositionPage = () => {
         ) : (
           <Grid container spacing={3}>
             {mockPositions.map((position) => (
-              <Grid item xs={12} md={6} lg={4} key={position.id}>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={position.id}>
                 <Card elevation={0} sx={{ height: '100%' }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -311,7 +308,7 @@ const PositionPage = () => {
                     </Box>
 
                     <Grid container spacing={2} sx={{ mb: 3 }}>
-                      <Grid item xs={6}>
+                      <Grid size={6}>
                         <Typography variant="body2" color="text.secondary">
                           APR
                         </Typography>
@@ -319,7 +316,7 @@ const PositionPage = () => {
                           {position.apr}
                         </Typography>
                       </Grid>
-                      <Grid item xs={6}>
+                      <Grid size={6}>
                         <Typography variant="body2" color="text.secondary">
                           24h Fees
                         </Typography>
@@ -402,7 +399,7 @@ const PositionPage = () => {
                 <Card elevation={0} sx={{ mb: 3, backgroundColor: 'grey.50' }}>
                   <CardContent>
                     <Grid container spacing={3}>
-                      <Grid item xs={6} md={3}>
+                      <Grid size={{ xs: 6, md: 3 }}>
                         <Typography variant="body2" color="text.secondary">
                           Total Value
                         </Typography>
@@ -410,7 +407,7 @@ const PositionPage = () => {
                           {selectedPosition.value}
                         </Typography>
                       </Grid>
-                      <Grid item xs={6} md={3}>
+                      <Grid size={{ xs: 6, md: 3 }}>
                         <Typography variant="body2" color="text.secondary">
                           Unclaimed Fees
                         </Typography>
@@ -418,7 +415,7 @@ const PositionPage = () => {
                           {selectedPosition.feesTotal}
                         </Typography>
                       </Grid>
-                      <Grid item xs={6} md={3}>
+                      <Grid size={{ xs: 6, md: 3 }}>
                         <Typography variant="body2" color="text.secondary">
                           APR
                         </Typography>
@@ -426,7 +423,7 @@ const PositionPage = () => {
                           {selectedPosition.apr}
                         </Typography>
                       </Grid>
-                      <Grid item xs={6} md={3}>
+                      <Grid size={{ xs: 6, md: 3 }}>
                         <Typography variant="body2" color="text.secondary">
                           Status
                         </Typography>
@@ -446,7 +443,7 @@ const PositionPage = () => {
                   </Alert>
                 )}
 
-                <Tabs value={manageTab} onChange={(e, v) => setManageTab(v)} sx={{ mb: 3 }}>
+                <Tabs value={manageTab} onChange={(_e, v) => setManageTab(v)} sx={{ mb: 3 }}>
                   <Tab label="Add Liquidity" />
                   <Tab label="Remove Liquidity" />
                   <Tab label="Collect Fees" />
@@ -458,7 +455,7 @@ const PositionPage = () => {
                       Add Liquidity
                     </Typography>
                     <Grid container spacing={2}>
-                      <Grid item xs={6}>
+                      <Grid size={6}>
                         <TextField
                           fullWidth
                           label={`Amount of ${selectedPosition.token0}`}
@@ -482,7 +479,7 @@ const PositionPage = () => {
                           Balance: {tokenABalance || '0'}
                         </Typography>
                       </Grid>
-                      <Grid item xs={6}>
+                      <Grid size={6}>
                         <TextField
                           fullWidth
                           label={`Amount of ${selectedPosition.token1}`}

@@ -19,7 +19,6 @@ import {
   SwapHoriz as SwapIcon,
   Pool as PoolIcon,
   Dashboard as DashboardIcon,
-  Wallet as WalletIcon,
   Menu as MenuIcon,
 } from '@mui/icons-material';
 import { ConnectButton } from '@rainbow-me/rainbowkit';

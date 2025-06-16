@@ -28,18 +28,13 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Slider,
-  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Remove as RemoveIcon,
   TrendingUp as TrendingUpIcon,
-  Info as InfoIcon,
   Close as CloseIcon,
   Refresh as RefreshIcon,
-  Timeline as TimelineIcon,
-  ShowChart as ShowChartIcon,
-  BarChart as BarChartIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
 } from '@mui/icons-material';
 import { useAccount, useWriteContract } from 'wagmi';
@@ -189,7 +184,7 @@ const PoolPage = () => {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [numBins, setNumBins] = useState('149');
-  const [activeBinPrice, setActiveBinPrice] = useState('19.09372774');
+  const [activeBinPrice] = useState('19.09372774');
   
   // New Pool creation states
   const [newPoolToken0, setNewPoolToken0] = useState('');
@@ -220,7 +215,7 @@ const PoolPage = () => {
   const tokenBBalance = useTokenBBalance(address);
   const liquidityBalance = useLiquidityTokenBalance(address);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
 
@@ -340,7 +335,7 @@ const PoolPage = () => {
 
       // Calculate the amount of LP tokens to remove based on percentage
       const currentLiquidityBalance = liquidityBalance || 0;
-      const liquidityToRemove = (currentLiquidityBalance * percentage) / 100;
+      const liquidityToRemove = (Number(currentLiquidityBalance) * percentage) / 100;
 
       // Call the removeLiquidity contract function
       await removeLiquidity(liquidityToRemove);
@@ -387,10 +382,9 @@ const PoolPage = () => {
     }
   };
 
-  const userPools = poolData.filter(pool => pool.userLiquidity);
   const allPools = poolData;
 
-  const renderPoolCard = (pool: PoolData, showUserActions = false) => (
+  const renderPoolCard = (pool: PoolData) => (
     <Card key={pool.id} elevation={0} sx={{ mb: 2 }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -424,7 +418,7 @@ const PoolPage = () => {
         </Box>
 
         <Grid container spacing={2}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary">
               TVL
             </Typography>
@@ -432,7 +426,7 @@ const PoolPage = () => {
               {pool.tvl}
             </Typography>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary">
               24h Volume
             </Typography>
@@ -440,7 +434,7 @@ const PoolPage = () => {
               {pool.volume24h}
             </Typography>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary">
               24h Fees
             </Typography>
@@ -504,7 +498,7 @@ const PoolPage = () => {
         </Box>
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary">
               Liquidity
             </Typography>
@@ -512,7 +506,7 @@ const PoolPage = () => {
               {position.liquidity}
             </Typography>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary">
               Value
             </Typography>
@@ -520,7 +514,7 @@ const PoolPage = () => {
               {position.value}
             </Typography>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary">
               24h Fees
             </Typography>
@@ -528,7 +522,7 @@ const PoolPage = () => {
               {position.fees24h}
             </Typography>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary">
               Performance
             </Typography>
@@ -654,7 +648,7 @@ const PoolPage = () => {
                   </Box>
                   
                   <Grid container spacing={2} sx={{ mb: 4 }}>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <Card 
                         elevation={0} 
                         sx={{ 
@@ -691,7 +685,7 @@ const PoolPage = () => {
                         </CardContent>
                       </Card>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <Card 
                         elevation={0} 
                         sx={{ 
@@ -728,7 +722,7 @@ const PoolPage = () => {
                         </CardContent>
                       </Card>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={4}>
                       <Card 
                         elevation={0} 
                         sx={{ 
@@ -777,7 +771,7 @@ const PoolPage = () => {
                     <ToggleButtonGroup
                       value={priceMode}
                       exclusive
-                      onChange={(e, newValue) => newValue && setPriceMode(newValue)}
+                      onChange={(_e, newValue) => newValue && setPriceMode(newValue)}
                       size="small"
                     >
                       <ToggleButton value="range">By Range</ToggleButton>
@@ -794,7 +788,7 @@ const PoolPage = () => {
                     <Box sx={{ px: 2, mb: 3 }}>
                       <Slider
                         value={[parseFloat(minPrice || '17.7324'), parseFloat(maxPrice || '20.5594')]}
-                        onChange={(e, newValue) => {
+                        onChange={(_e, newValue) => {
                           if (Array.isArray(newValue)) {
                             setMinPrice(newValue[0].toString());
                             setMaxPrice(newValue[1].toString());
@@ -819,7 +813,7 @@ const PoolPage = () => {
                     </Box>
 
                     <Grid container spacing={3}>
-                      <Grid item xs={4}>
+                      <Grid size={4}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           Min Price:
                         </Typography>
@@ -830,7 +824,7 @@ const PoolPage = () => {
                           USDC per AVAX
                         </Typography>
                       </Grid>
-                      <Grid item xs={4}>
+                      <Grid size={4}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           Max Price:
                         </Typography>
@@ -841,7 +835,7 @@ const PoolPage = () => {
                           USDC per AVAX
                         </Typography>
                       </Grid>
-                      <Grid item xs={4}>
+                      <Grid size={4}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           Num Bins:
                         </Typography>
@@ -1071,7 +1065,7 @@ const PoolPage = () => {
                 </Box>
 
                 <Grid container spacing={2} sx={{ mb: 3 }}>
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <TextField
                       fullWidth
                       label={`Amount of ${selectedPosition.token0}`}
@@ -1095,7 +1089,7 @@ const PoolPage = () => {
                       Balance: {tokenABalance || '0'}
                     </Typography>
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <TextField
                       fullWidth
                       label={`Amount of ${selectedPosition.token1}`}
@@ -1345,7 +1339,7 @@ const PoolPage = () => {
               >
                 <Grid container spacing={1}>
                   {binStepOptions.map((option) => (
-                    <Grid item xs={3} key={option.value}>
+                    <Grid size={3} key={option.value}>
                       <Button
                         fullWidth
                         variant={selectedBinStep === option.value ? 'contained' : 'outlined'}
@@ -1425,7 +1419,7 @@ const PoolPage = () => {
               </Typography>
 
               <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     label={`Initial ${newPoolToken0 || 'AVAX'} Amount`}
@@ -1449,7 +1443,7 @@ const PoolPage = () => {
                     Balance: {tokenABalance || '0'}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     label={`Initial ${newPoolToken1 || 'BTC.b'} Amount`}

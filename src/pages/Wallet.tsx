@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   Container,
   Box,
@@ -7,7 +6,6 @@ import {
   Typography,
   Button,
   Grid,
-  Avatar,
   Chip,
   IconButton,
   Divider,
@@ -82,7 +80,7 @@ const WalletPage = () => {
 
         <Grid container spacing={3}>
           {/* Wallet Info */}
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Card elevation={0}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
@@ -134,7 +132,7 @@ const WalletPage = () => {
                   Quick Actions
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={6} sm={4}>
+                  <Grid size={{ xs: 6, sm: 4 }}>
                     <Button
                       fullWidth
                       variant="outlined"
@@ -144,7 +142,7 @@ const WalletPage = () => {
                       <Typography variant="body2">Swap Tokens</Typography>
                     </Button>
                   </Grid>
-                  <Grid item xs={6} sm={4}>
+                  <Grid size={{ xs: 6, sm: 4 }}>
                     <Button
                       fullWidth
                       variant="outlined"
@@ -154,7 +152,7 @@ const WalletPage = () => {
                       <Typography variant="body2">Add Liquidity</Typography>
                     </Button>
                   </Grid>
-                  <Grid item xs={6} sm={4}>
+                  <Grid size={{ xs: 6, sm: 4 }}>
                     <Button
                       fullWidth
                       variant="outlined"
@@ -170,7 +168,7 @@ const WalletPage = () => {
           </Grid>
 
           {/* Wallet Stats */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Card elevation={0}>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -14,11 +14,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   LinearProgress,
   IconButton,
-  useTheme,
-  useMediaQuery,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
@@ -29,11 +26,6 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useAccount } from 'wagmi';
-import {
-  useTokenABalance,
-  useTokenBBalance,
-  useLiquidityTokenBalance,
-} from '../utils/dexUtils';
 import Navigation from '../components/Navigation';
 
 interface TokenHolding {
@@ -115,14 +107,8 @@ const mockPositions: LiquidityPosition[] = [
 
 const PortfolioPage = () => {
   const { address } = useAccount();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(true);
   const [totalValue, setTotalValue] = useState('$0.00');
-
-  const tokenABalance = useTokenABalance(address);
-  const tokenBBalance = useTokenBBalance(address);
-  const liquidityTokenBalance = useLiquidityTokenBalance(address);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 1000);
@@ -191,7 +177,7 @@ const PortfolioPage = () => {
 
         <Grid container spacing={3}>
           {/* Token Holdings */}
-          <Grid item xs={12} lg={7}>
+          <Grid size={{ xs: 12, lg: 7 }}>
             <Card elevation={0} sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -303,9 +289,9 @@ const PortfolioPage = () => {
           </Grid>
 
           {/* Quick Stats */}
-          <Grid item xs={12} lg={5}>
+          <Grid size={{ xs: 12, lg: 5 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Card elevation={0}>
                   <CardContent sx={{ textAlign: 'center' }}>
                     <SwapIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
@@ -321,7 +307,7 @@ const PortfolioPage = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Card elevation={0}>
                   <CardContent sx={{ textAlign: 'center' }}>
                     <PoolIcon sx={{ fontSize: 48, color: 'secondary.main', mb: 1 }} />
@@ -337,7 +323,7 @@ const PortfolioPage = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Card elevation={0}>
                   <CardContent sx={{ textAlign: 'center' }}>
                     <TrendingUpIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />

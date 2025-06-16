@@ -617,7 +617,6 @@ export const useSwapQuote = (
 	});
 
 	const chainId = useChainId();
-	const network = getNetworkById(chainId);
 
 	useEffect(() => {
 		const getQuote = async () => {

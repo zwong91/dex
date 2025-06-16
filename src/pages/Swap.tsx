@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import {
   useTokenABalance,
@@ -74,7 +74,7 @@ const SwapPage = () => {
 
   // Get swap quote for dynamic pricing
   const swapQuote = useSwapQuote(
-    lastEditedField === 'from' ? parseFloat(fromAmount) || 0 : 0,
+    lastEditedField === 'from' ? (parseFloat(fromAmount) || 0).toString() : "0",
     fromToken.address,
     toToken.address
   );
@@ -82,12 +82,11 @@ const SwapPage = () => {
   // Get reverse swap quote when user edits output amount
   const reverseSwapQuote = useReverseSwapQuote(
     lastEditedField === 'to' ? parseFloat(toAmount) || 0 : 0,
-    fromToken.address,
-    toToken.address
+    fromToken.address as `0x${string}`,
+    toToken.address as `0x${string}`
   );
 
   const exchangeRate = tokenAPrice || 1850.5;
-  const priceImpact = 0.05;
   const networkFee = 0.0023;
 
   // Get effective balance for UI display

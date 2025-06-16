@@ -2,7 +2,7 @@
   "name": "entysquare",
   "private": true,
   "version": "1.0.0",
-  "description": "EntySquare - Multi-chain Decentralized Exchange Platform",
+  "description": "EntySquare - Modern Multi-chain Decentralized Exchange Platform with Concentrated Liquidity",
   "type": "module",
   "scripts": {
     "dev": "vite",
