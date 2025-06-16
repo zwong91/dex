@@ -30,8 +30,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAccount, useChainId, useWriteContract } from 'wagmi';
 import Navigation from '../components/Navigation';
-import { useDexOperations, useLiquidityTokenBalance, useTokenBalanceByAddress } from '../utils/dexUtils';
-import { getTokensForChain } from '../utils/networkTokens';
+import { useDexOperations, useLiquidityTokenBalance, useTokenBalanceByAddress } from '../dex';
+import { getTokensForChain } from '../dex/networkTokens';
 
 interface Position {
   id: string;

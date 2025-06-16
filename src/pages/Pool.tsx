@@ -27,8 +27,8 @@ import ClaimsFeesDialog from '../components/pool/ClaimsFeesDialog';
 import CreatePoolDialog from '../components/pool/CreatePoolDialog';
 import RemoveLiquidityDialog from '../components/pool/RemoveLiquidityDialog';
 import TokenSelectionDialog from '../components/pool/TokenSelectionDialog';
-import { useRealPoolData } from '../utils/dexUtils';
-import { getTokensForChain } from '../utils/networkTokens';
+import { useRealPoolData } from '../dex';
+import { getTokensForChain } from '../dex/networkTokens';
 
 interface PoolData {
   id: string;

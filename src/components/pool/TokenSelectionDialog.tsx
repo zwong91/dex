@@ -12,7 +12,7 @@ import {
   ListItemButton,
   ListItemText
 } from '@mui/material'
-import { getTokensForChain } from '../../utils/networkTokens'
+import { getTokensForChain } from '../../dex/networkTokens'
 
 interface TokenSelectionDialogProps {
 	open: boolean

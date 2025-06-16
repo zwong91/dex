@@ -21,8 +21,8 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
-import { useDexOperations } from '../../utils/dexUtils'
-import { getTokensForChain } from '../../utils/networkTokens'
+import { useDexOperations } from '../../dex'
+import { getTokensForChain } from '../../dex/networkTokens'
 
 interface CreatePoolDialogProps {
 	open: boolean

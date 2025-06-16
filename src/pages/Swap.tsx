@@ -34,16 +34,16 @@ import {
 import { useEffect, useState } from "react";
 import { useAccount, useChainId } from "wagmi";
 import {
-  useDexOperations,
   useReverseSwapQuote,
   useSwapQuote,
+  useSwapWithSDK,
   useTokenBalanceByAddress,
   useTokenPrice
-} from '../utils/dexUtils';
+} from '../dex';
 
 import Navigation from "../components/Navigation";
-import { getTokensForChain } from "../utils/networkTokens";
-import { addTokenToWallet, BSC_TESTNET_TOKENS } from "../utils/walletUtils";
+import { getTokensForChain } from "../dex/networkTokens";
+import { addTokenToWallet, BSC_TESTNET_TOKENS } from "../dex/walletUtils";
 
 const SwapPage = () => {
   const { address: userWalletAddress } = useAccount();
@@ -68,7 +68,7 @@ const SwapPage = () => {
   const fromTokenBalance = useTokenBalanceByAddress(userWalletAddress, fromToken.address as `0x${string}`);
   const toTokenBalance = useTokenBalanceByAddress(userWalletAddress, toToken.address as `0x${string}`);
   const tokenAPrice = useTokenPrice();
-  const { swapWithSDK } = useDexOperations();
+  const { swapWithSDK } = useSwapWithSDK();
 
   // Get swap quote for dynamic pricing
   const swapQuote = useSwapQuote(

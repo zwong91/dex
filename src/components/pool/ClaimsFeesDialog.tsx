@@ -14,7 +14,7 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useDexOperations } from '../../utils/dexUtils'
+import { useDexOperations } from '../../dex'
 
 interface Position {
 	id: string

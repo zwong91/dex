@@ -1,27 +1,27 @@
+import { CssBaseline } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
 import theme from './theme';
 
-import "./index.css";
 import {
   createBrowserRouter,
   Navigate,
   RouterProvider,
 } from "react-router-dom";
 import { Toaster } from "sonner";
+import "./index.css";
 
-import WalletPage from "./pages/Wallet";
-import SwapPage from "./pages/Swap";
 import PoolPage from "./pages/Pool";
 import PortfolioPage from "./pages/Portfolio";
+import SwapPage from "./pages/Swap";
+import WalletPage from "./pages/Wallet";
 
-import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { config } from "./utils/wagmiConfig.ts";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@rainbow-me/rainbowkit/styles.css";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { WagmiProvider } from "wagmi";
+import { config } from "./dex/wagmiConfig.ts";
 
 const router = createBrowserRouter([
   {

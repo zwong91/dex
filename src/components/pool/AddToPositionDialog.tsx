@@ -14,8 +14,8 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useDexOperations, useTokenBalanceByAddress } from '../../utils/dexUtils'
-import { getTokensForChain } from '../../utils/networkTokens'
+import { useDexOperations, useTokenBalanceByAddress } from '../../dex'
+import { getTokensForChain } from '../../dex/networkTokens'
 
 interface Position {
 	id: string
