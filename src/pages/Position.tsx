@@ -1,36 +1,36 @@
-import { useState } from 'react';
 import {
-  Container,
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  Grid,
-  Chip,
-  Avatar,
-  LinearProgress,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
-  Tabs,
-  Tab,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Remove as RemoveIcon,
-  Close as CloseIcon,
-  Visibility as VisibilityIcon,
-  Settings as SettingsIcon,
+    Add as AddIcon,
+    Close as CloseIcon,
+    Remove as RemoveIcon,
+    Settings as SettingsIcon,
+    Visibility as VisibilityIcon,
 } from '@mui/icons-material';
-import { useAccount, useWriteContract } from 'wagmi';
+import {
+    Alert,
+    Avatar,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Container,
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    Grid,
+    IconButton,
+    LinearProgress,
+    Tab,
+    Tabs,
+    TextField,
+    Typography,
+} from '@mui/material';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { useAccount, useWriteContract } from 'wagmi';
 import Navigation from '../components/Navigation';
-import { useDexOperations, useTokenABalance, useTokenBBalance, useLiquidityTokenBalance } from '../utils/dexUtils';
+import { useDexOperations, useLiquidityTokenBalance, useTokenBalance } from '../utils/dexUtils';
 
 interface Position {
   id: string;
@@ -120,12 +120,12 @@ const PositionPage = () => {
   const [removeAmount, setRemoveAmount] = useState('25');
   const [addAmount0, setAddAmount0] = useState('');
   const [addAmount1, setAddAmount1] = useState('');
-  
+
   // Web3 hooks
   const { addLiquidity, removeLiquidity } = useDexOperations();
   const { isSuccess, error, isPending } = useWriteContract();
-  const tokenABalance = useTokenABalance(address);
-  const tokenBBalance = useTokenBBalance(address);
+  const tokenXBalance = useTokenBalance(address);
+  const tokenYBalance = useTokenBalance(address);
   const liquidityBalance = useLiquidityTokenBalance(address);
 
   const handleManagePosition = (position: Position) => {
@@ -149,7 +149,7 @@ const PositionPage = () => {
     try {
       const amt0 = parseFloat(addAmount0);
       const amt1 = parseFloat(addAmount1);
-      
+
       if (amt0 <= 0 || amt1 <= 0) {
         toast.error('Please enter valid amounts');
         return;
@@ -184,7 +184,7 @@ const PositionPage = () => {
 
       // Calculate actual liquidity tokens to remove based on percentage
       const liquidityToRemove = (parseFloat(liquidityBalance || '0') * percentage) / 100;
-      
+
       if (liquidityToRemove <= 0) {
         toast.error('No liquidity tokens to remove');
         return;
@@ -467,7 +467,7 @@ const PositionPage = () => {
                             endAdornment: (
                               <Button
                                 size="small"
-                                onClick={() => setAddAmount0(tokenABalance?.toString() || "0")}
+                                onClick={() => setAddAmount0(tokenXBalance?.toString() || "0")}
                                 sx={{ textTransform: 'none' }}
                               >
                                 Max
@@ -476,7 +476,7 @@ const PositionPage = () => {
                           }}
                         />
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Balance: {tokenABalance || '0'}
+                          Balance: {tokenXBalance || '0'}
                         </Typography>
                       </Grid>
                       <Grid size={6}>
@@ -491,7 +491,7 @@ const PositionPage = () => {
                             endAdornment: (
                               <Button
                                 size="small"
-                                onClick={() => setAddAmount1(tokenBBalance?.toString() || "0")}
+                                onClick={() => setAddAmount1(tokenYBalance?.toString() || "0")}
                                 sx={{ textTransform: 'none' }}
                               >
                                 Max
@@ -500,20 +500,20 @@ const PositionPage = () => {
                           }}
                         />
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Balance: {tokenBBalance || '0'}
+                          Balance: {tokenYBalance || '0'}
                         </Typography>
                       </Grid>
                     </Grid>
-                    <Button 
-                      variant="contained" 
-                      fullWidth 
+                    <Button
+                      variant="contained"
+                      fullWidth
                       sx={{ mt: 2 }}
                       disabled={!addAmount0 || !addAmount1 || isPending || !address}
                       onClick={handleAddLiquidity}
                       startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
                     >
-                      {!address ? 'Connect Wallet' : 
-                       isPending ? 'Adding Liquidity...' : 
+                      {!address ? 'Connect Wallet' :
+                       isPending ? 'Adding Liquidity...' :
                        'Add Liquidity'}
                     </Button>
                   </Box>
@@ -551,15 +551,15 @@ const PositionPage = () => {
                         Your LP Balance: {liquidityBalance || '0'} tokens
                       </Typography>
                     </Box>
-                    <Button 
-                      variant="contained" 
+                    <Button
+                      variant="contained"
                       fullWidth
                       disabled={!removeAmount || isPending || !address}
                       onClick={handleRemoveLiquidity}
                       startIcon={isPending ? <CircularProgress size={20} /> : <RemoveIcon />}
                     >
-                      {!address ? 'Connect Wallet' : 
-                       isPending ? 'Removing Liquidity...' : 
+                      {!address ? 'Connect Wallet' :
+                       isPending ? 'Removing Liquidity...' :
                        'Remove Liquidity'}
                     </Button>
                   </Box>
@@ -580,8 +580,8 @@ const PositionPage = () => {
                         </Typography>
                       </CardContent>
                     </Card>
-                    <Button 
-                      variant="contained" 
+                    <Button
+                      variant="contained"
                       fullWidth
                       disabled={!address}
                       onClick={handleCollectFees}

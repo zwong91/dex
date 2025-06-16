@@ -1,46 +1,46 @@
-import React, { useState } from 'react';
 import {
-  Container,
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  Tabs,
-  Tab,
-  TextField,
-  Grid,
-  Chip,
-  LinearProgress,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  ListItemAvatar,
-  Avatar,
-  Divider,
-  Alert,
-  CircularProgress,
-  ToggleButton,
-  ToggleButtonGroup,
-  Slider,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Remove as RemoveIcon,
-  TrendingUp as TrendingUpIcon,
-  Close as CloseIcon,
-  Refresh as RefreshIcon,
-  KeyboardArrowDown as KeyboardArrowDownIcon,
+    Add as AddIcon,
+    Close as CloseIcon,
+    KeyboardArrowDown as KeyboardArrowDownIcon,
+    Refresh as RefreshIcon,
+    Remove as RemoveIcon,
+    TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
-import { useAccount, useWriteContract } from 'wagmi';
+import {
+    Alert,
+    Avatar,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Container,
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    Divider,
+    Grid,
+    IconButton,
+    LinearProgress,
+    List,
+    ListItem,
+    ListItemAvatar,
+    ListItemButton,
+    ListItemText,
+    Slider,
+    Tab,
+    Tabs,
+    TextField,
+    ToggleButton,
+    ToggleButtonGroup,
+    Typography,
+} from '@mui/material';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
+import { useAccount, useWriteContract } from 'wagmi';
 import Navigation from '../components/Navigation';
-import { useDexOperations, useTokenABalance, useTokenBBalance, useLiquidityTokenBalance } from '../utils/dexUtils';
+import { useDexOperations, useLiquidityTokenBalance, useTokenBalance } from '../utils/dexUtils';
 
 const tokens = [
   { symbol: 'AVAX', name: 'Avalanche', address: '0x...', icon: '🔴' },
@@ -177,7 +177,7 @@ const PoolPage = () => {
   const [selectedPool, setSelectedPool] = useState<PoolData | null>(null);
   const [amount0, setAmount0] = useState('');
   const [amount1, setAmount1] = useState('');
-  
+
   // Liquidity strategy states
   const [liquidityStrategy, setLiquidityStrategy] = useState<'spot' | 'curve' | 'bid-ask'>('spot');
   const [priceMode, setPriceMode] = useState<'range' | 'radius'>('range');
@@ -185,7 +185,7 @@ const PoolPage = () => {
   const [maxPrice, setMaxPrice] = useState('');
   const [numBins, setNumBins] = useState('149');
   const [activeBinPrice] = useState('19.09372774');
-  
+
   // New Pool creation states
   const [newPoolToken0, setNewPoolToken0] = useState('');
   const [newPoolToken1, setNewPoolToken1] = useState('');
@@ -198,7 +198,7 @@ const PoolPage = () => {
   const [currentPrice, setCurrentPrice] = useState('1 AVAX = 0.018024825 BTC.b');
   const [isTokenSelectOpen, setIsTokenSelectOpen] = useState(false);
   const [selectingPoolToken, setSelectingPoolToken] = useState<'token' | 'quote'>('token');
-  
+
   // Position management states
   const [showClaimsFees, setShowClaimsFees] = useState(false);
   const [showAddToPosition, setShowAddToPosition] = useState(false);
@@ -207,12 +207,12 @@ const PoolPage = () => {
   const [addAmount0, setAddAmount0] = useState('');
   const [addAmount1, setAddAmount1] = useState('');
   const [removePercentage, setRemovePercentage] = useState('25');
-  
+
   // Web3 hooks
   const { addLiquidity, claimFees, removeLiquidity } = useDexOperations();
   const { isSuccess, error, isPending } = useWriteContract();
-  const tokenABalance = useTokenABalance(address);
-  const tokenBBalance = useTokenBBalance(address);
+  const tokenXBalance = useTokenBalance(address);
+  const tokenYBalance = useTokenBalance(address);
   const liquidityBalance = useLiquidityTokenBalance(address);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -246,7 +246,7 @@ const PoolPage = () => {
     try {
       const amt0 = parseFloat(amount0);
       const amt1 = parseFloat(amount1);
-      
+
       if (amt0 <= 0 || amt1 <= 0) {
         toast.error('Please enter valid amounts');
         return;
@@ -299,7 +299,7 @@ const PoolPage = () => {
     try {
       const amt0 = parseFloat(addAmount0);
       const amt1 = parseFloat(addAmount1);
-      
+
       if (amt0 <= 0 || amt1 <= 0) {
         return;
       }
@@ -328,7 +328,7 @@ const PoolPage = () => {
 
     try {
       const percentage = parseFloat(removePercentage);
-      
+
       if (percentage <= 0 || percentage > 100) {
         return;
       }
@@ -357,7 +357,7 @@ const PoolPage = () => {
     try {
       const amt0 = parseFloat(newPoolInitialAmount0);
       const amt1 = parseFloat(newPoolInitialAmount1);
-      
+
       if (amt0 <= 0 || amt1 <= 0) {
         return;
       }
@@ -366,7 +366,7 @@ const PoolPage = () => {
       // For now, we'll simulate with addLiquidity as initial liquidity
       await addLiquidity(amt0, amt1);
       setShowAddNewPool(false);
-      
+
       // Reset form
       setNewPoolToken0('');
       setNewPoolToken1('');
@@ -470,25 +470,25 @@ const PoolPage = () => {
             />
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button 
-              variant="outlined" 
-              size="small" 
+            <Button
+              variant="outlined"
+              size="small"
               startIcon={<AddIcon />}
               onClick={() => handleAddToPosition(position)}
             >
               Add
             </Button>
-            <Button 
-              variant="outlined" 
-              size="small" 
+            <Button
+              variant="outlined"
+              size="small"
               startIcon={<RemoveIcon />}
               onClick={() => handleRemovePosition(position)}
             >
               Remove
             </Button>
-            <Button 
-              variant="contained" 
-              size="small" 
+            <Button
+              variant="contained"
+              size="small"
               color="success"
               onClick={() => handleClaimsFees(position)}
             >
@@ -526,8 +526,8 @@ const PoolPage = () => {
             <Typography variant="body2" color="text.secondary">
               Performance
             </Typography>
-            <Typography 
-              variant="body1" 
+            <Typography
+              variant="body1"
               fontWeight={600}
               color={position.performance.startsWith('+') ? 'success.main' : 'error.main'}
             >
@@ -540,9 +540,9 @@ const PoolPage = () => {
           <Typography variant="body2" color="text.secondary">
             Price Range: {position.range.min} - {position.range.max} (Current: {position.range.current})
           </Typography>
-          <LinearProgress 
-            variant="determinate" 
-            value={75} 
+          <LinearProgress
+            variant="determinate"
+            value={75}
             sx={{ width: 100, height: 6, borderRadius: 3 }}
           />
         </Box>
@@ -646,12 +646,12 @@ const PoolPage = () => {
                       Choose Liquidity Shape
                     </Typography>
                   </Box>
-                  
+
                   <Grid container spacing={2} sx={{ mb: 4 }}>
                     <Grid size={4}>
-                      <Card 
-                        elevation={0} 
-                        sx={{ 
+                      <Card
+                        elevation={0}
+                        sx={{
                           cursor: 'pointer',
                           border: 2,
                           borderColor: liquidityStrategy === 'spot' ? '#FF6B35' : 'rgba(255, 255, 255, 0.1)',
@@ -673,7 +673,7 @@ const PoolPage = () => {
                                   height: height,
                                   borderRadius: '2px 2px 0 0',
                                   background: liquidityStrategy === 'spot' && index < 6
-                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)' 
+                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)'
                                     : '#4A5568'
                                 }}
                               />
@@ -686,9 +686,9 @@ const PoolPage = () => {
                       </Card>
                     </Grid>
                     <Grid size={4}>
-                      <Card 
-                        elevation={0} 
-                        sx={{ 
+                      <Card
+                        elevation={0}
+                        sx={{
                           cursor: 'pointer',
                           border: 2,
                           borderColor: liquidityStrategy === 'curve' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.1)',
@@ -710,7 +710,7 @@ const PoolPage = () => {
                                   height: height,
                                   borderRadius: '2px 2px 0 0',
                                   background: liquidityStrategy === 'curve' && index < 6
-                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)' 
+                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)'
                                     : '#4A5568'
                                 }}
                               />
@@ -723,9 +723,9 @@ const PoolPage = () => {
                       </Card>
                     </Grid>
                     <Grid size={4}>
-                      <Card 
-                        elevation={0} 
-                        sx={{ 
+                      <Card
+                        elevation={0}
+                        sx={{
                           cursor: 'pointer',
                           border: 2,
                           borderColor: liquidityStrategy === 'bid-ask' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.1)',
@@ -747,7 +747,7 @@ const PoolPage = () => {
                                   height: height,
                                   borderRadius: '2px 2px 0 0',
                                   background: liquidityStrategy === 'bid-ask' && index < 6
-                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)' 
+                                    ? 'linear-gradient(to top, #00D9FF, #7B68EE)'
                                     : '#4A5568'
                                 }}
                               />
@@ -783,7 +783,7 @@ const PoolPage = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       Active Bin: {activeBinPrice} USDC per AVAX
                     </Typography>
-                    
+
                     {/* Price Range Slider */}
                     <Box sx={{ px: 2, mb: 3 }}>
                       <Slider
@@ -887,7 +887,7 @@ const PoolPage = () => {
                       endAdornment: (
                         <Button
                           size="small"
-                          onClick={() => setAmount0(tokenABalance?.toString() || "0")}
+                          onClick={() => setAmount0(tokenXBalance?.toString() || "0")}
                           sx={{ textTransform: 'none' }}
                         >
                           Max
@@ -896,7 +896,7 @@ const PoolPage = () => {
                     }}
                   />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Balance: {tokenABalance || '0'} {selectedPool.token0}
+                    Balance: {tokenXBalance || '0'} {selectedPool.token0}
                   </Typography>
                 </Box>
 
@@ -914,7 +914,7 @@ const PoolPage = () => {
                       endAdornment: (
                         <Button
                           size="small"
-                          onClick={() => setAmount1(tokenBBalance?.toString() || "0")}
+                          onClick={() => setAmount1(tokenYBalance?.toString() || "0")}
                           sx={{ textTransform: 'none' }}
                         >
                           Max
@@ -923,7 +923,7 @@ const PoolPage = () => {
                     }}
                   />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Balance: {tokenBBalance || '0'} {selectedPool.token1}
+                    Balance: {tokenYBalance || '0'} {selectedPool.token1}
                   </Typography>
                 </Box>
 
@@ -955,8 +955,8 @@ const PoolPage = () => {
                   onClick={handleAddLiquiditySubmit}
                   startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
                 >
-                  {!address ? 'Connect Wallet' : 
-                   isPending ? 'Adding Liquidity...' : 
+                  {!address ? 'Connect Wallet' :
+                   isPending ? 'Adding Liquidity...' :
                    'Add Liquidity'}
                 </Button>
 
@@ -1027,8 +1027,8 @@ const PoolPage = () => {
                   color="success"
                   startIcon={isPending ? <CircularProgress size={20} /> : null}
                 >
-                  {!address ? 'Connect Wallet' : 
-                   isPending ? 'Claiming Fees...' : 
+                  {!address ? 'Connect Wallet' :
+                   isPending ? 'Claiming Fees...' :
                    'Claims Fees'}
                 </Button>
               </Box>
@@ -1077,7 +1077,7 @@ const PoolPage = () => {
                         endAdornment: (
                           <Button
                             size="small"
-                            onClick={() => setAddAmount0(tokenABalance?.toString() || "0")}
+                            onClick={() => setAddAmount0(tokenXBalance?.toString() || "0")}
                             sx={{ textTransform: 'none' }}
                           >
                             Max
@@ -1086,7 +1086,7 @@ const PoolPage = () => {
                       }}
                     />
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      Balance: {tokenABalance || '0'}
+                      Balance: {tokenXBalance || '0'}
                     </Typography>
                   </Grid>
                   <Grid size={6}>
@@ -1101,7 +1101,7 @@ const PoolPage = () => {
                         endAdornment: (
                           <Button
                             size="small"
-                            onClick={() => setAddAmount1(tokenBBalance?.toString() || "0")}
+                            onClick={() => setAddAmount1(tokenYBalance?.toString() || "0")}
                             sx={{ textTransform: 'none' }}
                           >
                             Max
@@ -1110,7 +1110,7 @@ const PoolPage = () => {
                       }}
                     />
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      Balance: {tokenBBalance || '0'}
+                      Balance: {tokenYBalance || '0'}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -1123,8 +1123,8 @@ const PoolPage = () => {
                   onClick={handleAddToPositionSubmit}
                   startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
                 >
-                  {!address ? 'Connect Wallet' : 
-                   isPending ? 'Adding Liquidity...' : 
+                  {!address ? 'Connect Wallet' :
+                   isPending ? 'Adding Liquidity...' :
                    'Add Liquidity'}
                 </Button>
               </Box>
@@ -1192,7 +1192,7 @@ const PoolPage = () => {
                     value={removePercentage}
                     onChange={(e) => setRemovePercentage(e.target.value)}
                     type="number"
-                    InputProps={{ 
+                    InputProps={{
                       endAdornment: '%',
                       inputProps: { min: 1, max: 100 }
                     }}
@@ -1211,8 +1211,8 @@ const PoolPage = () => {
                   startIcon={isPending ? <CircularProgress size={20} /> : <RemoveIcon />}
                   color="warning"
                 >
-                  {!address ? 'Connect Wallet' : 
-                   isPending ? 'Removing Liquidity...' : 
+                  {!address ? 'Connect Wallet' :
+                   isPending ? 'Removing Liquidity...' :
                    'Remove Liquidity'}
                 </Button>
               </Box>
@@ -1243,7 +1243,7 @@ const PoolPage = () => {
               <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
                 Select Token
               </Typography>
-              
+
               <Button
                 fullWidth
                 variant="outlined"
@@ -1280,7 +1280,7 @@ const PoolPage = () => {
               <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
                 Select Quote Asset
               </Typography>
-              
+
               <Button
                 fullWidth
                 variant="outlined"
@@ -1327,7 +1327,7 @@ const PoolPage = () => {
                   Select Bin Step
                 </Typography>
               </Box>
-              
+
               <Box
                 sx={{
                   border: '1px solid #e0e0e0',
@@ -1371,7 +1371,7 @@ const PoolPage = () => {
               <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
                 Enter Active Price
               </Typography>
-              
+
               <Box sx={{ mb: 3 }}>
                 <Box
                   sx={{
@@ -1386,7 +1386,7 @@ const PoolPage = () => {
                     Current price: {currentPrice}
                   </Typography>
                 </Box>
-                
+
                 <TextField
                   fullWidth
                   value={activePrice}
@@ -1413,7 +1413,7 @@ const PoolPage = () => {
 
               {/* Initial Liquidity */}
               <Divider sx={{ my: 3 }} />
-              
+
               <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
                 Initial Liquidity
               </Typography>
@@ -1431,7 +1431,7 @@ const PoolPage = () => {
                       endAdornment: (
                         <Button
                           size="small"
-                          onClick={() => setNewPoolInitialAmount0(tokenABalance?.toString() || "0")}
+                          onClick={() => setNewPoolInitialAmount0(tokenXBalance?.toString() || "0")}
                           sx={{ textTransform: 'none' }}
                         >
                           Max
@@ -1440,7 +1440,7 @@ const PoolPage = () => {
                     }}
                   />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Balance: {tokenABalance || '0'}
+                    Balance: {tokenXBalance || '0'}
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -1455,7 +1455,7 @@ const PoolPage = () => {
                       endAdornment: (
                         <Button
                           size="small"
-                          onClick={() => setNewPoolInitialAmount1(tokenBBalance?.toString() || "0")}
+                          onClick={() => setNewPoolInitialAmount1(tokenYBalance?.toString() || "0")}
                           sx={{ textTransform: 'none' }}
                         >
                           Max
@@ -1464,7 +1464,7 @@ const PoolPage = () => {
                     }}
                   />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Balance: {tokenBBalance || '0'}
+                    Balance: {tokenYBalance || '0'}
                   </Typography>
                 </Grid>
               </Grid>
@@ -1482,8 +1482,8 @@ const PoolPage = () => {
                   fontWeight: 600
                 }}
               >
-                {!address ? 'Connect Wallet' : 
-                 isPending ? 'Creating Pool...' : 
+                {!address ? 'Connect Wallet' :
+                 isPending ? 'Creating Pool...' :
                  'Create Pool'}
               </Button>
             </Box>

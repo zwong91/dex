@@ -1,53 +1,72 @@
-import { useState, useEffect } from "react";
-import { useAccount } from "wagmi";
 import {
-  useTokenABalance,
-  useTokenBBalance,
-  useTokenAPrice,
-  useDexOperations,
-  useSwapQuote,
-  useReverseSwapQuote,
-} from '../utils/dexUtils';
-import {
-  Container,
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
-  IconButton,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  ListItemAvatar,
-  Avatar,
-  InputAdornment,
-  Collapse,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
-import {
-  SwapVert as SwapIcon,
-  Settings as SettingsIcon,
   KeyboardArrowDown as ArrowDownIcon,
-  Info as InfoIcon,
   CheckCircle as CheckIcon,
   Close as CloseIcon,
+  Info as InfoIcon,
+  Settings as SettingsIcon,
+  SwapVert as SwapIcon,
 } from '@mui/icons-material';
+import {
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Collapse,
+  Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemButton,
+  ListItemText,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { useEffect, useState } from "react";
+import { useAccount } from "wagmi";
+import {
+  useDexOperations,
+  useReverseSwapQuote,
+  useSwapQuote,
+  useTokenBalance,
+  useTokenPrice
+} from '../utils/dexUtils';
 
 import Navigation from "../components/Navigation";
 
 const tokens = [
-  { symbol: 'ETH', name: 'Ethereum', address: '0xETH', icon: '🔷' },
-  { symbol: 'USDC', name: 'USD Coin', address: '0xUSDC', icon: '💵' },
-  { symbol: 'USDT', name: 'Tether', address: '0xUSDT', icon: '💰' },
-  { symbol: 'DAI', name: 'DAI', address: '0xDAI', icon: '🟡' },
+  {
+    symbol: 'ETH',
+    name: 'Ethereum',
+    address: '0x8babbb98678facc7342735486c851abd7a0d17ca',
+    icon: 'https://cryptologos.cc/logos/ethereum-eth-logo.png'
+  },
+  {
+    symbol: 'USDC',
+    name: 'USD Coin',
+    address: '0x64544969ed7EBf5f083679233325356EbE738930',
+    icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+  },
+  {
+    symbol: 'USDT',
+    name: 'Tether',
+    address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
+    icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png'
+  },
+  {
+    symbol: 'WBNB',
+    name: 'Wrapped BNB',
+    address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd',
+    icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png'
+  },
 ];
 
 const SwapPage = () => {
@@ -67,10 +86,10 @@ const SwapPage = () => {
   const [swapError, setSwapError] = useState<string | null>(null);
 
   // Web3 hooks
-  const tokenABalance = useTokenABalance(address);
-  const tokenBBalance = useTokenBBalance(address);
-  const tokenAPrice = useTokenAPrice();
-  const { swapTokenAForB, swapTokenBForA } = useDexOperations();
+  const tokenXBalance = useTokenBalance(address);
+  const tokenYBalance = useTokenBalance(address);
+  const tokenAPrice = useTokenPrice();
+  const { swapTokenXForY, swapTokenYForX } = useDexOperations();
 
   // Get swap quote for dynamic pricing
   const swapQuote = useSwapQuote(
@@ -91,10 +110,10 @@ const SwapPage = () => {
 
   // Get effective balance for UI display
   const getEffectiveBalance = (tokenSymbol: string) => {
-    const realBalance = tokenSymbol === 'ETH' ? tokenABalance : tokenBBalance;
+    const realBalance = tokenSymbol === 'ETH' ? tokenXBalance : tokenYBalance;
     const realBalanceNum = parseFloat(realBalance || '0');
     // Use real balance if available, otherwise default test balance for development
-    return realBalanceNum > 0.001 ? realBalance : '100.0';
+    return realBalanceNum > 0.001 ? realBalance : '0.0';
   };
 
   useEffect(() => {
@@ -189,9 +208,9 @@ const SwapPage = () => {
 
       let result;
       if (fromToken.symbol === 'ETH') {
-        result = await swapTokenAForB(amount);
+        result = await swapTokenXForY(amount);
       } else {
-        result = await swapTokenBForA(amount);
+        result = await swapTokenYForX(amount);
       }
 
       console.log('Swap result:', result);
@@ -253,7 +272,14 @@ const SwapPage = () => {
                     endIcon={<ArrowDownIcon />}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <span>{fromToken.icon}</span>
+                      <img
+                        src={fromToken.icon}
+                        alt={fromToken.symbol}
+                        style={{ width: 20, height: 20, borderRadius: '50%' }}
+                        onError={(e) => {
+                          e.currentTarget.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23ddd"/><text x="12" y="16" text-anchor="middle" fill="%23666" font-size="12">${fromToken.symbol[0]}</text></svg>`;
+                        }}
+                      />
                       <Typography fontWeight={600}>{fromToken.symbol}</Typography>
                     </Box>
                   </Button>
@@ -342,7 +368,14 @@ const SwapPage = () => {
                     endIcon={<ArrowDownIcon />}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <span>{toToken.icon}</span>
+                      <img
+                        src={toToken.icon}
+                        alt={toToken.symbol}
+                        style={{ width: 20, height: 20, borderRadius: '50%' }}
+                        onError={(e) => {
+                          e.currentTarget.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23ddd"/><text x="12" y="16" text-anchor="middle" fill="%23666" font-size="12">${toToken.symbol[0]}</text></svg>`;
+                        }}
+                      />
                       <Typography fontWeight={600}>{toToken.symbol}</Typography>
                     </Box>
                   </Button>
@@ -412,8 +445,8 @@ const SwapPage = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2" color="text.secondary">Route</Typography>
                         <Typography variant="body2">
-                          {swapQuote.path.map((token, index) => 
-                            index === swapQuote.path.length - 1 
+                          {swapQuote.path.map((token, index) =>
+                            index === swapQuote.path.length - 1
                               ? tokens.find(t => t.address === token)?.symbol || 'Unknown'
                               : `${tokens.find(t => t.address === token)?.symbol || 'Unknown'} → `
                           )}
@@ -434,9 +467,9 @@ const SwapPage = () => {
                 sx={{ mt: 3, py: 2, fontSize: '1.1rem', fontWeight: 600 }}
                 startIcon={isSwapping ? <CircularProgress size={20} color="inherit" /> : null}
               >
-                {!address ? 'Connect Wallet' : 
-                 isSwapping ? 'Swapping...' : 
-                 !fromAmount || parseFloat(fromAmount) <= 0 ? 'Enter an amount' : 
+                {!address ? 'Connect Wallet' :
+                 isSwapping ? 'Swapping...' :
+                 !fromAmount || parseFloat(fromAmount) <= 0 ? 'Enter an amount' :
                  `Swap ${fromToken.symbol} for ${toToken.symbol}`}
               </Button>
 
@@ -490,7 +523,14 @@ const SwapPage = () => {
                   <ListItemButton onClick={() => handleTokenSelect(token)}>
                     <ListItemAvatar>
                       <Avatar sx={{ backgroundColor: 'grey.100' }}>
-                        {token.icon}
+                        <img
+                          src={token.icon}
+                          alt={token.symbol}
+                          style={{ width: 24, height: 24, borderRadius: '50%' }}
+                          onError={(e) => {
+                            e.currentTarget.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23ddd"/><text x="12" y="16" text-anchor="middle" fill="%23666" font-size="12">${token.symbol[0]}</text></svg>`;
+                          }}
+                        />
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
