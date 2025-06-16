@@ -184,7 +184,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## ⚠️ Disclaimer
 
-**Important Notice**: 
+**Important Notice**:
 - This is experimental DeFi software under active development
 - Use at your own risk, especially on mainnet
 - Always test thoroughly on testnets first

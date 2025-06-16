@@ -1,0 +1,54 @@
+{
+  "recommendations": [
+    // 必需的核心扩展
+    "esbenp.prettier-vscode",
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-eslint",
+
+    // React 开发
+    "ms-vscode.vscode-react-refactor",
+    "formulahendry.auto-rename-tag",
+    "christian-kohler.path-intellisense",
+    "visualstudioexptteam.vscodeintellicode",
+
+    // Git 和版本控制
+    "eamodio.gitlens",
+    "github.vscode-github-actions",
+    "github.copilot",
+    "github.copilot-chat",
+    "seatonjiang.gitmoji-vscode",
+
+    // Web3/DeFi 特定
+    "juanblanco.solidity",
+    "nomic-foundation.hardhat-solidity",
+    "tintinweb.solidity-visual-auditor",
+
+    // 调试和测试
+    "ms-vscode.vscode-chrome-debug",
+    "ms-vscode.vscode-edge-debug",
+    "hbenl.vscode-test-explorer",
+
+    // 实用工具
+    "ms-vscode.vscode-json",
+    "redhat.vscode-yaml",
+    "davidanson.vscode-markdownlint",
+    "foxundermoon.shell-format",
+    "streetsidesoftware.code-spell-checker",
+
+    // 主题和UI
+    "pkief.material-icon-theme",
+    "github.github-vscode-theme",
+
+    // API 开发
+    "humao.rest-client",
+    "ms-vscode.vscode-thunder-client",
+
+    // 代码质量
+    "sonarjs.sonarlint-vscode",
+    "ms-vscode.vscode-npm-script-runner",
+
+    // 其他
+    "jnoortheen.nix-ide"
+  ]
+}
