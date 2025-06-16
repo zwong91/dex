@@ -535,6 +535,10 @@ export const useSwapQuote = (
 		amountOut: '',
 		priceImpact: '0.05',
 		path: [] as string[],
+		tradeFee: {
+			feeAmountIn: '0',
+			totalFeePct: '0',
+		},
 		loading: false,
 		error: null as string | null,
 	});
@@ -631,16 +635,25 @@ export const useSwapQuote = (
 
 				console.log("Best trade log:", bestTrade.toLog());
 
+				// Get trade fee information
+				const tradeFee = await bestTrade.getTradeFee();
+
 				// Extract quote data
 				const outputAmount = bestTrade.outputAmount.toFixed(6);
 				const priceImpact = bestTrade.priceImpact.toSignificant(3);
 				const routePath = bestTrade.route.path.map(token => token.address);
 				const executionPrice = bestTrade.executionPrice.toSignificant(6);
+				const feeAmountIn = tradeFee.feeAmountIn.toSignificant(6);
+				const totalFeePct = tradeFee.totalFeePct.toSignificant(3);
 
 				setQuote({
 					amountOut: outputAmount,
 					priceImpact: priceImpact,
 					path: routePath,
+					tradeFee: {
+						feeAmountIn: feeAmountIn,
+						totalFeePct: totalFeePct,
+					},
 					loading: false,
 					error: null,
 				});
@@ -650,6 +663,10 @@ export const useSwapQuote = (
 					outputAmount,
 					priceImpact,
 					executionPrice,
+					tradeFee: {
+						feeAmountIn,
+						totalFeePct: `${totalFeePct}%`,
+					},
 				});
 
 			} catch (error) {
@@ -660,6 +677,10 @@ export const useSwapQuote = (
 					amountOut: '0.0',
 					priceImpact: '0.05',
 					path: [tokenInAddress, tokenOutAddress],
+					tradeFee: {
+						feeAmountIn: '0',
+						totalFeePct: '0',
+					},
 					loading: false,
 					error: 'No liquidity data available',
 				});
@@ -681,6 +702,10 @@ export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, t
 		amountIn: null as string | null,
 		priceImpact: null as string | null,
 		path: [] as string[],
+		tradeFee: {
+			feeAmountIn: '0',
+			totalFeePct: '0',
+		},
 		loading: false,
 		error: null as string | null,
 	});
@@ -689,7 +714,17 @@ export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, t
 
 	useEffect(() => {
 		if (!amountOut || amountOut <= 0 || !tokenIn || !tokenOut) {
-			setQuote({ amountIn: null, priceImpact: null, path: [], loading: false, error: null });
+			setQuote({
+				amountIn: null,
+				priceImpact: null,
+				path: [],
+				tradeFee: {
+					feeAmountIn: '0',
+					totalFeePct: '0',
+				},
+				loading: false,
+				error: null
+			});
 			return;
 		}
 
@@ -753,15 +788,24 @@ export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, t
 
 				console.log("Best reverse trade log:", bestTrade.toLog());
 
+				// Get trade fee information
+				const tradeFee = await bestTrade.getTradeFee();
+
 				// Extract quote data
 				const inputAmount = bestTrade.inputAmount.toFixed(6);
 				const priceImpact = bestTrade.priceImpact.toSignificant(3);
 				const routePath = bestTrade.route.path.map(token => token.address);
+				const feeAmountIn = tradeFee.feeAmountIn.toSignificant(6);
+				const totalFeePct = tradeFee.totalFeePct.toSignificant(3);
 
 				setQuote({
 					amountIn: inputAmount,
 					priceImpact: priceImpact,
 					path: routePath,
+					tradeFee: {
+						feeAmountIn: feeAmountIn,
+						totalFeePct: totalFeePct,
+					},
 					loading: false,
 					error: null,
 				});
@@ -774,6 +818,10 @@ export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, t
 					amountIn: '0.0',
 					priceImpact: "0.08",
 					path: [tokenIn, tokenOut],
+					tradeFee: {
+						feeAmountIn: '0',
+						totalFeePct: '0',
+					},
 					loading: false,
 					error: 'No liquidity data available',
 				});

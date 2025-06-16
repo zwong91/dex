@@ -19,7 +19,6 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Divider,
   Grid,
   IconButton,
   LinearProgress,
@@ -34,9 +33,9 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
-  Typography,
+  Typography
 } from '@mui/material';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useAccount, useChainId, useWriteContract } from 'wagmi';
 import Navigation from '../components/Navigation';
@@ -49,6 +48,39 @@ const binStepOptions = [
   { value: '0.5%', baseFee: '0.4%', label: '0.5%' },
   { value: '1%', baseFee: '0.8%', label: '1%' },
 ];
+
+// Custom hook to fetch live price from Binance API
+const useBinancePrice = (symbol: string | null) => {
+  const [price, setPrice] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!symbol) return;
+
+    const fetchPrice = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+        const data = await response.json();
+        if (data.price) {
+          setPrice(parseFloat(data.price).toFixed(6));
+        }
+      } catch (error) {
+        console.error('Failed to fetch price from Binance:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPrice();
+    // Refresh price every 30 seconds
+    const interval = setInterval(fetchPrice, 30000);
+
+    return () => clearInterval(interval);
+  }, [symbol]);
+
+  return { price, loading };
+};
 
 interface PoolData {
   id: string;
@@ -183,11 +215,8 @@ const PoolPage = () => {
   const [newPoolToken1, setNewPoolToken1] = useState('');
   const [newPoolToken0Address, setNewPoolToken0Address] = useState('');
   const [newPoolToken1Address, setNewPoolToken1Address] = useState('');
-  const [newPoolInitialAmount0, setNewPoolInitialAmount0] = useState('');
-  const [newPoolInitialAmount1, setNewPoolInitialAmount1] = useState('');
   const [selectedBinStep, setSelectedBinStep] = useState('0.25%');
-  const [activePrice, setActivePrice] = useState('0.000180248259123320014');
-  const [currentPrice, setCurrentPrice] = useState('1 AVAX = 0.018024825 BTC.b');
+  const [activePrice, setActivePrice] = useState('0.0027');
   const [isTokenSelectOpen, setIsTokenSelectOpen] = useState(false);
   const [selectingPoolToken, setSelectingPoolToken] = useState<'token' | 'quote'>('token');
 
@@ -207,6 +236,109 @@ const PoolPage = () => {
 
   // Get tokens for current chain
   const tokens = getTokensForChain(chainId);
+
+  // Get current market price from Binance API
+  const token0Symbol = newPoolToken0 || 'USDC';
+  const token1Symbol = newPoolToken1 || 'ETH';
+
+  // Build Binance symbol with proper mapping
+  const buildBinanceSymbol = useMemo(() => {
+    return (baseToken: string, quoteToken: string) => {
+      // If tokens are the same, return null (fixed rate 1:1)
+      if (baseToken === quoteToken) {
+        return { symbol: null, inverted: false };
+      }
+
+      // Handle stablecoin pairs specially
+      const stablecoins = ['USDC', 'USDT', 'BUSD', 'DAI'];
+
+      // If both tokens are stablecoins, return null (we'll use fixed rate ~1.0)
+      if (stablecoins.includes(baseToken) && stablecoins.includes(quoteToken)) {
+        return { symbol: null, inverted: false };
+      }
+
+      // Map common tokens to Binance equivalents
+      const tokenMap: { [key: string]: string } = {
+        'WBNB': 'BNB',
+        'WETH': 'ETH',
+        'WBTC': 'BTC',
+      };
+
+      const mappedBase = tokenMap[baseToken] || baseToken;
+      const mappedQuote = tokenMap[quoteToken] || quoteToken;
+
+      // For USDC/ETH pair, we want to show how many USDC per 1 ETH
+      // Binance ETHUSDC gives ETH price in USDC (e.g. 2618 USDC per ETH)
+      if ((mappedBase === 'USDC' && mappedQuote === 'ETH') ||
+          (mappedBase === 'USDC' && mappedQuote === 'WETH')) {
+        return { symbol: 'ETHUSDC', inverted: false };
+      }
+
+      // For ETH/USDC pair, we want to show how many ETH per 1 USDC
+      // Need to invert ETHUSDC (1/2618 = 0.000382)
+      if ((mappedBase === 'ETH' && mappedQuote === 'USDC') ||
+          (mappedBase === 'WETH' && mappedQuote === 'USDC')) {
+        return { symbol: 'ETHUSDC', inverted: true };
+      }
+
+      // Define major trading pairs in correct order
+      const majorPairs = [
+        'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT',
+        'BTCUSDC', 'ETHUSDC', 'BNBUSDC',
+        'ETHBTC', 'BNBBTC', 'ADABTC'
+      ];
+
+      // Try to find the correct pair order
+      const pair1 = `${mappedBase}${mappedQuote}`;
+      const pair2 = `${mappedQuote}${mappedBase}`;
+
+      if (majorPairs.includes(pair1)) {
+        return { symbol: pair1, inverted: false };
+      } else if (majorPairs.includes(pair2)) {
+        return { symbol: pair2, inverted: true };
+      }
+
+      // Default: try base/USDT first, then quote/USDT
+      if (stablecoins.includes(mappedQuote)) {
+        return { symbol: `${mappedBase}${mappedQuote}`, inverted: false };
+      } else if (stablecoins.includes(mappedBase)) {
+        return { symbol: `${mappedQuote}${mappedBase}`, inverted: true };
+      } else {
+        // For non-stablecoin pairs, try both with USDT
+        return { symbol: `${mappedBase}USDT`, inverted: false };
+      }
+    };
+  }, []);
+
+  const binanceData = useMemo(() =>
+    buildBinanceSymbol(token0Symbol, token1Symbol),
+    [buildBinanceSymbol, token0Symbol, token1Symbol]
+  );
+
+  const { price: marketPrice, loading: priceLoading } = useBinancePrice(binanceData?.symbol || null);
+
+  // Calculate display price considering inversion
+  const displayPrice = useMemo(() => {
+    if (!marketPrice || !binanceData) return '';
+
+    // If the pair is inverted, we need to calculate 1/price
+    return binanceData.inverted
+      ? (1 / parseFloat(marketPrice)).toFixed(6)
+      : marketPrice;
+  }, [marketPrice, binanceData]);
+
+  // Update active price when market price changes or tokens change
+  useEffect(() => {
+    if (token0Symbol === token1Symbol) {
+      // For same tokens, always use 1.00
+      setActivePrice('1.00');
+    } else if (binanceData?.symbol === null) {
+      // For stablecoin pairs, use a fixed rate close to 1.0
+      setActivePrice('1.00');
+    } else if (displayPrice) {
+      setActivePrice(displayPrice);
+    }
+  }, [displayPrice, token0Symbol, token1Symbol, binanceData]);
 
   // Use dynamic token addresses based on current chain
   const tokenXBalance = useTokenBalanceByAddress(userWalletAddress, tokens[0]?.address as `0x${string}`);
@@ -344,7 +476,7 @@ const PoolPage = () => {
   };
 
   const handleCreateNewPool = async () => {
-    if (!newPoolToken0Address || !newPoolToken1Address || !newPoolInitialAmount0 || !newPoolInitialAmount1) {
+    if (!newPoolToken0Address || !newPoolToken1Address) {
       return;
     }
 
@@ -353,16 +485,15 @@ const PoolPage = () => {
     }
 
     try {
-      const amt0 = parseFloat(newPoolInitialAmount0);
-      const amt1 = parseFloat(newPoolInitialAmount1);
-
-      if (amt0 <= 0 || amt1 <= 0) {
-        return;
-      }
-
       // This would typically call a createPool contract function
-      // For now, we'll simulate with addLiquidity as initial liquidity
-      await addLiquidity(amt0, amt1);
+      // For now, we'll just close the dialog and show success
+      console.log('Creating pool with:', {
+        token0: newPoolToken0,
+        token1: newPoolToken1,
+        binStep: selectedBinStep,
+        activePrice: activePrice
+      });
+
       setShowAddNewPool(false);
 
       // Reset form
@@ -370,11 +501,8 @@ const PoolPage = () => {
       setNewPoolToken1('');
       setNewPoolToken0Address('');
       setNewPoolToken1Address('');
-      setNewPoolInitialAmount0('');
-      setNewPoolInitialAmount1('');
       setSelectedBinStep('0.25%');
-      setActivePrice('0.000180248259123320014');
-      setCurrentPrice('1 AVAX = 0.018024825 BTC.b');
+      setActivePrice('0.0027');
     } catch (err: any) {
       console.error('Create new pool error:', err);
     }
@@ -1260,15 +1388,15 @@ const PoolPage = () => {
                 endIcon={<KeyboardArrowDownIcon />}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ width: 24, height: 24, fontSize: '14px', bgcolor: 'red.500' }}>
-                    A
+                  <Avatar sx={{ width: 24, height: 24, fontSize: '14px', bgcolor: 'primary.main' }}>
+                    U
                   </Avatar>
                   <Box sx={{ textAlign: 'left' }}>
                     <Typography variant="body1" sx={{ fontWeight: 600, color: 'black' }}>
-                      {newPoolToken0 || 'AVAX'}
+                      {newPoolToken0 || 'USDC'}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {tokens.find(t => t.symbol === newPoolToken0)?.name || 'Avalanche'}
+                      {tokens.find(t => t.symbol === newPoolToken0)?.name || 'USD Coin'}
                     </Typography>
                   </Box>
                 </Box>
@@ -1297,15 +1425,15 @@ const PoolPage = () => {
                 endIcon={<KeyboardArrowDownIcon />}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ width: 24, height: 24, fontSize: '14px', bgcolor: 'orange.500' }}>
-                    B
+                  <Avatar sx={{ width: 24, height: 24, fontSize: '14px', bgcolor: 'success.main' }}>
+                    E
                   </Avatar>
                   <Box sx={{ textAlign: 'left' }}>
                     <Typography variant="body1" sx={{ fontWeight: 600, color: 'black' }}>
-                      {newPoolToken1 || 'BTC.b'}
+                      {newPoolToken1 || 'ETH'}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {tokens.find(t => t.symbol === newPoolToken1)?.name || 'Bitcoin'}
+                      {tokens.find(t => t.symbol === newPoolToken1)?.name || 'Ethereum'}
                     </Typography>
                   </Box>
                 </Box>
@@ -1347,7 +1475,8 @@ const PoolPage = () => {
                           flexDirection: 'column',
                           bgcolor: selectedBinStep === option.value ? '#d4c5f9' : 'white',
                           color: selectedBinStep === option.value ? '#6b21d4' : 'black',
-                          border: selectedBinStep === option.value ? '2px solid #6b21d4' : '1px solid #e0e0e0',
+                          border: '1px solid',
+                          borderColor: selectedBinStep === option.value ? '#6b21d4' : '#e0e0e0',
                           '&:hover': {
                             bgcolor: selectedBinStep === option.value ? '#c4b5f8' : '#f5f5f5'
                           }
@@ -1370,108 +1499,87 @@ const PoolPage = () => {
                 Enter Active Price
               </Typography>
 
-              <Box sx={{ mb: 3 }}>
-                <Box
-                  sx={{
-                    border: '2px solid #4A90E2',
-                    borderRadius: 2,
-                    p: 2,
-                    mb: 2,
-                    backgroundColor: '#f0f8ff'
-                  }}
-                >
-                  <Typography variant="body2" sx={{ color: '#4A90E2', fontWeight: 600 }}>
-                    Current price: {currentPrice}
-                  </Typography>
+              <Box
+                sx={{
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 1,
+                  p: 2,
+                  mb: 3,
+                  backgroundColor: '#f8f9ff'
+                }}
+              >
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+                  {token0Symbol === token1Symbol ? (
+                    `Fixed rate: 1 ${token0Symbol} = 1 ${token1Symbol}`
+                  ) : binanceData?.symbol === null ? (
+                    `Stablecoin pair: 1 ${token0Symbol} ≈ 1 ${token1Symbol}`
+                  ) : priceLoading ? (
+                    'Loading market price...'
+                  ) : (
+                    `Current price: 1 ${token0Symbol} = ${displayPrice || activePrice} ${token1Symbol}`
+                  )}
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <TextField
+                    value={activePrice}
+                    onChange={(e) => setActivePrice(e.target.value)}
+                    placeholder={displayPrice || '1.00'}
+                    variant="outlined"
+                    fullWidth
+                    disabled={token0Symbol === token1Symbol}
+                    sx={{
+                      mr: 2,
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: '1.4rem',
+                        fontWeight: 600,
+                        fontFamily: 'monospace',
+                        backgroundColor: token0Symbol === token1Symbol ? '#f5f5f5' : 'white',
+                        '& fieldset': {
+                          borderColor: '#e0e0e0'
+                        },
+                        '&:hover fieldset': {
+                          borderColor: token0Symbol === token1Symbol ? '#e0e0e0' : '#1976d2'
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#1976d2'
+                        }
+                      }
+                    }}
+                  />
+
+                  <Box sx={{ textAlign: 'right', minWidth: '120px' }}>
+                    {token0Symbol === token1Symbol ? (
+                      <>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                          Same token
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          1:1 rate
+                        </Typography>
+                      </>
+                    ) : (
+                      <>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                          ~${displayPrice ? parseFloat(displayPrice).toFixed(4) : parseFloat(activePrice).toFixed(4)}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          {token1Symbol} per {token0Symbol}
+                        </Typography>
+                      </>
+                    )}
+                    {priceLoading && (
+                      <CircularProgress size={16} sx={{ color: '#4A90E2', mt: 0.5 }} />
+                    )}
+                  </Box>
                 </Box>
-
-                <TextField
-                  fullWidth
-                  value={activePrice}
-                  onChange={(e) => setActivePrice(e.target.value)}
-                  placeholder="0.000180248259123320014"
-                  InputProps={{
-                    endAdornment: (
-                      <Typography variant="body2" sx={{ color: 'text.secondary', mr: 1 }}>
-                        ~$18.98 {newPoolToken1 || 'BTC.b'} per {newPoolToken0 || 'AVAX'}
-                      </Typography>
-                    ),
-                    sx: {
-                      fontSize: '1.1rem',
-                      fontFamily: 'monospace'
-                    }
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      backgroundColor: 'white',
-                    }
-                  }}
-                />
               </Box>
-
-              {/* Initial Liquidity */}
-              <Divider sx={{ my: 3 }} />
-
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
-                Initial Liquidity
-              </Typography>
-
-              <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    label={`Initial ${newPoolToken0 || 'AVAX'} Amount`}
-                    placeholder="0.0"
-                    type="number"
-                    value={newPoolInitialAmount0}
-                    onChange={(e) => setNewPoolInitialAmount0(e.target.value)}
-                    InputProps={{
-                      endAdornment: (
-                        <Button
-                          size="small"
-                          onClick={() => setNewPoolInitialAmount0(tokenXBalance?.toString() || "0")}
-                          sx={{ textTransform: 'none' }}
-                        >
-                          Max
-                        </Button>
-                      ),
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Balance: {tokenXBalance || '0'}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    label={`Initial ${newPoolToken1 || 'BTC.b'} Amount`}
-                    placeholder="0.0"
-                    type="number"
-                    value={newPoolInitialAmount1}
-                    onChange={(e) => setNewPoolInitialAmount1(e.target.value)}
-                    InputProps={{
-                      endAdornment: (
-                        <Button
-                          size="small"
-                          onClick={() => setNewPoolInitialAmount1(tokenYBalance?.toString() || "0")}
-                          sx={{ textTransform: 'none' }}
-                        >
-                          Max
-                        </Button>
-                      ),
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Balance: {tokenYBalance || '0'}
-                  </Typography>
-                </Grid>
-              </Grid>
 
               <Button
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={!newPoolToken0 || !newPoolToken1 || !newPoolInitialAmount0 || !newPoolInitialAmount1 || !activePrice || isPending || !userWalletAddress}
+                disabled={!newPoolToken0 || !newPoolToken1 || !activePrice || isPending || !userWalletAddress}
                 onClick={handleCreateNewPool}
                 startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
                 sx={{
@@ -1515,12 +1623,6 @@ const PoolPage = () => {
                       } else {
                         setNewPoolToken1(token.symbol);
                         setNewPoolToken1Address(token.address);
-                      }
-                      // Update current price display based on selected tokens
-                      if (selectingPoolToken === 'token') {
-                        setCurrentPrice(`1 ${token.symbol} = 0.018024825 ${newPoolToken1 || 'BTC.b'}`);
-                      } else {
-                        setCurrentPrice(`1 ${newPoolToken0 || 'AVAX'} = 0.018024825 ${token.symbol}`);
                       }
                       setIsTokenSelectOpen(false);
                     }}

@@ -16,14 +16,14 @@ export const BSC_TESTNET_TOKENS: Record<string, TokenInfo> = {
 		image: "https://cryptologos.cc/logos/tether-usdt-logo.png"
 	},
 	USDC: {
-		address: "0x64544969ed7EBf5f083679233325356EbE738930", 
+		address: "0x64544969ed7EBf5f083679233325356EbE738930",
 		symbol: "USDC",
 		decimals: 18,
 		image: "https://cryptologos.cc/logos/usd-coin-usdc-logo.png"
 	},
 	WBNB: {
 		address: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-		symbol: "WBNB", 
+		symbol: "WBNB",
 		decimals: 18,
 		image: "https://cryptologos.cc/logos/bnb-bnb-logo.png"
 	},
@@ -72,7 +72,7 @@ export const addTokenToWallet = async (tokenInfo: TokenInfo): Promise<boolean> =
  */
 export const addAllTestnetTokens = async (): Promise<void> => {
 	const tokens = Object.values(BSC_TESTNET_TOKENS);
-	
+
 	for (const token of tokens) {
 		try {
 			await addTokenToWallet(token);

@@ -247,6 +247,21 @@ const PositionPage = () => {
     <>
       <Navigation />
       <Container maxWidth="lg" sx={{ py: 4 }}>
+        {/* Pool/Position Navigation Tabs */}
+        <Box sx={{ mb: 4 }}>
+          <Tabs value={1} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tab
+              label="All Pools"
+              onClick={() => window.location.href = '/pool'}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            />
+            <Tab
+              label="Positions"
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            />
+          </Tabs>
+        </Box>
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Box>
             <Typography variant="h4" fontWeight={600} gutterBottom>
@@ -459,65 +474,104 @@ const PositionPage = () => {
                 {manageTab === 0 && (
                   <Box>
                     <Typography variant="h6" gutterBottom>
-                      Add Liquidity
+                      Add Liquidity to Position
                     </Typography>
-                    <Grid container spacing={2}>
-                      <Grid size={6}>
-                        <TextField
-                          fullWidth
-                          label={`Amount of ${selectedPosition.token0}`}
-                          placeholder="0.0"
-                          type="number"
-                          value={addAmount0}
-                          onChange={(e) => setAddAmount0(e.target.value)}
-                          InputProps={{
-                            endAdornment: (
-                              <Button
-                                size="small"
-                                onClick={() => setAddAmount0(tokenXBalance?.toString() || "0")}
-                                sx={{ textTransform: 'none' }}
-                              >
-                                Max
-                              </Button>
-                            ),
-                          }}
-                        />
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Balance: {tokenXBalance || '0'}
+
+                    {/* Token 0 Input */}
+                    <Card elevation={0} sx={{ mb: 3, p: 2, backgroundColor: 'grey.50' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="body1" fontWeight={600}>
+                          {selectedPosition.token0} Amount
                         </Typography>
-                      </Grid>
-                      <Grid size={6}>
-                        <TextField
-                          fullWidth
-                          label={`Amount of ${selectedPosition.token1}`}
-                          placeholder="0.0"
-                          type="number"
-                          value={addAmount1}
-                          onChange={(e) => setAddAmount1(e.target.value)}
-                          InputProps={{
-                            endAdornment: (
-                              <Button
-                                size="small"
-                                onClick={() => setAddAmount1(tokenYBalance?.toString() || "0")}
-                                sx={{ textTransform: 'none' }}
-                              >
-                                Max
-                              </Button>
-                            ),
-                          }}
-                        />
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Balance: {tokenYBalance || '0'}
+                        <Typography variant="body2" color="text.secondary">
+                          Available: {tokenXBalance || '0.0'}
                         </Typography>
-                      </Grid>
-                    </Grid>
+                      </Box>
+                      <TextField
+                        fullWidth
+                        placeholder="0.0"
+                        type="number"
+                        value={addAmount0}
+                        onChange={(e) => setAddAmount0(e.target.value)}
+                        sx={{
+                          mb: 2,
+                          '& .MuiOutlinedInput-root': {
+                            fontSize: '1.4rem',
+                            fontWeight: 600,
+                            height: 64,
+                            backgroundColor: 'white',
+                          },
+                        }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={() => setAddAmount0(tokenXBalance?.toString() || "0")}
+                        sx={{
+                          textTransform: 'none',
+                          width: '100%',
+                          py: 1,
+                        }}
+                      >
+                        Use Maximum Amount ({tokenXBalance || '0.0'} {selectedPosition.token0})
+                      </Button>
+                    </Card>
+
+                    {/* Token 1 Input */}
+                    <Card elevation={0} sx={{ mb: 3, p: 2, backgroundColor: 'grey.50' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="body1" fontWeight={600}>
+                          {selectedPosition.token1} Amount
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Available: {tokenYBalance || '0.0'}
+                        </Typography>
+                      </Box>
+                      <TextField
+                        fullWidth
+                        placeholder="0.0"
+                        type="number"
+                        value={addAmount1}
+                        onChange={(e) => setAddAmount1(e.target.value)}
+                        sx={{
+                          mb: 2,
+                          '& .MuiOutlinedInput-root': {
+                            fontSize: '1.4rem',
+                            fontWeight: 600,
+                            height: 64,
+                            backgroundColor: 'white',
+                          },
+                        }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={() => setAddAmount1(tokenYBalance?.toString() || "0")}
+                        sx={{
+                          textTransform: 'none',
+                          width: '100%',
+                          py: 1,
+                        }}
+                      >
+                        Use Maximum Amount ({tokenYBalance || '0.0'} {selectedPosition.token1})
+                      </Button>
+                    </Card>
+
+                    {/* Summary */}
+                    {(addAmount0 || addAmount1) && (
+                      <Alert severity="info" sx={{ mb: 3 }}>
+                        <Typography variant="body2">
+                          <strong>Summary:</strong> You will add {addAmount0 || '0'} {selectedPosition.token0} + {addAmount1 || '0'} {selectedPosition.token1}
+                        </Typography>
+                      </Alert>
+                    )}
+
                     <Button
                       variant="contained"
                       fullWidth
-                      sx={{ mt: 2 }}
+                      size="large"
                       disabled={!addAmount0 || !addAmount1 || isPending || !userWalletAddress}
                       onClick={handleAddLiquidity}
                       startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
+                      sx={{ py: 2.5, fontSize: '1.1rem' }}
                     >
                       {!userWalletAddress ? 'Connect Wallet' :
                        isPending ? 'Adding Liquidity...' :
@@ -533,16 +587,23 @@ const PositionPage = () => {
                     </Typography>
                     <Box sx={{ mb: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Amount to remove: {removeAmount}%
+                        Select percentage to remove
                       </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
                         {['25', '50', '75', '100'].map((value) => (
                           <Chip
                             key={value}
                             label={`${value}%`}
                             variant={removeAmount === value ? 'filled' : 'outlined'}
+                            color={removeAmount === value ? 'primary' : 'default'}
                             onClick={() => setRemoveAmount(value)}
-                            sx={{ cursor: 'pointer' }}
+                            sx={{
+                              cursor: 'pointer',
+                              flex: 1,
+                              '&:hover': {
+                                backgroundColor: removeAmount === value ? 'primary.main' : 'grey.100',
+                              },
+                            }}
                           />
                         ))}
                       </Box>
@@ -550,13 +611,32 @@ const PositionPage = () => {
                         fullWidth
                         label="Custom percentage"
                         value={removeAmount}
-                        onChange={(e) => setRemoveAmount(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || (parseFloat(val) >= 0 && parseFloat(val) <= 100)) {
+                            setRemoveAmount(val);
+                          }
+                        }}
                         type="number"
-                        InputProps={{ endAdornment: '%' }}
+                        inputProps={{ min: 0, max: 100 }}
+                        InputProps={{
+                          endAdornment: <Typography variant="body2" color="text.secondary">%</Typography>
+                        }}
+                        sx={{ mb: 2 }}
                       />
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Your LP Balance: {liquidityBalance || '0'} tokens
-                      </Typography>
+                      <Box sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Available LP Balance
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600}>
+                          {liquidityBalance || '0.0'} LP tokens
+                        </Typography>
+                        {removeAmount && parseFloat(removeAmount) > 0 && (
+                          <Typography variant="body2" color="primary.main" sx={{ mt: 1 }}>
+                            Will remove: {((parseFloat(liquidityBalance || '0') * parseFloat(removeAmount)) / 100).toFixed(4)} LP tokens
+                          </Typography>
+                        )}
+                      </Box>
                     </Box>
                     <Button
                       variant="contained"
@@ -577,23 +657,35 @@ const PositionPage = () => {
                     <Typography variant="h6" gutterBottom>
                       Collect Fees
                     </Typography>
-                    <Card elevation={0} sx={{ mb: 2, backgroundColor: 'grey.50' }}>
-                      <CardContent>
-                        <Typography variant="body2" color="text.secondary">
-                          Unclaimed fees
-                        </Typography>
-                        <Typography variant="h5" fontWeight={600}>
-                          {selectedPosition.feesTotal}
-                        </Typography>
+                    <Card elevation={0} sx={{ mb: 3, backgroundColor: 'success.50', border: '1px solid', borderColor: 'success.200' }}>
+                      <CardContent sx={{ py: 3 }}>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Available Unclaimed Fees
+                          </Typography>
+                          <Typography variant="h4" fontWeight={600} color="success.main" gutterBottom>
+                            {selectedPosition.feesTotal}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            24h fees: {selectedPosition.fees24h}
+                          </Typography>
+                        </Box>
                       </CardContent>
                     </Card>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Collecting fees will transfer all unclaimed fees to your wallet. This action does not affect your liquidity position.
+                    </Typography>
                     <Button
                       variant="contained"
                       fullWidth
-                      disabled={!userWalletAddress}
+                      size="large"
+                      disabled={!userWalletAddress || selectedPosition.feesTotal === '$0.00'}
                       onClick={handleCollectFees}
+                      sx={{ py: 1.5 }}
                     >
-                      {!userWalletAddress ? 'Connect Wallet' : 'Collect Fees'}
+                      {!userWalletAddress ? 'Connect Wallet' :
+                       selectedPosition.feesTotal === '$0.00' ? 'No Fees to Collect' :
+                       'Collect All Fees'}
                     </Button>
                   </Box>
                 )}

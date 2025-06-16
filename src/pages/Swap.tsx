@@ -431,8 +431,14 @@ const SwapPage = () => {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">Network Fee</Typography>
+                      <Typography variant="body2" color="text.secondary">Gas Fee</Typography>
                       <Typography variant="body2">~${networkFee}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary">Trade Fee</Typography>
+                      <Typography variant="body2">
+                        {swapQuote.tradeFee.feeAmountIn} {fromToken.symbol} ({swapQuote.tradeFee.totalFeePct}%)
+                      </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2" color="text.secondary">Slippage</Typography>
@@ -549,7 +555,7 @@ const SwapPage = () => {
                 </Box>
               </Box>
             )}
-            
+
             <List>
               {tokens.map((token) => (
                 <ListItem key={token.symbol} disablePadding>
