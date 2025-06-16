@@ -114,7 +114,7 @@ const mockPositions: Position[] = [
 ];
 
 const PositionPage = () => {
-  const { address } = useAccount();
+  const { address: userWalletAddress } = useAccount();
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [showManageDialog, setShowManageDialog] = useState(false);
   const [manageTab, setManageTab] = useState(0);
@@ -131,9 +131,9 @@ const PositionPage = () => {
   const tokens = getTokensForChain(chainId);
 
   // Use dynamic token addresses based on current chain
-  const tokenXBalance = useTokenBalanceByAddress(address, tokens[0]?.address as `0x${string}`);
-  const tokenYBalance = useTokenBalanceByAddress(address, tokens[1]?.address as `0x${string}`);
-  const liquidityBalance = useLiquidityTokenBalance(address);
+  const tokenXBalance = useTokenBalanceByAddress(userWalletAddress, tokens[0]?.address as `0x${string}`);
+  const tokenYBalance = useTokenBalanceByAddress(userWalletAddress, tokens[1]?.address as `0x${string}`);
+  const liquidityBalance = useLiquidityTokenBalance(userWalletAddress);
 
   const handleManagePosition = (position: Position) => {
     setSelectedPosition(position);
@@ -148,7 +148,7 @@ const PositionPage = () => {
       return;
     }
 
-    if (!address) {
+    if (!userWalletAddress) {
       toast.error('Please connect your wallet');
       return;
     }
@@ -177,7 +177,7 @@ const PositionPage = () => {
       return;
     }
 
-    if (!address) {
+    if (!userWalletAddress) {
       toast.error('Please connect your wallet');
       return;
     }
@@ -223,7 +223,7 @@ const PositionPage = () => {
     return performance.startsWith('+') ? 'success.main' : 'warning.main';
   };
 
-  if (!address) {
+  if (!userWalletAddress) {
     return (
       <>
         <Navigation />
@@ -515,11 +515,11 @@ const PositionPage = () => {
                       variant="contained"
                       fullWidth
                       sx={{ mt: 2 }}
-                      disabled={!addAmount0 || !addAmount1 || isPending || !address}
+                      disabled={!addAmount0 || !addAmount1 || isPending || !userWalletAddress}
                       onClick={handleAddLiquidity}
                       startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
                     >
-                      {!address ? 'Connect Wallet' :
+                      {!userWalletAddress ? 'Connect Wallet' :
                        isPending ? 'Adding Liquidity...' :
                        'Add Liquidity'}
                     </Button>
@@ -561,11 +561,11 @@ const PositionPage = () => {
                     <Button
                       variant="contained"
                       fullWidth
-                      disabled={!removeAmount || isPending || !address}
+                      disabled={!removeAmount || isPending || !userWalletAddress}
                       onClick={handleRemoveLiquidity}
                       startIcon={isPending ? <CircularProgress size={20} /> : <RemoveIcon />}
                     >
-                      {!address ? 'Connect Wallet' :
+                      {!userWalletAddress ? 'Connect Wallet' :
                        isPending ? 'Removing Liquidity...' :
                        'Remove Liquidity'}
                     </Button>
@@ -590,10 +590,10 @@ const PositionPage = () => {
                     <Button
                       variant="contained"
                       fullWidth
-                      disabled={!address}
+                      disabled={!userWalletAddress}
                       onClick={handleCollectFees}
                     >
-                      {!address ? 'Connect Wallet' : 'Collect Fees'}
+                      {!userWalletAddress ? 'Connect Wallet' : 'Collect Fees'}
                     </Button>
                   </Box>
                 )}

@@ -45,7 +45,7 @@ import Navigation from "../components/Navigation";
 import { getTokensForChain } from "../utils/networkTokens";
 
 const SwapPage = () => {
-  const { address } = useAccount();
+  const { address: userWalletAddress } = useAccount();
   const chainId = useChainId();  // Get tokens for current chain
   const tokens = getTokensForChain(chainId);
 
@@ -64,10 +64,10 @@ const SwapPage = () => {
   const [swapError, setSwapError] = useState<string | null>(null);
 
   // Web3 hooks
-  const fromTokenBalance = useTokenBalanceByAddress(address, fromToken.address as `0x${string}`);
-  const toTokenBalance = useTokenBalanceByAddress(address, toToken.address as `0x${string}`);
+  const fromTokenBalance = useTokenBalanceByAddress(userWalletAddress, fromToken.address as `0x${string}`);
+  const toTokenBalance = useTokenBalanceByAddress(userWalletAddress, toToken.address as `0x${string}`);
   const tokenAPrice = useTokenPrice();
-  const { swapTokenXForY, swapTokenYForX } = useDexOperations();
+  const { swapWithSDK } = useDexOperations();
 
   // Get swap quote for dynamic pricing
   const swapQuote = useSwapQuote(
@@ -170,7 +170,7 @@ const SwapPage = () => {
   };
 
   const handleSwap = async () => {
-    if (!fromAmount || !address) {
+    if (!fromAmount || !userWalletAddress) {
       return;
     }
 
@@ -192,16 +192,24 @@ const SwapPage = () => {
         return;
       }
 
-      console.log('Starting swap:', { fromToken: fromToken.symbol, toToken: toToken.symbol, amount });
+      console.log('Starting LB SDK swap:', {
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        amount,
+        fromTokenContract: fromToken.address,
+        toTokenContract: toToken.address
+      });
 
-      let result;
-      if (fromToken.symbol === 'ETH') {
-        result = await swapTokenXForY(amount);
-      } else {
-        result = await swapTokenYForX(amount);
-      }
+      // Use LB SDK swap for better pricing and routing
+      const result = await swapWithSDK(
+        fromToken.address,
+        toToken.address,
+        fromAmount,
+        userWalletAddress,
+        slippage
+      );
 
-      console.log('Swap result:', result);
+      console.log('LB SDK Swap result:', result);
       setSwapSuccess(true);
 
       // Reset form after successful swap
@@ -213,7 +221,7 @@ const SwapPage = () => {
       }, 3000);
 
     } catch (err: any) {
-      console.error('Swap error:', err);
+      console.error('LB SDK Swap error:', err);
       const errorMessage = err.message || err.toString() || 'Unknown error';
       setSwapError(errorMessage);
     } finally {
@@ -221,7 +229,7 @@ const SwapPage = () => {
     }
   };
 
-  const canSwap = fromAmount && parseFloat(fromAmount) > 0 && address && !isSwapping;
+  const canSwap = fromAmount && parseFloat(fromAmount) > 0 && userWalletAddress && !isSwapping;
 
   return (
     <>
@@ -455,7 +463,7 @@ const SwapPage = () => {
                 sx={{ mt: 3, py: 2, fontSize: '1.1rem', fontWeight: 600 }}
                 startIcon={isSwapping ? <CircularProgress size={20} color="inherit" /> : null}
               >
-                {!address ? 'Connect Wallet' :
+                {!userWalletAddress ? 'Connect Wallet' :
                  isSwapping ? 'Swapping...' :
                  !fromAmount || parseFloat(fromAmount) <= 0 ? 'Enter an amount' :
                  `Swap ${fromToken.symbol} for ${toToken.symbol}`}

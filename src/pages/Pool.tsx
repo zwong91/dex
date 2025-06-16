@@ -162,7 +162,7 @@ const mockPositions: Position[] = [
 ];
 
 const PoolPage = () => {
-  const { address } = useAccount();
+  const { address: userWalletAddress } = useAccount();
   const [currentTab, setCurrentTab] = useState(0);
   const [showAddLiquidity, setShowAddLiquidity] = useState(false);
   const [showAddNewPool, setShowAddNewPool] = useState(false);
@@ -209,9 +209,9 @@ const PoolPage = () => {
   const tokens = getTokensForChain(chainId);
 
   // Use dynamic token addresses based on current chain
-  const tokenXBalance = useTokenBalanceByAddress(address, tokens[0]?.address as `0x${string}`);
-  const tokenYBalance = useTokenBalanceByAddress(address, tokens[1]?.address as `0x${string}`);
-  const liquidityBalance = useLiquidityTokenBalance(address);
+  const tokenXBalance = useTokenBalanceByAddress(userWalletAddress, tokens[0]?.address as `0x${string}`);
+  const tokenYBalance = useTokenBalanceByAddress(userWalletAddress, tokens[1]?.address as `0x${string}`);
+  const liquidityBalance = useLiquidityTokenBalance(userWalletAddress);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
@@ -236,7 +236,7 @@ const PoolPage = () => {
       return;
     }
 
-    if (!address) {
+    if (!userWalletAddress) {
       toast.error('Please connect your wallet');
       return;
     }
@@ -265,7 +265,7 @@ const PoolPage = () => {
   };
 
   const handleClaimsFeesSubmit = async () => {
-    if (!selectedPosition || !address) {
+    if (!selectedPosition || !userWalletAddress) {
       return;
     }
 
@@ -290,7 +290,7 @@ const PoolPage = () => {
       return;
     }
 
-    if (!address) {
+    if (!userWalletAddress) {
       return;
     }
 
@@ -320,7 +320,7 @@ const PoolPage = () => {
       return;
     }
 
-    if (!address) {
+    if (!userWalletAddress) {
       return;
     }
 
@@ -348,7 +348,7 @@ const PoolPage = () => {
       return;
     }
 
-    if (!address) {
+    if (!userWalletAddress) {
       return;
     }
 
@@ -580,7 +580,7 @@ const PoolPage = () => {
 
         {currentTab === 1 && (
           <Box>
-            {!address ? (
+            {!userWalletAddress ? (
               <Card elevation={0} sx={{ textAlign: 'center', py: 6 }}>
                 <CardContent>
                   <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -949,11 +949,11 @@ const PoolPage = () => {
                   fullWidth
                   variant="contained"
                   size="large"
-                  disabled={!amount0 || !amount1 || isPending || !address}
+                  disabled={!amount0 || !amount1 || isPending || !userWalletAddress}
                   onClick={handleAddLiquiditySubmit}
                   startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
                 >
-                  {!address ? 'Connect Wallet' :
+                  {!userWalletAddress ? 'Connect Wallet' :
                    isPending ? 'Adding Liquidity...' :
                    'Add Liquidity'}
                 </Button>
@@ -1020,12 +1020,12 @@ const PoolPage = () => {
                   fullWidth
                   variant="contained"
                   size="large"
-                  disabled={!address || isPending}
+                  disabled={!userWalletAddress || isPending}
                   onClick={handleClaimsFeesSubmit}
                   color="success"
                   startIcon={isPending ? <CircularProgress size={20} /> : null}
                 >
-                  {!address ? 'Connect Wallet' :
+                  {!userWalletAddress ? 'Connect Wallet' :
                    isPending ? 'Claiming Fees...' :
                    'Claims Fees'}
                 </Button>
@@ -1117,11 +1117,11 @@ const PoolPage = () => {
                   fullWidth
                   variant="contained"
                   size="large"
-                  disabled={!addAmount0 || !addAmount1 || isPending || !address}
+                  disabled={!addAmount0 || !addAmount1 || isPending || !userWalletAddress}
                   onClick={handleAddToPositionSubmit}
                   startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
                 >
-                  {!address ? 'Connect Wallet' :
+                  {!userWalletAddress ? 'Connect Wallet' :
                    isPending ? 'Adding Liquidity...' :
                    'Add Liquidity'}
                 </Button>
@@ -1204,12 +1204,12 @@ const PoolPage = () => {
                   fullWidth
                   variant="contained"
                   size="large"
-                  disabled={!removePercentage || isPending || !address}
+                  disabled={!removePercentage || isPending || !userWalletAddress}
                   onClick={handleRemovePositionSubmit}
                   startIcon={isPending ? <CircularProgress size={20} /> : <RemoveIcon />}
                   color="warning"
                 >
-                  {!address ? 'Connect Wallet' :
+                  {!userWalletAddress ? 'Connect Wallet' :
                    isPending ? 'Removing Liquidity...' :
                    'Remove Liquidity'}
                 </Button>
@@ -1471,7 +1471,7 @@ const PoolPage = () => {
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={!newPoolToken0 || !newPoolToken1 || !newPoolInitialAmount0 || !newPoolInitialAmount1 || !activePrice || isPending || !address}
+                disabled={!newPoolToken0 || !newPoolToken1 || !newPoolInitialAmount0 || !newPoolInitialAmount1 || !activePrice || isPending || !userWalletAddress}
                 onClick={handleCreateNewPool}
                 startIcon={isPending ? <CircularProgress size={20} /> : <AddIcon />}
                 sx={{
@@ -1480,7 +1480,7 @@ const PoolPage = () => {
                   fontWeight: 600
                 }}
               >
-                {!address ? 'Connect Wallet' :
+                {!userWalletAddress ? 'Connect Wallet' :
                  isPending ? 'Creating Pool...' :
                  'Create Pool'}
               </Button>

@@ -1,13 +1,16 @@
 import {
 	ChainId,
+	Percent,
 	Token,
 	TokenAmount,
 	WNATIVE,
 } from "@lb-xyz/sdk-core";
 import {
+	LB_ROUTER_V22_ADDRESS,
 	PairV2,
 	RouteV2,
 	TradeV2,
+	jsonAbis,
 } from "@lb-xyz/sdk-v2";
 import * as ethers from "ethers";
 import { useEffect, useState } from "react";
@@ -103,7 +106,7 @@ export const useCheckAllowance = (address: `0x${string}` | undefined, chainId: n
 	let tokenBAddress: `0x${string}` = network.contracts.tokenB as `0x${string}`;
 	let dexRouterAddress: `0x${string}` = network.contracts.dexRouter as `0x${string}`;
 
-	const { writeContract } = useWriteContract();
+	const { writeContractAsync } = useWriteContract();
 
 	const { data: allowanceTokenB } = useReadContract({
 		abi: erc20Abi,
@@ -127,7 +130,7 @@ export const useCheckAllowance = (address: `0x${string}` | undefined, chainId: n
 		if (!address) return;
 
 		if (allowanceTokenB === BigInt(0)) {
-			writeContract({
+			writeContractAsync({
 				abi: erc20Abi,
 				address: tokenBAddress,
 				functionName: "approve",
@@ -136,7 +139,7 @@ export const useCheckAllowance = (address: `0x${string}` | undefined, chainId: n
 			});
 		}
 		if (allowanceTokenA === BigInt(0)) {
-			writeContract({
+			writeContractAsync({
 				abi: erc20Abi,
 				address: tokenAddress,
 				functionName: "approve",
@@ -302,7 +305,7 @@ export const useTokenPrice = () => {
 
 // Hook for DEX operations (add/remove liquidity, swaps)
 export const useDexOperations = () => {
-	const { writeContract } = useWriteContract();
+	const { writeContractAsync } = useWriteContract();
 	const chainId = useChainId();
 	const network = getNetworkById(chainId);
 
@@ -315,7 +318,7 @@ export const useDexOperations = () => {
 
 			console.log("Adding liquidity - Token A:", tokenA.toString(), "Token B:", tokenB.toString());
 
-			const result = await writeContract({
+			const result = await writeContractAsync({
 				abi: genericDexAbi,
 				address: dexRouterAddress,
 				functionName: "addLiquidity",
@@ -336,7 +339,7 @@ export const useDexOperations = () => {
 
 			console.log("Removing liquidity - LP tokens:", liquidity.toString());
 
-			const result = await writeContract({
+			const result = await writeContractAsync({
 				abi: genericDexAbi,
 				address: dexRouterAddress,
 				functionName: "removeLiquidity",
@@ -351,53 +354,11 @@ export const useDexOperations = () => {
 		}
 	};
 
-	const swapTokenXForY = async (tokenAAmount: number) => {
-		try {
-			const tokenA = ethers.parseUnits(tokenAAmount.toString(), 18);
-
-			console.log("Swapping Token A for B:", tokenA.toString());
-
-			const result = await writeContract({
-				abi: genericDexAbi,
-				address: dexRouterAddress,
-				functionName: "swapTokenXForY",
-				args: [tokenA],
-				chainId: chainId,
-			});
-
-			return result;
-		} catch (error) {
-			console.error("Swap A for B error:", error);
-			throw error;
-		}
-	};
-
-	const swapTokenYForX = async (tokenBAmount: number) => {
-		try {
-			const tokenB = ethers.parseUnits(tokenBAmount.toString(), 18);
-
-			console.log("Swapping Token B for A:", tokenB.toString());
-
-			const result = await writeContract({
-				abi: genericDexAbi,
-				address: dexRouterAddress,
-				functionName: "swapTokenYForX",
-				args: [tokenB],
-				chainId: chainId,
-			});
-
-			return result;
-		} catch (error) {
-			console.error("Swap B for A error:", error);
-			throw error;
-		}
-	};
-
 	const claimFees = async (positionId: number) => {
 		try {
 			console.log("Claiming fees for position:", positionId);
 
-			const result = await writeContract({
+			const result = await writeContractAsync({
 				abi: genericDexAbi,
 				address: dexRouterAddress,
 				functionName: "claimFees",
@@ -412,18 +373,115 @@ export const useDexOperations = () => {
 		}
 	};
 
+	// Enhanced swap using LB SDK with proper slippage and routing
+	const swapWithSDK = async (
+		fromTokenContractAddress: string,
+		toTokenContractAddress: string,
+		inputAmount: string,
+		recipientWalletAddress: `0x${string}`,
+		slippagePercent: string = "0.5"
+	) => {
+		try {
+			// Get tokens by address
+			const inputToken = getSDKTokenByAddress(fromTokenContractAddress, chainId);
+			const outputToken = getSDKTokenByAddress(toTokenContractAddress, chainId);
+
+			if (!inputToken || !outputToken) {
+				throw new Error("Token not found");
+			}
+
+			// Create clients
+			const publicClient = createViemClient(chainId);
+			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId);
+
+			// Parse input amount
+			const typedValueInParsed = parseUnits(inputAmount, inputToken.decimals);
+			const amountInToken = new TokenAmount(inputToken, typedValueInParsed);
+
+			// Check if tokens are native
+			const nativeToken = WNATIVE[CHAIN_ID];
+			const isNativeIn = nativeToken ? inputToken.equals(nativeToken) : false;
+			const isNativeOut = nativeToken ? outputToken.equals(nativeToken) : false;
+
+			// Build routes
+			const currentChainTokens = getSDKTokensForChain(chainId);
+			const BASES = Object.values(currentChainTokens as Record<string, Token>);
+			const allTokenPairs = PairV2.createAllTokenPairs(inputToken, outputToken, BASES);
+			const allPairs = PairV2.initPairs(allTokenPairs);
+			const allRoutes = RouteV2.createAllRoutes(allPairs, inputToken, outputToken);
+
+			// Get best trade
+			const trades = await TradeV2.getTradesExactIn(
+				allRoutes,
+				amountInToken,
+				outputToken,
+				isNativeIn,
+				isNativeOut,
+				publicClient,
+				CHAIN_ID
+			);
+
+			const validTrades = trades.filter((trade): trade is TradeV2 => trade !== undefined);
+			const bestTrade = validTrades.length > 0 ? TradeV2.chooseBestTrade(validTrades, true) : null;
+
+			if (!bestTrade) {
+				throw new Error("No valid trade found");
+			}
+
+			console.log("Best trade for swap:", bestTrade.toLog());
+
+			// Slippage tolerance and swap call parameters
+			const userSlippageTolerance = new Percent(
+				Math.floor(parseFloat(slippagePercent) * 100).toString(),
+				"10000"
+			); // Convert percentage to basis points
+
+			const swapOptions = {
+				allowedSlippage: userSlippageTolerance,
+				ttl: 3600, // 1 hour
+				recipient: recipientWalletAddress,
+				feeOnTransfer: false,
+			};
+
+			const { methodName, args, value } = bestTrade.swapCallParameters(swapOptions);
+
+			// Get LB Router address
+			const lbRouterContractAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID];
+			if (!lbRouterContractAddress) {
+				throw new Error("LB Router not supported on this chain");
+			}
+
+			console.log("Swap parameters:", { methodName, args, value, routerAddress: lbRouterContractAddress });
+
+			// Execute the swap using writeContractAsync
+			const txHash = await writeContractAsync({
+				address: lbRouterContractAddress as `0x${string}`,
+				abi: jsonAbis.LBRouterV22ABI,
+				functionName: methodName as any,
+				args: args as any,
+				value: value ? BigInt(value) : undefined,
+			});
+
+			console.log("Swap TX sent:", txHash);
+			return txHash;
+
+		} catch (error) {
+			console.error("LB SDK swap error:", error);
+			throw error;
+		}
+	};
+
 	return {
 		addLiquidity,
 		removeLiquidity,
-		swapTokenXForY,
-		swapTokenYForX,
-		claimFees
+		claimFees,
+		swapWithSDK
 	};
 };
 
 // Hook for token approvals
 export const useTokenApproval = () => {
-	const { writeContract } = useWriteContract();
+	const { writeContractAsync } = useWriteContract();
 	const chainId = useChainId();
 	const network = getNetworkById(chainId);
 
@@ -433,7 +491,7 @@ export const useTokenApproval = () => {
 
 			console.log("Approving token:", tokenAddress, "to spender:", spenderAddress, "amount:", approveAmount.toString());
 
-			const result = await writeContract({
+			const result = await writeContractAsync({
 				abi: erc20Abi,
 				address: tokenAddress,
 				functionName: "approve",
@@ -575,8 +633,9 @@ export const useSwapQuote = (
 
 				// Extract quote data
 				const outputAmount = bestTrade.outputAmount.toFixed(6);
-				const priceImpact = bestTrade.priceImpact.toSignificant(2);
+				const priceImpact = bestTrade.priceImpact.toSignificant(3);
 				const routePath = bestTrade.route.path.map(token => token.address);
+				const executionPrice = bestTrade.executionPrice.toSignificant(6);
 
 				setQuote({
 					amountOut: outputAmount,
@@ -584,6 +643,13 @@ export const useSwapQuote = (
 					path: routePath,
 					loading: false,
 					error: null,
+				});
+
+				console.log('Trade executed successfully:', {
+					inputAmount: bestTrade.inputAmount.toFixed(6),
+					outputAmount,
+					priceImpact,
+					executionPrice,
 				});
 
 			} catch (error) {
@@ -689,7 +755,7 @@ export const useReverseSwapQuote = (amountOut: number, tokenIn: `0x${string}`, t
 
 				// Extract quote data
 				const inputAmount = bestTrade.inputAmount.toFixed(6);
-				const priceImpact = bestTrade.priceImpact.toSignificant(2);
+				const priceImpact = bestTrade.priceImpact.toSignificant(3);
 				const routePath = bestTrade.route.path.map(token => token.address);
 
 				setQuote({
