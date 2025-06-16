@@ -5,6 +5,7 @@ import {
   Info as InfoIcon,
   Settings as SettingsIcon,
   SwapVert as SwapIcon,
+  AccountBalanceWallet as WalletIcon,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -31,7 +32,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import {
   useDexOperations,
   useReverseSwapQuote,
@@ -40,9 +41,9 @@ import {
   useTokenPrice
 } from '../utils/dexUtils';
 
-import { useChainId } from "wagmi";
 import Navigation from "../components/Navigation";
 import { getTokensForChain } from "../utils/networkTokens";
+import { addTokenToWallet, BSC_TESTNET_TOKENS } from "../utils/walletUtils";
 
 const SwapPage = () => {
   const { address: userWalletAddress } = useAccount();
@@ -523,6 +524,32 @@ const SwapPage = () => {
             </Box>
           </DialogTitle>
           <DialogContent sx={{ p: 0 }}>
+            {/* Quick Add Tokens Header */}
+            {chainId === 97 && (
+              <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  没有看到你的代币？快速添加到钱包：
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {Object.entries(BSC_TESTNET_TOKENS).map(([key, token]) => (
+                    <Chip
+                      key={key}
+                      label={`+ ${token.symbol}`}
+                      size="small"
+                      variant="outlined"
+                      onClick={async () => {
+                        const success = await addTokenToWallet(token);
+                        if (success) {
+                          console.log(`${token.symbol} 已添加到钱包`);
+                        }
+                      }}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+            
             <List>
               {tokens.map((token) => (
                 <ListItem key={token.symbol} disablePadding>
@@ -593,7 +620,39 @@ const SwapPage = () => {
               type="number"
               size="small"
               inputProps={{ min: 0 }}
+              sx={{ mb: 3 }}
             />
+
+            {/* Quick Add Tokens Section */}
+            {chainId === 97 && (
+              <>
+                <Typography variant="subtitle2" gutterBottom>
+                  快速添加代币到钱包
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                  {Object.entries(BSC_TESTNET_TOKENS).map(([key, token]) => (
+                    <Button
+                      key={key}
+                      variant="outlined"
+                      size="small"
+                      startIcon={<WalletIcon />}
+                      onClick={async () => {
+                        const success = await addTokenToWallet(token);
+                        if (success) {
+                          console.log(`${token.symbol} 已添加到钱包`);
+                        }
+                      }}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      添加 {token.symbol}
+                    </Button>
+                  ))}
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  点击按钮将代币添加到你的 MetaMask 钱包
+                </Typography>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </Container>
