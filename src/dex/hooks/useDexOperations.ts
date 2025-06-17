@@ -1,9 +1,11 @@
-import { Bin, LB_FACTORY_V22_ADDRESS, LB_ROUTER_V22_ADDRESS, jsonAbis } from "@lb-xyz/sdk-v2"
+import { Bin, LB_FACTORY_V22_ADDRESS, LB_ROUTER_V22_ADDRESS, jsonAbis, PairV2, getUniformDistributionFromBinRange } from "@lb-xyz/sdk-v2"
+import { TokenAmount } from '@lb-xyz/sdk-core'
 import * as ethers from "ethers"
 import { useCallback } from "react"
 import { useAccount, useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { createViemClient } from "../viemClient"
+import JSBI from 'jsbi'
 
 // Hook for LB DEX operations (add/remove liquidity, claim fees)
 export const useDexOperations = () => {
@@ -25,175 +27,161 @@ export const useDexOperations = () => {
 		binStep?: number
 	) => {
 		try {
-			console.log("🔍 Debug addLiquidity userAddress:", userAddress)
-			console.log("🔍 Debug addLiquidity chainId:", chainId)
-			
+			console.log("🔍 addLiquidity called with:", { 
+				pairAddress, 
+				tokenXAddress, 
+				tokenYAddress, 
+				tokenAAmount, 
+				tokenBAmount, 
+				activeBinId, 
+				deltaIds, 
+				distributionX, 
+				distributionY, 
+				binStep 
+			})
+
 			if (!userAddress) {
-				console.error("❌ Wallet not connected - userAddress is:", userAddress)
+				console.error("❌ Wallet not connected")
 				throw new Error("Wallet not connected")
 			}
 
 			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
 			const lbRouterAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID]
 
-			console.log("🔍 Debug CHAIN_ID:", CHAIN_ID)
-			console.log("🔍 Debug lbRouterAddress:", lbRouterAddress)
-
 			if (!lbRouterAddress) {
 				throw new Error("LB Router not supported on this chain")
 			}
 
-			// IMPORTANT: Ensure tokens are in correct order (tokenX < tokenY by address)
-			// LB Router requires tokenX address to be lexicographically smaller than tokenY address
-			const tokenXLower = tokenXAddress.toLowerCase()
-			const tokenYLower = tokenYAddress.toLowerCase()
-			
-			// Use proper lexicographic comparison for addresses
-			const shouldSwapTokens = tokenXLower.localeCompare(tokenYLower) > 0
-			
-			const [orderedTokenXAddress, orderedTokenYAddress] = shouldSwapTokens 
-				? [tokenYAddress, tokenXAddress] 
-				: [tokenXAddress, tokenYAddress]
-			
-			const [orderedTokenAAmount, orderedTokenBAmount] = shouldSwapTokens 
-				? [tokenBAmount, tokenAAmount] 
-				: [tokenAAmount, tokenBAmount]
+			// 获取SDK Token对象
+			const tokenA = getSDKTokenByAddress(tokenXAddress, chainId)
+			const tokenB = getSDKTokenByAddress(tokenYAddress, chainId)
 
-			console.log("🔄 Token ordering check:", {
-				originalTokenX: tokenXAddress,
-				originalTokenY: tokenYAddress,
-				tokenXLower,
-				tokenYLower,
-				comparison: `${tokenXLower}.localeCompare(${tokenYLower}) = ${tokenXLower.localeCompare(tokenYLower)}`,
-				shouldSwapTokens,
-				finalTokenX: orderedTokenXAddress,
-				finalTokenY: orderedTokenYAddress,
-				originalAmountA: tokenAAmount,
-				originalAmountB: tokenBAmount,
-				finalAmountX: orderedTokenAAmount,
-				finalAmountY: orderedTokenBAmount
-			})
-
-			// Convert amounts to proper decimals using ordered amounts
-			const tokenA = ethers.parseUnits(orderedTokenAAmount.toString(), 18)
-			const tokenB = ethers.parseUnits(orderedTokenBAmount.toString(), 18)
-
-			// Get the active bin ID if not provided
-			let activeBin = activeBinId
-			if (!activeBin) {
-				const publicClient = createViemClient(chainId)
-				activeBin = await publicClient.readContract({
-					address: pairAddress as `0x${string}`,
-					abi: [{
-						inputs: [],
-						name: 'getActiveId',
-						outputs: [{ internalType: 'uint24', name: '', type: 'uint24' }],
-						stateMutability: 'view',
-						type: 'function'
-					}],
-					functionName: 'getActiveId',
-					args: []
-				}) as number
+			if (!tokenA || !tokenB) {
+				throw new Error(`Token not found in SDK configuration`)
 			}
 
-			// Default distribution: add liquidity around active bin
-			const defaultDeltaIds = deltaIds || [-2, -1, 0, 1, 2] // 5 bins around active
-			const totalBins = defaultDeltaIds.length
+			console.log("🔍 SDK Tokens:", {
+				tokenA: { symbol: tokenA.symbol, address: tokenA.address },
+				tokenB: { symbol: tokenB.symbol, address: tokenB.address }
+			})
 
-			// Simple uniform distribution if not provided
-			const defaultDistributionX = distributionX || Array(totalBins).fill(BigInt(ethers.parseUnits("0.2", 18))) // 20% each
-			const defaultDistributionY = distributionY || Array(totalBins).fill(BigInt(ethers.parseUnits("0.2", 18))) // 20% each
+			// 创建PairV2实例 - SDK会自动按地址排序 (token0 < token1)
+			const pair = new PairV2(tokenA, tokenB)
+			
+			console.log("� PairV2 ordered tokens:", {
+				token0: { symbol: pair.token0.symbol, address: pair.token0.address },
+				token1: { symbol: pair.token1.symbol, address: pair.token1.address }
+			})
 
-			console.log("Adding LB liquidity:", {
-				pairAddress,
-				originalTokenX: tokenXAddress,
-				originalTokenY: tokenYAddress,
-				orderedTokenX: orderedTokenXAddress,
-				orderedTokenY: orderedTokenYAddress,
-				tokenA: tokenA.toString(),
-				tokenB: tokenB.toString(),
+			// 确定金额对应关系
+			let amountToken0: number, amountToken1: number
+			if (tokenA.address.toLowerCase() === pair.token0.address.toLowerCase()) {
+				// tokenA -> token0, tokenB -> token1
+				amountToken0 = tokenAAmount || 0
+				amountToken1 = tokenBAmount || 0
+			} else {
+				// tokenA -> token1, tokenB -> token0 (交换了)
+				amountToken0 = tokenBAmount || 0
+				amountToken1 = tokenAAmount || 0
+			}
+
+			console.log("🔍 Amounts after ordering:", {
+				amountToken0,
+				amountToken1
+			})
+
+			// 解析代币数量
+			const typedValueToken0Parsed = ethers.parseUnits(amountToken0.toString(), pair.token0.decimals)
+			const typedValueToken1Parsed = ethers.parseUnits(amountToken1.toString(), pair.token1.decimals)
+
+			// 创建TokenAmount对象
+			const tokenAmountToken0 = new TokenAmount(pair.token0, typedValueToken0Parsed)
+			const tokenAmountToken1 = new TokenAmount(pair.token1, typedValueToken1Parsed)
+
+			// 滑点容忍度 (50 bips = 0.5%)
+			const allowedAmountsSlippage = 50
+
+			// 基于滑点计算最小数量
+			const minTokenAmount0 = JSBI.divide(
+				JSBI.multiply(tokenAmountToken0.raw, JSBI.BigInt(10000 - allowedAmountsSlippage)),
+				JSBI.BigInt(10000)
+			)
+			const minTokenAmount1 = JSBI.divide(
+				JSBI.multiply(tokenAmountToken1.raw, JSBI.BigInt(10000 - allowedAmountsSlippage)),
+				JSBI.BigInt(10000)
+			)
+
+			// 获取LBPair信息
+			const pairVersion = 'v22' as const
+			const publicClient = createViemClient(chainId)
+			const lbPair = await pair.fetchLBPair(binStep || 25, pairVersion, publicClient, CHAIN_ID)
+			
+			if (lbPair.LBPair === '0x0000000000000000000000000000000000000000') {
+				throw new Error(`LB pair not found for ${pair.token0.symbol}/${pair.token1.symbol} with bin step ${binStep || 25}`)
+			}
+
+			console.log(`✅ Found LBPair: ${lbPair.LBPair}`)
+
+			// 获取活跃bin ID
+			const lbPairData = await PairV2.getLBPairReservesAndId(lbPair.LBPair, pairVersion, publicClient)
+			const activeBin = activeBinId || lbPairData.activeId
+
+			console.log(`🎯 Active bin ID: ${activeBin}`)
+
+			// 生成流动性分布
+			const binRange: [number, number] = deltaIds ? 
+				[activeBin + Math.min(...deltaIds), activeBin + Math.max(...deltaIds)] :
+				[activeBin - 2, activeBin + 2] // 默认5个bin
+
+			const { deltaIds: finalDeltaIds, distributionX: finalDistributionX, distributionY: finalDistributionY } = 
+				getUniformDistributionFromBinRange(activeBin, binRange)
+
+			console.log("� Liquidity distribution:", {
 				activeBin,
-				deltaIds: defaultDeltaIds,
-				routerAddress: lbRouterAddress
+				binRange,
+				deltaIds: finalDeltaIds,
+				distributionCount: finalDistributionX.length
 			})
 
-			// Use LB Router's addLiquidity function
-			const deadline = Math.floor(Date.now() / 1000) + 1200 // 20 minutes from now
+			// 构建addLiquidity参数
+			const currentTimeInSec = Math.floor(Date.now() / 1000)
+			const deadline = currentTimeInSec + 1200 // 20分钟后过期
 
-			console.log("🔍 About to call writeContractAsync with:", {
-				userAddress,
-				tokenXAddress,
-				tokenYAddress,
-				defaultDeltaIds,
-				defaultDistributionX: defaultDistributionX.map(d => d.toString()),
-				defaultDistributionY: defaultDistributionY.map(d => d.toString()),
-				deadline
-			})
-
-			// Debug all contract call parameters - using ordered tokens
-			const contractArgs = {
-				tokenX: orderedTokenXAddress as `0x${string}`,
-				tokenY: orderedTokenYAddress as `0x${string}`,
-				binStep: BigInt(binStep || 25), // Use passed binStep or default to 25
-				amountX: tokenA,
-				amountY: tokenB,
-				amountXMin: BigInt(tokenA * BigInt(95) / BigInt(100)), // 5% slippage
-				amountYMin: BigInt(tokenB * BigInt(95) / BigInt(100)), // 5% slippage
-				activeIdDesired: BigInt(activeBin),
-				idSlippage: BigInt(5), // Allow 5 bins of slippage
-				deltaIds: defaultDeltaIds.map(id => BigInt(id)),
-				distributionX: defaultDistributionX,
-				distributionY: defaultDistributionY,
-				to: userAddress as `0x${string}`, // Use connected wallet address
-				deadline: BigInt(deadline)
-			}
-
-			console.log("🔍 Contract args being passed:", {
-				...contractArgs,
-				amountX: contractArgs.amountX.toString(),
-				amountY: contractArgs.amountY.toString(),
-				amountXMin: contractArgs.amountXMin.toString(),
-				amountYMin: contractArgs.amountYMin.toString(),
-				activeIdDesired: contractArgs.activeIdDesired.toString(),
-				idSlippage: contractArgs.idSlippage.toString(),
-				deltaIds: contractArgs.deltaIds.map(d => d.toString()),
-				distributionX: contractArgs.distributionX.map(d => d.toString()),
-				distributionY: contractArgs.distributionY.map(d => d.toString()),
-				deadline: contractArgs.deadline.toString()
-			})
-
-			// 构建正确的 addLiquidity 参数结构
 			const addLiquidityInput = {
-				tokenX: orderedTokenXAddress as `0x${string}`,
-				tokenY: orderedTokenYAddress as `0x${string}`,
-				binStep: BigInt(binStep || 25), // Use passed binStep or default to 25
-				amountX: tokenA,
-				amountY: tokenB,
-				amountXMin: BigInt(tokenA * BigInt(95) / BigInt(100)), // 5% slippage
-				amountYMin: BigInt(tokenB * BigInt(95) / BigInt(100)), // 5% slippage
-				activeIdDesired: BigInt(activeBin),
-				idSlippage: BigInt(5), // Allow 5 bins of slippage
-				deltaIds: defaultDeltaIds.map(id => BigInt(id)),
-				distributionX: defaultDistributionX,
-				distributionY: defaultDistributionY,
-				to: userAddress as `0x${string}`, // Use connected wallet address
-				refundTo: userAddress as `0x${string}`, // 退款地址
-				deadline: BigInt(deadline)
+				tokenX: pair.token0.address as `0x${string}`,  // 使用SDK排序后的token0
+				tokenY: pair.token1.address as `0x${string}`,  // 使用SDK排序后的token1
+				binStep: Number(binStep || 25),
+				amountX: tokenAmountToken0.raw.toString(),
+				amountY: tokenAmountToken1.raw.toString(),
+				amountXMin: minTokenAmount0.toString(),
+				amountYMin: minTokenAmount1.toString(),
+				activeIdDesired: Number(activeBin),
+				idSlippage: 5,
+				deltaIds: finalDeltaIds,
+				distributionX: finalDistributionX,
+				distributionY: finalDistributionY,
+				to: userAddress as `0x${string}`,
+				refundTo: userAddress as `0x${string}`,
+				deadline: Number(deadline)
 			}
 
 			console.log("🔍 Final addLiquidityInput:", {
-				...addLiquidityInput,
-				amountX: addLiquidityInput.amountX.toString(),
-				amountY: addLiquidityInput.amountY.toString(),
-				amountXMin: addLiquidityInput.amountXMin.toString(),
-				amountYMin: addLiquidityInput.amountYMin.toString(),
-				activeIdDesired: addLiquidityInput.activeIdDesired.toString(),
-				idSlippage: addLiquidityInput.idSlippage.toString(),
-				deltaIds: addLiquidityInput.deltaIds.map(d => d.toString()),
-				distributionX: addLiquidityInput.distributionX.map(d => d.toString()),
-				distributionY: addLiquidityInput.distributionY.map(d => d.toString()),
-				deadline: addLiquidityInput.deadline.toString()
+				tokenX: addLiquidityInput.tokenX,
+				tokenY: addLiquidityInput.tokenY,
+				amountX: addLiquidityInput.amountX,
+				amountY: addLiquidityInput.amountY,
+				binStep: addLiquidityInput.binStep,
+				activeBin: addLiquidityInput.activeIdDesired
 			})
+
+			// 最终验证token顺序
+			const finalTokenXLower = addLiquidityInput.tokenX.toLowerCase()
+			const finalTokenYLower = addLiquidityInput.tokenY.toLowerCase()
+			if (finalTokenXLower >= finalTokenYLower) {
+				throw new Error(`Token ordering error: tokenX (${finalTokenXLower}) must be < tokenY (${finalTokenYLower})`)
+			}
+
+			console.log("✅ Token ordering validated for LBRouter")
 
 			const result = await writeContractAsync({
 				abi: jsonAbis.LBRouterV22ABI,
@@ -231,28 +219,98 @@ export const useDexOperations = () => {
 				throw new Error("LB Router not supported on this chain")
 			}
 
-			console.log("Removing LB liquidity:", {
+			// 获取SDK Token对象
+			const tokenA = getSDKTokenByAddress(tokenXAddress, chainId)
+			const tokenB = getSDKTokenByAddress(tokenYAddress, chainId)
+
+			if (!tokenA || !tokenB) {
+				throw new Error(`Token not found in SDK configuration`)
+			}
+
+			console.log("🏊‍♀️ 开始移除 LB 流动性:", {
 				pairAddress,
-				tokenXAddress,
-				tokenYAddress,
+				tokenA: { symbol: tokenA.symbol, address: tokenA.address },
+				tokenB: { symbol: tokenB.symbol, address: tokenB.address },
 				binIds,
-				amounts: amounts.map(a => a.toString()),
-				routerAddress: lbRouterAddress
+				amounts: amounts.map(a => a.toString())
 			})
 
-			const deadline = Math.floor(Date.now() / 1000) + 1200 // 20 minutes from now
+			// 创建PairV2实例 - SDK会自动按地址排序
+			const pair = new PairV2(tokenA, tokenB)
+			
+			// 获取LBPair信息
+			const pairVersion = 'v22' as const
+			const publicClient = createViemClient(chainId)
+			const lbPair = await pair.fetchLBPair(binStep || 25, pairVersion, publicClient, CHAIN_ID)
+			
+			if (lbPair.LBPair === '0x0000000000000000000000000000000000000000') {
+				throw new Error(`LB pair not found for ${pair.token0.symbol}/${pair.token1.symbol}`)
+			}
+
+			console.log(`✅ Found LBPair: ${lbPair.LBPair}`)
+
+			// 检查是否已授权LBPair操作
+			console.log("🔍 检查LBPair授权状态...")
+			const approved = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairABI,
+				functionName: 'isApprovedForAll',
+				args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
+			}) as boolean
+
+			if (!approved) {
+				console.log("🔑 需要授权LBPair操作...")
+				const approvalResult = await writeContractAsync({
+					address: lbPair.LBPair as `0x${string}`,
+					abi: jsonAbis.LBPairABI,
+					functionName: 'setApprovalForAll',
+					args: [lbRouterAddress as `0x${string}`, true],
+					chainId: chainId,
+				})
+				console.log(`✅ LBPair授权交易已发送: ${approvalResult}`)
+				
+				// 等待授权交易确认
+				await publicClient.waitForTransactionReceipt({ 
+					hash: approvalResult as `0x${string}`,
+					timeout: 60000
+				})
+				console.log("✅ LBPair授权成功!")
+			} else {
+				console.log("✅ LBPair已授权，无需重新授权")
+			}
+
+			// 构建removeLiquidity参数
+			const currentTimeInSec = Math.floor(Date.now() / 1000)
+			const deadline = currentTimeInSec + 1200 // 20分钟后过期
 
 			const removeLiquidityInput = {
-				tokenX: tokenXAddress as `0x${string}`,
-				tokenY: tokenYAddress as `0x${string}`,
-				binStep: BigInt(binStep || 25), // Use passed binStep or default to 25
-				amountXMin: BigInt(0), // Accept any amount out (could add slippage protection)
-				amountYMin: BigInt(0),
-				ids: binIds.map(id => BigInt(id)),
+				tokenX: pair.token0.address as `0x${string}`,  // 使用SDK排序后的token0
+				tokenY: pair.token1.address as `0x${string}`,  // 使用SDK排序后的token1
+				binStep: Number(binStep || 25),
+				amountXMin: 0, // 接受任何数量输出（可以添加滑点保护）
+				amountYMin: 0,
+				ids: binIds.map(id => Number(id)),
 				amounts: amounts,
-				to: userAddress as `0x${string}`, // Use connected wallet address
-				deadline: BigInt(deadline)
+				to: userAddress as `0x${string}`,
+				deadline: Number(deadline)
 			}
+
+			console.log("🔍 removeLiquidity parameters:", {
+				tokenX: removeLiquidityInput.tokenX,
+				tokenY: removeLiquidityInput.tokenY,
+				binStep: removeLiquidityInput.binStep,
+				binCount: removeLiquidityInput.ids.length,
+				totalAmounts: removeLiquidityInput.amounts.reduce((sum, amount) => sum + amount, 0n).toString()
+			})
+
+			// 最终验证token顺序
+			const finalTokenXLower = removeLiquidityInput.tokenX.toLowerCase()
+			const finalTokenYLower = removeLiquidityInput.tokenY.toLowerCase()
+			if (finalTokenXLower >= finalTokenYLower) {
+				throw new Error(`Token ordering error: tokenX (${finalTokenXLower}) must be < tokenY (${finalTokenYLower})`)
+			}
+
+			console.log("✅ Token ordering validated for removeLiquidity")
 
 			const result = await writeContractAsync({
 				abi: jsonAbis.LBRouterV22ABI,
@@ -262,9 +320,10 @@ export const useDexOperations = () => {
 				chainId: chainId,
 			})
 
+			console.log(`✅ 流动性移除交易已发送: ${result}`)
 			return result
 		} catch (error) {
-			console.error("Remove LB liquidity error:", error)
+			console.error("❌ Remove LB liquidity error:", error)
 			throw error
 		}
 	}

@@ -54,6 +54,7 @@ const AddToPositionDialog = ({
 	const [addAmount0, setAddAmount0] = useState('')
 	const [addAmount1, setAddAmount1] = useState('')
 	const [isPending, setIsPending] = useState(false)
+	const [statusMessage, setStatusMessage] = useState('')
 
 	// Web3 hooks
 	const { addLiquidity } = useDexOperations()
@@ -78,6 +79,7 @@ const AddToPositionDialog = ({
 
 		try {
 			setIsPending(true)
+			setStatusMessage('Preparing transaction...')
 			const amt0 = parseFloat(addAmount0)
 			const amt1 = parseFloat(addAmount1)
 
@@ -92,9 +94,30 @@ const AddToPositionDialog = ({
 
 			// Extract pair address from position (assuming it has pairAddress or id as pair address)
 			const pairAddress = (selectedPosition as any).pairAddress || selectedPosition.id
-			const tokenXAddress = (selectedPosition as any).tokenXAddress || ''
-			const tokenYAddress = (selectedPosition as any).tokenYAddress || ''
+			
+			// Get token addresses from the tokens config using symbols
+			const tokens = getTokensForChain(chainId)
+			const token0 = tokens.find(t => t.symbol === selectedPosition.token0)
+			const token1 = tokens.find(t => t.symbol === selectedPosition.token1)
 
+			if (!token0 || !token1) {
+				throw new Error(`Token addresses not found for symbols: ${selectedPosition.token0}, ${selectedPosition.token1}`)
+			}
+
+			const tokenXAddress = token0.address
+			const tokenYAddress = token1.address
+
+			console.log('🔄 AddToPositionDialog - calling addLiquidity with:', {
+				pairAddress,
+				tokenXAddress,
+				tokenYAddress,
+				token0Symbol: selectedPosition.token0,
+				token1Symbol: selectedPosition.token1,
+				amt0,
+				amt1
+			})
+
+			setStatusMessage('Adding liquidity to position...')
 			await addLiquidity(
 				pairAddress,
 				tokenXAddress,
@@ -102,19 +125,23 @@ const AddToPositionDialog = ({
 				amt0,
 				amt1
 			)
+			setStatusMessage('Transaction completed successfully!')
 			onClose()
 		} catch (err: any) {
 			console.error('Add to position error:', err)
+			setStatusMessage(`Error: ${err.message}`)
 		} finally {
 			setIsPending(false)
+			setTimeout(() => setStatusMessage(''), 3000) // Clear message after 3 seconds
 		}
 	}
 
 	const handleClose = () => {
-		setAddAmount0('')
-		setAddAmount1('')
-		onClose()
-	}
+			setAddAmount0('')
+			setAddAmount1('')
+			setStatusMessage('')
+			onClose()
+		}
 
 	return (
 		<Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -209,6 +236,16 @@ const AddToPositionDialog = ({
 								</Typography>
 							</Grid>
 						</Grid>
+
+						{statusMessage && (
+							<Typography 
+								variant="body2" 
+								color={statusMessage.includes('Error') ? 'error' : 'primary'}
+								sx={{ mb: 2, textAlign: 'center' }}
+							>
+								{statusMessage}
+							</Typography>
+						)}
 
 						<Button
 							fullWidth

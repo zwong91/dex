@@ -12,7 +12,7 @@ import {
   jsonAbis,
 } from "@lb-xyz/sdk-v2"
 import { useEffect, useState } from "react"
-import { parseUnits } from "viem"
+import { erc20Abi, parseUnits } from "viem"
 import { useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, getSDKTokensForChain, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { ReverseSwapQuote, SwapQuote } from "../types"
@@ -22,6 +22,72 @@ import { createViemClient } from "../viemClient"
 export const useSwapWithSDK = () => {
 	const { writeContractAsync } = useWriteContract()
 	const chainId = useChainId()
+
+	// Check token allowance
+	const checkAllowance = async (tokenAddress: string, userAddress: string, spenderAddress: string): Promise<bigint> => {
+		try {
+			const client = createViemClient(chainId)
+			const allowance = await client.readContract({
+				address: tokenAddress as `0x${string}`,
+				abi: erc20Abi,
+				functionName: 'allowance',
+				args: [userAddress as `0x${string}`, spenderAddress as `0x${string}`],
+			}) as bigint
+
+			console.log(`🔍 Current allowance for ${tokenAddress}:`, allowance.toString())
+			return allowance
+		} catch (error) {
+			console.error('Error checking allowance:', error)
+			return 0n
+		}
+	}
+
+	// Approve token spending
+	const approveToken = async (tokenAddress: string, spenderAddress: string, amount: bigint): Promise<void> => {
+		try {
+			console.log(`🔑 Approving ${amount.toString()} tokens for ${tokenAddress}`)
+			
+			const hash = await writeContractAsync({
+				address: tokenAddress as `0x${string}`,
+				abi: erc20Abi,
+				functionName: 'approve',
+				args: [spenderAddress as `0x${string}`, amount],
+			})
+
+			console.log(`✅ Approval transaction submitted:`, hash)
+			
+			// Wait for transaction confirmation
+			const client = createViemClient(chainId)
+			await client.waitForTransactionReceipt({ hash })
+			console.log(`✅ Approval confirmed for ${tokenAddress}`)
+		} catch (error) {
+			console.error('Error approving token:', error)
+			throw new Error(`Failed to approve ${tokenAddress}: ${error}`)
+		}
+	}
+
+	// Ensure token approval for swap
+	const ensureTokenApproval = async (
+		tokenAddress: string,
+		userAddress: string,
+		spenderAddress: string,
+		amount: bigint
+	): Promise<void> => {
+		// Skip approval check for native tokens (ETH/BNB)
+		if (tokenAddress === '0x0000000000000000000000000000000000000000') {
+			return
+		}
+
+		console.log('🔍 Checking token approval for swap...')
+		const allowance = await checkAllowance(tokenAddress, userAddress, spenderAddress)
+		
+		if (allowance < amount) {
+			console.log(`🔑 Need to approve token: ${tokenAddress}`)
+			await approveToken(tokenAddress, spenderAddress, amount)
+		} else {
+			console.log(`✅ Token already approved: ${tokenAddress}`)
+		}
+	}
 
 	const swapWithSDK = async (
 		fromTokenContractAddress: string,
@@ -102,6 +168,18 @@ export const useSwapWithSDK = () => {
 
 			console.log("Swap parameters:", { methodName, args, value, routerAddress: lbRouterContractAddress })
 
+			// Check and approve token if needed (skip for native tokens)
+			if (!isNativeIn) {
+				console.log("🔍 Ensuring token approval for swap...")
+				await ensureTokenApproval(
+					fromTokenContractAddress,
+					recipientWalletAddress,
+					lbRouterContractAddress,
+					typedValueInParsed
+				)
+				console.log("✅ Token approval confirmed, proceeding with swap...")
+			}
+
 			// Execute the swap using writeContractAsync
 			const txHash = await writeContractAsync({
 				address: lbRouterContractAddress as `0x${string}`,
@@ -120,7 +198,12 @@ export const useSwapWithSDK = () => {
 		}
 	}
 
-	return { swapWithSDK }
+	return { 
+		swapWithSDK,
+		checkAllowance,
+		approveToken,
+		ensureTokenApproval 
+	}
 }
 
 // Hook to get swap quotes with real-time pricing using LB SDK
