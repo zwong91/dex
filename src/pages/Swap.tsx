@@ -33,12 +33,18 @@ import {
 } from '@mui/material';
 import { useEffect, useState } from "react";
 import { useAccount, useChainId } from "wagmi";
+import { erc20Abi } from "viem";
+import { useReadContract } from "wagmi";
+import * as ethers from "ethers";
 import {
   useReverseSwapQuote,
   useSwapQuote,
   useSwapWithSDK,
-  useTokenBalanceByAddress
+  useTokenBalanceByAddress,
+  useTokenApproval
 } from '../dex';
+import { LB_ROUTER_V22_ADDRESS } from "@lb-xyz/sdk-v2";
+import { wagmiChainIdToSDKChainId } from '../dex/lbSdkConfig';
 
 import Navigation from "../components/Navigation";
 import { getTokensForChain } from "../dex/networkTokens";
@@ -62,11 +68,14 @@ const SwapPage = () => {
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapSuccess, setSwapSuccess] = useState(false);
   const [swapError, setSwapError] = useState<string | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
+  const [needsApproval, setNeedsApproval] = useState(false);
 
   // Web3 hooks
   const fromTokenBalance = useTokenBalanceByAddress(userWalletAddress, fromToken.address as `0x${string}`);
   const toTokenBalance = useTokenBalanceByAddress(userWalletAddress, toToken.address as `0x${string}`);
   const { swapWithSDK } = useSwapWithSDK();
+  const { approveToken } = useTokenApproval();
 
   // Get swap quote for dynamic pricing
   const swapQuote = useSwapQuote(
@@ -94,51 +103,34 @@ const SwapPage = () => {
     return realBalanceNum > 0.001 ? tokenBalance : '0.0';
   };
 
+  // Get LB Router address for approvals
+  const CHAIN_ID = wagmiChainIdToSDKChainId(chainId);
+  const lbRouterAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID];
+
+  // Check token allowance
+  const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
+    abi: erc20Abi,
+    address: fromToken.address as `0x${string}`,
+    functionName: "allowance",
+    args: userWalletAddress && lbRouterAddress ? [userWalletAddress, lbRouterAddress as `0x${string}`] : undefined,
+    account: userWalletAddress,
+    chainId: chainId,
+  });
+
   useEffect(() => {
-    // Avoid circular updates by checking if the calculation is needed
-    if (lastEditedField === 'from' && fromAmount) {
-      if (!isNaN(parseFloat(fromAmount))) {
-        // Use quote data if available, otherwise fallback to exchange rate
-        if (swapQuote.amountOut && !swapQuote.loading) {
-          const quotedAmount = swapQuote.amountOut;
-          if (quotedAmount !== toAmount) {
-            setToAmount(quotedAmount);
-          }
-        } else if (!swapQuote.loading) {
-          const output = parseFloat(fromAmount) * exchangeRate;
-          const calculatedAmount = output.toFixed(6);
-          if (calculatedAmount !== toAmount) {
-            setToAmount(calculatedAmount);
-          }
-        }
-      } else if (fromAmount === '') {
-        if (toAmount !== '') {
-          setToAmount('');
-        }
+    if (tokenAllowance !== undefined && fromAmount) {
+      try {
+        const allowanceAmount = parseFloat(ethers.formatUnits(tokenAllowance, 18));
+        const requiredAmount = parseFloat(fromAmount);
+        setNeedsApproval(allowanceAmount < requiredAmount);
+      } catch (error) {
+        console.error('Error checking allowance:', error);
+        setNeedsApproval(true);
       }
-    } else if (lastEditedField === 'to' && toAmount) {
-      if (!isNaN(parseFloat(toAmount))) {
-        // Use reverse quote data if available, otherwise fallback to reverse exchange rate
-        if (reverseSwapQuote.amountIn && !reverseSwapQuote.loading) {
-          const quotedAmount = reverseSwapQuote.amountIn;
-          if (quotedAmount !== fromAmount) {
-            setFromAmount(quotedAmount);
-          }
-        } else if (!reverseSwapQuote.loading) {
-          const reverseRate = 1 / exchangeRate;
-          const input = parseFloat(toAmount) * reverseRate;
-          const calculatedAmount = input.toFixed(6);
-          if (calculatedAmount !== fromAmount) {
-            setFromAmount(calculatedAmount);
-          }
-        }
-      } else if (toAmount === '') {
-        if (fromAmount !== '') {
-          setFromAmount('');
-        }
-      }
+    } else {
+      setNeedsApproval(false);
     }
-  }, [fromAmount, toAmount, exchangeRate, swapQuote.amountOut, swapQuote.loading, reverseSwapQuote.amountIn, reverseSwapQuote.loading, lastEditedField]);
+  }, [tokenAllowance, fromAmount]);
 
   // Update tokens when chain changes
   useEffect(() => {
@@ -149,23 +141,33 @@ const SwapPage = () => {
     setToAmount('');
   }, [chainId]);
 
-  const handleTokenSelect = (token: typeof tokens[0]) => {
-    if (selectingToken === 'from') {
-      setFromToken(token);
-    } else {
-      setToToken(token);
+  const handleApprove = async () => {
+    if (!fromToken.address || !userWalletAddress || !fromAmount) {
+      return;
     }
-    setIsTokenSelectOpen(false);
-  };
 
-  const handleSwapTokens = () => {
-    const tempToken = fromToken;
-    const tempAmount = fromAmount;
-    setFromToken(toToken);
-    setToToken(tempToken);
-    setFromAmount(toAmount);
-    setToAmount(tempAmount);
-    setLastEditedField('from'); // Reset to 'from' after swap
+    setIsApproving(true);
+
+    try {
+      // Approve a large amount to avoid frequent approvals
+      const approvalAmount = "1000000"; // 1M tokens should be enough
+      const result = await approveToken(
+        fromToken.address as `0x${string}`, 
+        lbRouterAddress as `0x${string}`, 
+        approvalAmount
+      );
+      console.log('Token approval result:', result);
+      
+      // Wait a bit and refetch allowance
+      setTimeout(() => {
+        refetchAllowance();
+      }, 2000);
+    } catch (err: any) {
+      console.error('Token approval error:', err);
+      setSwapError(`Approval failed: ${err.message || err.toString()}`);
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   const handleSwap = async () => {
@@ -227,6 +229,71 @@ const SwapPage = () => {
       setIsSwapping(false);
     }
   };
+
+  const handleTokenSelect = (token: typeof tokens[0]) => {
+    if (selectingToken === 'from') {
+      setFromToken(token);
+    } else {
+      setToToken(token);
+    }
+    setIsTokenSelectOpen(false);
+  };
+
+  const handleSwapTokens = () => {
+    const tempToken = fromToken;
+    const tempAmount = fromAmount;
+    setFromToken(toToken);
+    setToToken(tempToken);
+    setFromAmount(toAmount);
+    setToAmount(tempAmount);
+    setLastEditedField('from'); // Reset to 'from' after swap
+  };
+
+  useEffect(() => {
+    // Avoid circular updates by checking if the calculation is needed
+    if (lastEditedField === 'from' && fromAmount) {
+      if (!isNaN(parseFloat(fromAmount))) {
+        // Use quote data if available, otherwise fallback to exchange rate
+        if (swapQuote.amountOut && !swapQuote.loading) {
+          const quotedAmount = swapQuote.amountOut;
+          if (quotedAmount !== toAmount) {
+            setToAmount(quotedAmount);
+          }
+        } else if (!swapQuote.loading) {
+          const output = parseFloat(fromAmount) * exchangeRate;
+          const calculatedAmount = output.toFixed(6);
+          if (calculatedAmount !== toAmount) {
+            setToAmount(calculatedAmount);
+          }
+        }
+      } else if (fromAmount === '') {
+        if (toAmount !== '') {
+          setToAmount('');
+        }
+      }
+    } else if (lastEditedField === 'to' && toAmount) {
+      if (!isNaN(parseFloat(toAmount))) {
+        // Use reverse quote data if available, otherwise fallback to reverse exchange rate
+        if (reverseSwapQuote.amountIn && !reverseSwapQuote.loading) {
+          const quotedAmount = reverseSwapQuote.amountIn;
+          if (quotedAmount !== fromAmount) {
+            setFromAmount(quotedAmount);
+          }
+        } else if (!reverseSwapQuote.loading) {
+          const reverseRate = 1 / exchangeRate;
+          const input = parseFloat(toAmount) * reverseRate;
+          const calculatedAmount = input.toFixed(6);
+          if (calculatedAmount !== fromAmount) {
+            setFromAmount(calculatedAmount);
+          }
+        }
+      } else if (toAmount === '') {
+        if (fromAmount !== '') {
+          setFromAmount('');
+        }
+      }
+    }
+  }, [fromAmount, toAmount, exchangeRate, swapQuote.amountOut, swapQuote.loading, reverseSwapQuote.amountIn, reverseSwapQuote.loading, lastEditedField]);
 
   const canSwap = fromAmount && parseFloat(fromAmount) > 0 && userWalletAddress && !isSwapping;
 
@@ -459,20 +526,34 @@ const SwapPage = () => {
               )}
 
               {/* Action Button */}
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={!canSwap}
-                onClick={handleSwap}
-                sx={{ mt: 3, py: 2, fontSize: '1.1rem', fontWeight: 600 }}
-                startIcon={isSwapping ? <CircularProgress size={20} color="inherit" /> : null}
-              >
-                {!userWalletAddress ? 'Connect Wallet' :
-                 isSwapping ? 'Swapping...' :
-                 !fromAmount || parseFloat(fromAmount) <= 0 ? 'Enter an amount' :
-                 `Swap ${fromToken.symbol} for ${toToken.symbol}`}
-              </Button>
+              {needsApproval && userWalletAddress && fromAmount && parseFloat(fromAmount) > 0 ? (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={isApproving}
+                  onClick={handleApprove}
+                  sx={{ mt: 3, py: 2, fontSize: '1.1rem', fontWeight: 600 }}
+                  startIcon={isApproving ? <CircularProgress size={20} color="inherit" /> : null}
+                >
+                  {isApproving ? 'Approving...' : `Approve ${fromToken.symbol}`}
+                </Button>
+              ) : (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={!canSwap}
+                  onClick={handleSwap}
+                  sx={{ mt: 3, py: 2, fontSize: '1.1rem', fontWeight: 600 }}
+                  startIcon={isSwapping ? <CircularProgress size={20} color="inherit" /> : null}
+                >
+                  {!userWalletAddress ? 'Connect Wallet' :
+                   isSwapping ? 'Swapping...' :
+                   !fromAmount || parseFloat(fromAmount) <= 0 ? 'Enter an amount' :
+                   `Swap ${fromToken.symbol} for ${toToken.symbol}`}
+                </Button>
+              )}
 
               {fromAmount && (
                 <Button

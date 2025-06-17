@@ -695,6 +695,7 @@ const PositionPage = () => {
           open={showAddLiquidity}
           onClose={() => setShowAddLiquidity(false)}
           selectedPool={null}
+          chainId={chainId}
         />
       </Container>
     </>
