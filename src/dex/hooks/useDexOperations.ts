@@ -1,13 +1,14 @@
 import { Bin, LB_FACTORY_V22_ADDRESS, LB_ROUTER_V22_ADDRESS, jsonAbis } from "@lb-xyz/sdk-v2"
 import * as ethers from "ethers"
 import { useCallback } from "react"
-import { useChainId, useWriteContract } from "wagmi"
+import { useAccount, useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { createViemClient } from "../viemClient"
 
 // Hook for LB DEX operations (add/remove liquidity, claim fees)
 export const useDexOperations = () => {
 	const { writeContractAsync } = useWriteContract()
+	const { address: userAddress } = useAccount()
 	const chainId = useChainId()
 
 	// Real LB Router operations for adding liquidity to specific pair and bins
@@ -20,19 +21,62 @@ export const useDexOperations = () => {
 		activeBinId?: number,
 		deltaIds?: number[],
 		distributionX?: bigint[],
-		distributionY?: bigint[]
+		distributionY?: bigint[],
+		binStep?: number
 	) => {
 		try {
+			console.log("🔍 Debug addLiquidity userAddress:", userAddress)
+			console.log("🔍 Debug addLiquidity chainId:", chainId)
+			
+			if (!userAddress) {
+				console.error("❌ Wallet not connected - userAddress is:", userAddress)
+				throw new Error("Wallet not connected")
+			}
+
 			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
 			const lbRouterAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID]
+
+			console.log("🔍 Debug CHAIN_ID:", CHAIN_ID)
+			console.log("🔍 Debug lbRouterAddress:", lbRouterAddress)
 
 			if (!lbRouterAddress) {
 				throw new Error("LB Router not supported on this chain")
 			}
 
-			// Convert amounts to proper decimals
-			const tokenA = ethers.parseUnits(tokenAAmount.toString(), 18)
-			const tokenB = ethers.parseUnits(tokenBAmount.toString(), 18)
+			// IMPORTANT: Ensure tokens are in correct order (tokenX < tokenY by address)
+			// LB Router requires tokenX address to be lexicographically smaller than tokenY address
+			const tokenXLower = tokenXAddress.toLowerCase()
+			const tokenYLower = tokenYAddress.toLowerCase()
+			
+			// Use proper lexicographic comparison for addresses
+			const shouldSwapTokens = tokenXLower.localeCompare(tokenYLower) > 0
+			
+			const [orderedTokenXAddress, orderedTokenYAddress] = shouldSwapTokens 
+				? [tokenYAddress, tokenXAddress] 
+				: [tokenXAddress, tokenYAddress]
+			
+			const [orderedTokenAAmount, orderedTokenBAmount] = shouldSwapTokens 
+				? [tokenBAmount, tokenAAmount] 
+				: [tokenAAmount, tokenBAmount]
+
+			console.log("🔄 Token ordering check:", {
+				originalTokenX: tokenXAddress,
+				originalTokenY: tokenYAddress,
+				tokenXLower,
+				tokenYLower,
+				comparison: `${tokenXLower}.localeCompare(${tokenYLower}) = ${tokenXLower.localeCompare(tokenYLower)}`,
+				shouldSwapTokens,
+				finalTokenX: orderedTokenXAddress,
+				finalTokenY: orderedTokenYAddress,
+				originalAmountA: tokenAAmount,
+				originalAmountB: tokenBAmount,
+				finalAmountX: orderedTokenAAmount,
+				finalAmountY: orderedTokenBAmount
+			})
+
+			// Convert amounts to proper decimals using ordered amounts
+			const tokenA = ethers.parseUnits(orderedTokenAAmount.toString(), 18)
+			const tokenB = ethers.parseUnits(orderedTokenBAmount.toString(), 18)
 
 			// Get the active bin ID if not provided
 			let activeBin = activeBinId
@@ -62,8 +106,10 @@ export const useDexOperations = () => {
 
 			console.log("Adding LB liquidity:", {
 				pairAddress,
-				tokenXAddress,
-				tokenYAddress,
+				originalTokenX: tokenXAddress,
+				originalTokenY: tokenYAddress,
+				orderedTokenX: orderedTokenXAddress,
+				orderedTokenY: orderedTokenYAddress,
 				tokenA: tokenA.toString(),
 				tokenB: tokenB.toString(),
 				activeBin,
@@ -74,28 +120,86 @@ export const useDexOperations = () => {
 			// Use LB Router's addLiquidity function
 			const deadline = Math.floor(Date.now() / 1000) + 1200 // 20 minutes from now
 
+			console.log("🔍 About to call writeContractAsync with:", {
+				userAddress,
+				tokenXAddress,
+				tokenYAddress,
+				defaultDeltaIds,
+				defaultDistributionX: defaultDistributionX.map(d => d.toString()),
+				defaultDistributionY: defaultDistributionY.map(d => d.toString()),
+				deadline
+			})
+
+			// Debug all contract call parameters - using ordered tokens
+			const contractArgs = {
+				tokenX: orderedTokenXAddress as `0x${string}`,
+				tokenY: orderedTokenYAddress as `0x${string}`,
+				binStep: BigInt(binStep || 25), // Use passed binStep or default to 25
+				amountX: tokenA,
+				amountY: tokenB,
+				amountXMin: BigInt(tokenA * BigInt(95) / BigInt(100)), // 5% slippage
+				amountYMin: BigInt(tokenB * BigInt(95) / BigInt(100)), // 5% slippage
+				activeIdDesired: BigInt(activeBin),
+				idSlippage: BigInt(5), // Allow 5 bins of slippage
+				deltaIds: defaultDeltaIds.map(id => BigInt(id)),
+				distributionX: defaultDistributionX,
+				distributionY: defaultDistributionY,
+				to: userAddress as `0x${string}`, // Use connected wallet address
+				deadline: BigInt(deadline)
+			}
+
+			console.log("🔍 Contract args being passed:", {
+				...contractArgs,
+				amountX: contractArgs.amountX.toString(),
+				amountY: contractArgs.amountY.toString(),
+				amountXMin: contractArgs.amountXMin.toString(),
+				amountYMin: contractArgs.amountYMin.toString(),
+				activeIdDesired: contractArgs.activeIdDesired.toString(),
+				idSlippage: contractArgs.idSlippage.toString(),
+				deltaIds: contractArgs.deltaIds.map(d => d.toString()),
+				distributionX: contractArgs.distributionX.map(d => d.toString()),
+				distributionY: contractArgs.distributionY.map(d => d.toString()),
+				deadline: contractArgs.deadline.toString()
+			})
+
+			// 构建正确的 addLiquidity 参数结构
+			const addLiquidityInput = {
+				tokenX: orderedTokenXAddress as `0x${string}`,
+				tokenY: orderedTokenYAddress as `0x${string}`,
+				binStep: BigInt(binStep || 25), // Use passed binStep or default to 25
+				amountX: tokenA,
+				amountY: tokenB,
+				amountXMin: BigInt(tokenA * BigInt(95) / BigInt(100)), // 5% slippage
+				amountYMin: BigInt(tokenB * BigInt(95) / BigInt(100)), // 5% slippage
+				activeIdDesired: BigInt(activeBin),
+				idSlippage: BigInt(5), // Allow 5 bins of slippage
+				deltaIds: defaultDeltaIds.map(id => BigInt(id)),
+				distributionX: defaultDistributionX,
+				distributionY: defaultDistributionY,
+				to: userAddress as `0x${string}`, // Use connected wallet address
+				refundTo: userAddress as `0x${string}`, // 退款地址
+				deadline: BigInt(deadline)
+			}
+
+			console.log("🔍 Final addLiquidityInput:", {
+				...addLiquidityInput,
+				amountX: addLiquidityInput.amountX.toString(),
+				amountY: addLiquidityInput.amountY.toString(),
+				amountXMin: addLiquidityInput.amountXMin.toString(),
+				amountYMin: addLiquidityInput.amountYMin.toString(),
+				activeIdDesired: addLiquidityInput.activeIdDesired.toString(),
+				idSlippage: addLiquidityInput.idSlippage.toString(),
+				deltaIds: addLiquidityInput.deltaIds.map(d => d.toString()),
+				distributionX: addLiquidityInput.distributionX.map(d => d.toString()),
+				distributionY: addLiquidityInput.distributionY.map(d => d.toString()),
+				deadline: addLiquidityInput.deadline.toString()
+			})
+
 			const result = await writeContractAsync({
 				abi: jsonAbis.LBRouterV22ABI,
 				address: lbRouterAddress as `0x${string}`,
 				functionName: "addLiquidity",
-				args: [
-					{
-						tokenX: tokenXAddress as `0x${string}`,
-						tokenY: tokenYAddress as `0x${string}`,
-						binStep: BigInt(25), // 0.25% fee tier
-						amountX: tokenA,
-						amountY: tokenB,
-						amountXMin: BigInt(tokenA * BigInt(95) / BigInt(100)), // 5% slippage
-						amountYMin: BigInt(tokenB * BigInt(95) / BigInt(100)), // 5% slippage
-						activeIdDesired: BigInt(activeBin),
-						idSlippage: BigInt(5), // Allow 5 bins of slippage
-						deltaIds: defaultDeltaIds.map(id => BigInt(id)),
-						distributionX: defaultDistributionX,
-						distributionY: defaultDistributionY,
-						to: undefined as any, // Will be filled by the contract call
-						deadline: BigInt(deadline)
-					}
-				],
+				args: [addLiquidityInput],
 				chainId: chainId,
 			})
 
@@ -112,9 +216,14 @@ export const useDexOperations = () => {
 		tokenXAddress: string,
 		tokenYAddress: string,
 		binIds: number[],
-		amounts: bigint[]
+		amounts: bigint[],
+		binStep?: number
 	) => {
 		try {
+			if (!userAddress) {
+				throw new Error("Wallet not connected")
+			}
+
 			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
 			const lbRouterAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID]
 
@@ -133,23 +242,23 @@ export const useDexOperations = () => {
 
 			const deadline = Math.floor(Date.now() / 1000) + 1200 // 20 minutes from now
 
+			const removeLiquidityInput = {
+				tokenX: tokenXAddress as `0x${string}`,
+				tokenY: tokenYAddress as `0x${string}`,
+				binStep: BigInt(binStep || 25), // Use passed binStep or default to 25
+				amountXMin: BigInt(0), // Accept any amount out (could add slippage protection)
+				amountYMin: BigInt(0),
+				ids: binIds.map(id => BigInt(id)),
+				amounts: amounts,
+				to: userAddress as `0x${string}`, // Use connected wallet address
+				deadline: BigInt(deadline)
+			}
+
 			const result = await writeContractAsync({
 				abi: jsonAbis.LBRouterV22ABI,
 				address: lbRouterAddress as `0x${string}`,
 				functionName: "removeLiquidity",
-				args: [
-					{
-						tokenX: tokenXAddress as `0x${string}`,
-						tokenY: tokenYAddress as `0x${string}`,
-						binStep: BigInt(25), // 0.25% fee tier
-						amountXMin: BigInt(0), // Accept any amount out (could add slippage protection)
-						amountYMin: BigInt(0),
-						ids: binIds.map(id => BigInt(id)),
-						amounts: amounts,
-						to: undefined as any, // Will be filled by the contract call
-						deadline: BigInt(deadline)
-					}
-				],
+				args: [removeLiquidityInput],
 				chainId: chainId,
 			})
 
@@ -163,6 +272,10 @@ export const useDexOperations = () => {
 	// Real LB Pair operation for claiming collected fees
 	const claimFees = async (pairAddress: string, binIds: number[]) => {
 		try {
+			if (!userAddress) {
+				throw new Error("Wallet not connected")
+			}
+
 			console.log("Claiming LB fees:", {
 				pairAddress,
 				binIds
@@ -174,7 +287,7 @@ export const useDexOperations = () => {
 				address: pairAddress as `0x${string}`,
 				functionName: "collectFees",
 				args: [
-					undefined as any, // account (will be msg.sender)
+					userAddress as `0x${string}`, // account address
 					binIds.map(id => BigInt(id))
 				],
 				chainId: chainId,
