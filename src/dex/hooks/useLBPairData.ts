@@ -16,20 +16,39 @@ export const useAllLBPairs = () => {
 	const chainId = useChainId()
 
 	const fetchAllPairs = useCallback(async () => {
+		console.log('=== FETCHING ALL LB PAIRS ===')
+		console.log('Current wagmi chainId:', chainId)
+
 		try {
 			setLoading(true)
 
 			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
+			console.log('Mapped SDK chainId:', CHAIN_ID)
+
 			const factoryAddress = LB_FACTORY_V22_ADDRESS[CHAIN_ID]
+			console.log('Factory address for chain:', factoryAddress)
 
 			if (!factoryAddress) {
 				console.warn('LB Factory not supported on chain:', chainId)
+				console.log('Available factory addresses:', LB_FACTORY_V22_ADDRESS)
+				setPairs([])
 				return
 			}
 
 			const publicClient = createViemClient(chainId)
+			console.log('Created viem client for chainId:', chainId)
+
+			// Test basic connectivity first
+			try {
+				const blockNumber = await publicClient.getBlockNumber()
+				console.log('✅ RPC connection successful, block:', blockNumber)
+			} catch (rpcError) {
+				console.error('❌ RPC connection failed:', rpcError)
+				throw new Error('RPC connection failed')
+			}
 
 			// Get total number of pairs
+			console.log('Calling getNumberOfLBPairs on factory:', factoryAddress)
 			const numberOfPairs = await publicClient.readContract({
 				address: factoryAddress as `0x${string}`,
 				abi: jsonAbis.LBFactoryV21ABI,
@@ -38,6 +57,12 @@ export const useAllLBPairs = () => {
 
 			const totalPairs = Number(numberOfPairs)
 			console.log(`Found ${totalPairs} LB pairs on chain ${chainId}`)
+
+			if (totalPairs === 0) {
+				console.log('No pairs found on this network')
+				setPairs([])
+				return
+			}
 
 			// Fetch pairs using getLBPairAtIndex (this function exists in LBFactoryV21ABI)
 			const allPairs: any[] = []
@@ -178,6 +203,11 @@ export const useUserLPBalances = (userAddress: `0x${string}` | undefined) => {
 	const chainId = useChainId()
 
 	const fetchBalances = useCallback(async () => {
+		console.log('=== FETCHING LP BALANCES ===')
+		console.log('User address:', userAddress)
+		console.log('Total pairs available:', pairs.length)
+		console.log('Pairs:', pairs.map(p => `${p.tokenX}/${p.tokenY} - ${p.pairAddress}`))
+
 		if (!userAddress || pairs.length === 0) {
 			setBalances([])
 			return
@@ -205,7 +235,7 @@ export const useUserLPBalances = (userAddress: `0x${string}` | undefined) => {
 					}) as number
 
 					// Check a reasonable range around the active bin for user balances
-					const rangeToCheck = 50 // Check 50 bins on each side
+					const rangeToCheck = 200 // Check 200 bins on each side (increased from 50)
 					const startBin = Math.max(0, activeBin - rangeToCheck)
 					const endBin = Math.min(16777215, activeBin + rangeToCheck)
 
@@ -249,12 +279,15 @@ export const useUserLPBalances = (userAddress: `0x${string}` | undefined) => {
 					}
 
 					if (totalBalance > 0) {
+						console.log(`✅ Found LP balance for ${pair.tokenX}/${pair.tokenY}:`, totalBalance.toString())
 						return {
 							pairAddress: pair.pairAddress,
 							balance: totalBalance,
 							tokenX: pair.tokenX,
 							tokenY: pair.tokenY
 						}
+					} else {
+						console.log(`❌ No LP balance for ${pair.tokenX}/${pair.tokenY}`)
 					}
 
 					return null

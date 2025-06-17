@@ -114,6 +114,13 @@ const PositionPage = () => {
         amt0,
         amt1
       );
+      console.log('🏠 Position.tsx - addLiquidity called with:', {
+        pairAddress: selectedPosition.pairAddress,
+        token0Address: token0.address,
+        token1Address: token1.address,
+        amt0,
+        amt1
+      });
       toast.success('Adding liquidity to position...');
       setShowManageDialog(false);
     } catch (err: any) {
@@ -283,11 +290,19 @@ const PositionPage = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Avatar sx={{ width: 32, height: 32, fontSize: '1rem' }}>
-                            {position.icon0}
+                          <Avatar sx={{ width: 32, height: 32 }}>
+                            <img
+                              src={position.icon0}
+                              alt={position.token0}
+                              style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                            />
                           </Avatar>
-                          <Avatar sx={{ width: 32, height: 32, fontSize: '1rem', ml: -1, zIndex: 1 }}>
-                            {position.icon1}
+                          <Avatar sx={{ width: 32, height: 32, ml: -1, zIndex: 1 }}>
+                            <img
+                              src={position.icon1}
+                              alt={position.token1}
+                              style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                            />
                           </Avatar>
                         </Box>
                         <Typography variant="h6" fontWeight={600}>
@@ -385,8 +400,12 @@ const PositionPage = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {selectedPosition && (
                   <>
-                    <Avatar sx={{ width: 32, height: 32 }}>{selectedPosition.icon0}</Avatar>
-                    <Avatar sx={{ width: 32, height: 32, ml: -1 }}>{selectedPosition.icon1}</Avatar>
+                    <Avatar sx={{ width: 32, height: 32 }}>
+                      <img src={selectedPosition.icon0} alt={selectedPosition.token0} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                    </Avatar>
+                    <Avatar sx={{ width: 32, height: 32, ml: -1 }}>
+                      <img src={selectedPosition.icon1} alt={selectedPosition.token1} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                    </Avatar>
                     <Typography variant="h6">
                       {selectedPosition.token0}/{selectedPosition.token1}
                     </Typography>

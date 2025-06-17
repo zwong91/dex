@@ -1,0 +1,153 @@
+/**
+ * Utility functions for DEX calculations
+ */
+
+// Token icon mapping - you can expand this with actual icon URLs
+const TOKEN_ICONS: Record<string, string> = {
+  BNB: '/assets/bnb.svg',
+  WBNB: '/assets/bnb.svg',
+  USDC: '/assets/usdc.svg',
+  USDT: '/assets/usdt.svg',
+  ETH: '/assets/eth.svg',
+  WETH: '/assets/eth.svg',
+  BTCB: '/assets/btc.svg',
+  CAKE: '/assets/cake.svg',
+  // Add more token icons as needed
+}
+
+// Get token icon URL
+export const getTokenIcon = (symbol: string): string => {
+  return TOKEN_ICONS[symbol.toUpperCase()] || '/assets/default-token.svg'
+}
+
+// Calculate position value in USD (mock implementation)
+export const calculatePositionValue = async (
+  token0Symbol: string,
+  token1Symbol: string,
+  amount0: number,
+  amount1: number
+): Promise<string> => {
+  // Mock price data - in production, fetch from price oracle
+  const mockPrices: Record<string, number> = {
+    BNB: 600,
+    WBNB: 600,
+    USDC: 1,
+    USDT: 1,
+    ETH: 3400,
+    WETH: 3400,
+    BTCB: 50000,
+    CAKE: 2.5,
+  }
+
+  const price0 = mockPrices[token0Symbol.toUpperCase()] || 1
+  const price1 = mockPrices[token1Symbol.toUpperCase()] || 1
+
+  const value0 = amount0 * price0
+  const value1 = amount1 * price1
+  const totalValue = value0 + value1
+
+  if (totalValue >= 1000000) {
+    return `$${(totalValue / 1000000).toFixed(2)}M`
+  } else if (totalValue >= 1000) {
+    return `$${(totalValue / 1000).toFixed(2)}K`
+  } else {
+    return `$${totalValue.toFixed(2)}`
+  }
+}
+
+// Calculate price range for LB positions
+export const calculatePriceRange = async (
+  _activeBin: number,
+  binStep: number,
+  token0Symbol: string,
+  token1Symbol: string
+): Promise<{ min: number; max: number; current: number }> => {
+  // Mock current price based on token pair
+  let currentPrice = 1
+
+  if ((token0Symbol === 'USDC' || token0Symbol === 'USDT') && token1Symbol === 'BNB') {
+    currentPrice = 1 / 600 // USDC per BNB
+  } else if (token0Symbol === 'BNB' && (token1Symbol === 'USDC' || token1Symbol === 'USDT')) {
+    currentPrice = 600 // BNB per USDC
+  } else if (token0Symbol === 'ETH' && (token1Symbol === 'USDC' || token1Symbol === 'USDT')) {
+    currentPrice = 3400
+  } else if ((token0Symbol === 'USDC' || token0Symbol === 'USDT') && token1Symbol === 'ETH') {
+    currentPrice = 1 / 3400
+  }
+
+  // Calculate bin price range (simplified)
+  const binStepPercent = binStep / 10000
+  const priceRange = currentPrice * binStepPercent * 10 // ±10 bins
+
+  return {
+    min: Math.max(0, currentPrice - priceRange),
+    max: currentPrice + priceRange,
+    current: currentPrice
+  }
+}
+
+// Calculate realistic fees for a position
+export const calculateRealisticFees = async (
+  sharePercentage: number,
+  binStep: number,
+  token0Symbol: string,
+  token1Symbol: string,
+  positionValueUSD: number
+): Promise<{ fees24h: string; feesTotal: string }> => {
+  // Base APR based on bin step (higher bin step = more volatile = higher fees)
+  const baseAPR = Math.min(binStep / 100, 200) // Cap at 200%
+  
+  // Adjust for token pair volatility
+  let volatilityMultiplier = 1
+  if (token0Symbol === 'USDC' && token1Symbol === 'USDT') {
+    volatilityMultiplier = 0.1 // Very stable pair
+  } else if ((token0Symbol === 'BNB' || token1Symbol === 'BNB') && 
+             (token0Symbol === 'USDC' || token1Symbol === 'USDC' || 
+              token0Symbol === 'USDT' || token1Symbol === 'USDT')) {
+    volatilityMultiplier = 1.5 // Moderate volatility
+  } else {
+    volatilityMultiplier = 2 // High volatility pairs
+  }
+
+  const dailyFeeRate = (baseAPR * volatilityMultiplier / 365) / 100
+  const fees24h = positionValueUSD * dailyFeeRate * (sharePercentage / 100)
+  const feesTotal = fees24h * 30 // Estimate 30 days of fees
+
+  const formatFees = (amount: number): string => {
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(2)}M`
+    } else if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(2)}K`
+    } else {
+      return `$${amount.toFixed(2)}`
+    }
+  }
+
+  return {
+    fees24h: formatFees(fees24h),
+    feesTotal: formatFees(feesTotal)
+  }
+}
+
+// Estimate APR for a position
+export const estimateAPR = (
+  token0Symbol: string,
+  token1Symbol: string,
+  binStep: number
+): string => {
+  // Base APR calculation
+  let baseAPR = binStep / 10 // Simple heuristic
+
+  // Adjust for pair type
+  if (token0Symbol === 'USDC' && token1Symbol === 'USDT') {
+    baseAPR = Math.min(baseAPR, 5) // Stable pairs have lower APR
+  } else if ((token0Symbol === 'BNB' || token1Symbol === 'BNB') && 
+             (token0Symbol === 'USDC' || token1Symbol === 'USDC' || 
+              token0Symbol === 'USDT' || token1Symbol === 'USDT')) {
+    baseAPR = Math.min(baseAPR, 50) // Major pairs
+  } else {
+    baseAPR = Math.min(baseAPR, 100) // Other pairs
+  }
+
+  return `${baseAPR.toFixed(1)}%`
+}

@@ -168,6 +168,13 @@ export const DEX_FEATURES = {
   },
 } as const;
 
+// Liquidity Helper contract addresses for different chains
+export const LIQUIDITY_HELPER_ADDRESSES: Record<number, string> = {
+  1: '0x0000000000000000000000000000000000000000', // Ethereum Mainnet - not configured
+  56: '0x0000000000000000000000000000000000000000', // BSC Mainnet - not configured  
+  97: '0x1e51C5C4523dDC900AFb5c48Ed4D07680fEEe7A4', // BSC Testnet - not configured
+}
+
 // Helper functions
 export const formatTokenAmount = (amount: string | number, decimals: number = 18): string => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
