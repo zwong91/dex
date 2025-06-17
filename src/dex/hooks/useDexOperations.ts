@@ -238,7 +238,8 @@ export const useDexOperations = () => {
 		tokenXAddress: string,
 		tokenYAddress: string,
 		binStepBasisPoints: number,
-		activePrice: string
+		activePrice: string,
+		baseFee?: string // Optional base fee parameter
 	) => {
 		try {
 			// First check if pool already exists
@@ -285,6 +286,7 @@ export const useDexOperations = () => {
 				binStep: binStepBasisPoints,
 				activePrice: activePrice,
 				activePriceId,
+				baseFee: baseFee,
 				factory: factoryAddress
 			})
 

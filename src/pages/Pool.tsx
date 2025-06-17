@@ -310,22 +310,13 @@ const PoolPage = () => {
           <Typography variant="h4" fontWeight={600}>
             Pools {realPoolData.length > 0 && `(${realPoolData.length})`}
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="outlined"
-              onClick={() => window.location.reload()}
-              disabled={poolsLoading}
-            >
-              Refresh
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setShowAddNewPool(true)}
-            >
-              Pool
-            </Button>
-          </Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setShowAddNewPool(true)}
+          >
+            Pool
+          </Button>
         </Box>
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>

@@ -1,22 +1,25 @@
 import {
-  Add as AddIcon,
-  Close as CloseIcon,
-  KeyboardArrowDown as KeyboardArrowDownIcon,
+	Add as AddIcon,
+	Close as CloseIcon,
+	Info as InfoIcon,
+	KeyboardArrowDown as KeyboardArrowDownIcon,
+	Warning as WarningIcon,
 } from '@mui/icons-material'
 import {
-  Avatar,
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  IconButton,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
+	Avatar,
+	Box,
+	Button,
+	CircularProgress,
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	Grid,
+	IconButton,
+	TextField,
+	ToggleButton,
+	ToggleButtonGroup,
+	Tooltip,
+	Typography,
 } from '@mui/material'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -45,6 +48,11 @@ const binStepOptions = [
 	{ value: '0.25%', baseFee: '0.25%', label: '0.25%' },
 	{ value: '0.5%', baseFee: '0.4%', label: '0.5%' },
 	{ value: '1%', baseFee: '0.8%', label: '1%' },
+]
+
+const baseFeeOptions = [
+	'0.01%', '0.02%', '0.03%', '0.04%', '0.05%', '0.1%', '0.15%', '0.2%', '0.25%',
+	'0.3%', '0.4%', '0.6%', '0.8%', '1%', '2%', '5%'
 ]
 
 // Custom hook to fetch live price from Binance API
@@ -99,7 +107,8 @@ const CreatePoolDialog = ({
 }: CreatePoolDialogProps) => {
 	const { address: userWalletAddress } = useAccount()
 	const [selectedBinStep, setSelectedBinStep] = useState('0.25%')
-	const [activePrice, setActivePrice] = useState('0.0027')
+	const [selectedBaseFee, setSelectedBaseFee] = useState('0.25%')
+	const [activePrice, setActivePrice] = useState('600.00')
 	const [isCreatingPool, setIsCreatingPool] = useState(false)
 	const [poolExists, setPoolExists] = useState<{
 		exists: boolean
@@ -115,21 +124,27 @@ const CreatePoolDialog = ({
 
 	// Set default token addresses on load
 	useEffect(() => {
-		const token0 = tokens.find(t => t.symbol === 'USDC')
-		const token1 = tokens.find(t => t.symbol === 'ETH')
+		const token0 = tokens.find(t => t.symbol === 'BNB' || t.symbol === 'WBNB')
+		const token1 = tokens.find(t => t.symbol === 'USDT')
 
 		if (token0 && !newPoolToken0Address) {
 			setNewPoolToken0Address(token0.address)
+			setNewPoolToken0('BNB') // Set default Base Token symbol
 		}
 
 		if (token1 && !newPoolToken1Address) {
 			setNewPoolToken1Address(token1.address)
+			setNewPoolToken1('USDT') // Set default Quote Token symbol
 		}
-	}, [tokens, newPoolToken0Address, newPoolToken1Address])
+	}, [tokens, newPoolToken0Address, newPoolToken1Address, setNewPoolToken0, setNewPoolToken1])
 
 	// Get current market price from Binance API
-	const token0Symbol = newPoolToken0 || 'USDC'
-	const token1Symbol = newPoolToken1 || 'ETH'
+	const token0Symbol = newPoolToken0 || 'BNB'
+	const token1Symbol = newPoolToken1 || 'USDT'
+
+	// Constants for reuse
+	const stablecoins = ['USDC', 'USDT', 'BUSD', 'DAI']
+	const isBaseTokenStable = stablecoins.includes(token0Symbol)
 
 	// Build Binance symbol with proper mapping
 	const buildBinanceSymbol = useMemo(() => {
@@ -140,13 +155,8 @@ const CreatePoolDialog = ({
 			}
 
 			// Handle stablecoin pairs specially
-			const stablecoins = ['USDC', 'USDT', 'BUSD', 'DAI']
-
 			// If both tokens are stablecoins, return null (we'll use fixed rate ~1.0)
-			if (
-				stablecoins.includes(baseToken) &&
-				stablecoins.includes(quoteToken)
-			) {
+			if (stablecoins.includes(baseToken) && stablecoins.includes(quoteToken)) {
 				return { symbol: null, inverted: false }
 			}
 
@@ -162,20 +172,38 @@ const CreatePoolDialog = ({
 
 			// For USDC/ETH pair, we want to show how many USDC per 1 ETH
 			// Binance ETHUSDC gives ETH price in USDC (e.g. 2618 USDC per ETH)
-			if (
-				(mappedBase === 'USDC' && mappedQuote === 'ETH') ||
-				(mappedBase === 'USDC' && mappedQuote === 'WETH')
-			) {
+			if (mappedBase === 'USDC' && mappedQuote === 'ETH') {
 				return { symbol: 'ETHUSDC', inverted: false }
+			}
+
+			// For USDT/ETH pair, we want to show how many USDT per 1 ETH
+			// Binance ETHUSDT gives ETH price in USDT (e.g. 2618 USDT per ETH)
+			if (mappedBase === 'USDT' && mappedQuote === 'ETH') {
+				return { symbol: 'ETHUSDT', inverted: false }
+			}
+
+			// For USDT/BNB pair, we want to show how many USDT per 1 BNB
+			// Binance BNBUSDT gives BNB price in USDT (e.g. 600 USDT per BNB)
+			if (mappedBase === 'USDT' && mappedQuote === 'BNB') {
+				return { symbol: 'BNBUSDT', inverted: false }
+			}
+
+			// For BNB/USDT pair, we want to show how many BNB per 1 USDT
+			// Need to invert BNBUSDT (1/600 = 0.00167)
+			if (mappedBase === 'BNB' && mappedQuote === 'USDT') {
+				return { symbol: 'BNBUSDT', inverted: true }
 			}
 
 			// For ETH/USDC pair, we want to show how many ETH per 1 USDC
 			// Need to invert ETHUSDC (1/2618 = 0.000382)
-			if (
-				(mappedBase === 'ETH' && mappedQuote === 'USDC') ||
-				(mappedBase === 'WETH' && mappedQuote === 'USDC')
-			) {
+			if (mappedBase === 'ETH' && mappedQuote === 'USDC') {
 				return { symbol: 'ETHUSDC', inverted: true }
+			}
+
+			// For ETH/USDT pair, we want to show how many ETH per 1 USDT
+			// Need to invert ETHUSDT (1/2618 = 0.000382)
+			if (mappedBase === 'ETH' && mappedQuote === 'USDT') {
+				return { symbol: 'ETHUSDT', inverted: true }
 			}
 
 			// Define major trading pairs in correct order
@@ -217,11 +245,26 @@ const CreatePoolDialog = ({
 	const displayPrice = useMemo(() => {
 		if (!binancePrice) {
 			// Default fallback prices for common pairs
+			if (token0Symbol === 'BNB' && token1Symbol === 'USDT') {
+				return '600.00' // Default BNB per USDT
+			}
+			if (token0Symbol === 'USDT' && (token1Symbol === 'WBNB' || token1Symbol === 'BNB')) {
+				return '0.00167' // Default USDT per BNB (1/600)
+			}
 			if (token0Symbol === 'USDC' && token1Symbol === 'ETH') {
 				return '2618.45' // Default USDC per ETH
 			}
+			if (token0Symbol === 'USDT' && token1Symbol === 'ETH') {
+				return '2618.45' // Default USDT per ETH
+			}
+			if ((token0Symbol === 'WBNB' || token0Symbol === 'BNB') && token1Symbol === 'USDT') {
+				return '600.00' // Default BNB per USDT
+			}
 			if (token0Symbol === 'ETH' && token1Symbol === 'USDC') {
 				return '0.000382' // Default ETH per USDC (1/2618)
+			}
+			if (token0Symbol === 'ETH' && token1Symbol === 'USDT') {
+				return '0.000382' // Default ETH per USDT (1/2618)
 			}
 			// For stablecoin pairs or same tokens
 			return '1.0'
@@ -309,6 +352,7 @@ const CreatePoolDialog = ({
 				token1Address: newPoolToken1Address,
 				binStep: selectedBinStep,
 				binStepBasisPoints,
+				baseFee: selectedBaseFee,
 				activePrice: activePrice,
 			})
 
@@ -319,6 +363,7 @@ const CreatePoolDialog = ({
 				newPoolToken1Address,
 				binStepBasisPoints,
 				activePrice,
+				selectedBaseFee,
 			)
 
 			toast.success('Pool created successfully!')
@@ -336,7 +381,7 @@ const CreatePoolDialog = ({
 			let errorMessage = 'Unknown error'
 
 			if (err.message && err.message.includes('LBFactory__LBPairAlreadyExists')) {
-				errorMessage = `Pool already exists for ${newPoolToken0}/${newPoolToken1} with ${selectedBinStep} bin step. Try using a different bin step or tokens.`
+				errorMessage = `Pool already exists for ${token0Symbol}/${token1Symbol} with ${selectedBinStep} bin step. Try using a different bin step or tokens.`
 			} else if (err.message && err.message.includes('User rejected')) {
 				errorMessage = 'Transaction was cancelled by user'
 			} else if (err.message && err.message.includes('insufficient funds')) {
@@ -353,12 +398,13 @@ const CreatePoolDialog = ({
 
 	const handleClose = () => {
 		// Reset form
-		setNewPoolToken0('USDC')
-		setNewPoolToken1('ETH')
+		setNewPoolToken0('BNB')
+		setNewPoolToken1('USDT')
 		setNewPoolToken0Address('')
 		setNewPoolToken1Address('')
 		setSelectedBinStep('0.25%')
-		setActivePrice('0.0027')
+		setSelectedBaseFee('0.25%')
+		setActivePrice('600.00')
 		onClose()
 	}
 
@@ -384,13 +430,13 @@ const CreatePoolDialog = ({
 			</DialogTitle>
 			<DialogContent>
 				<Box sx={{ pt: 2 }}>
-					{/* Select Token */}
+					{/* Base Token  */}
 					<Typography
 						variant="h6"
 						gutterBottom
 						sx={{ fontWeight: 600, mb: 2 }}
 					>
-						Select Token
+						Base Token
 					</Typography>
 
 					<Button
@@ -401,9 +447,11 @@ const CreatePoolDialog = ({
 							p: 2,
 							mb: 3,
 							justifyContent: 'space-between',
-							border: '1px solid #e0e0e0',
-							backgroundColor: '#f8f9ff',
-							'&:hover': { backgroundColor: '#f0f2ff' },
+							border: isBaseTokenStable ? '2px solid #dc2626' : '1px solid #e0e0e0',
+							backgroundColor: isBaseTokenStable ? '#fef2f2' : '#f8f9ff',
+							'&:hover': {
+								backgroundColor: isBaseTokenStable ? '#fee2e2' : '#f0f2ff'
+							},
 						}}
 						endIcon={<KeyboardArrowDownIcon />}
 					>
@@ -416,33 +464,63 @@ const CreatePoolDialog = ({
 									bgcolor: 'primary.main',
 								}}
 							>
-								U
+								B
 							</Avatar>
 							<Box sx={{ textAlign: 'left' }}>
 								<Typography
 									variant="body1"
 									sx={{ fontWeight: 600, color: 'black' }}
 								>
-									{newPoolToken0 || 'USDC'}
+									{token0Symbol}
 								</Typography>
 								<Typography
 									variant="body2"
 									sx={{ color: 'text.secondary' }}
 								>
-									{tokens.find(t => t.symbol === newPoolToken0)?.name ||
-										'USD Coin'}
+									{tokens.find(t => t.symbol === token0Symbol)?.name || 'Binance Coin'}
 								</Typography>
 							</Box>
 						</Box>
 					</Button>
 
-					{/* Select Quote Asset */}
+					{/* Base Token Warning */}
+					{isBaseTokenStable && (
+						<Box
+							sx={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 1,
+								p: 1.5,
+								mb: 2,
+								backgroundColor: '#fef2f2',
+								border: '1px solid #fecaca',
+								borderRadius: 1,
+							}}
+						>
+							<WarningIcon sx={{ fontSize: 18, color: '#dc2626' }} />
+							<Typography
+								variant="body2"
+								sx={{ color: '#dc2626', fontSize: '0.875rem' }}
+							>
+								Your Base token is set to {token0Symbol}. {token0Symbol} is usually used as the Quote token.
+							</Typography>
+						</Box>
+					)}
+
+					{/* Quote Token  */}
 					<Typography
 						variant="h6"
 						gutterBottom
 						sx={{ fontWeight: 600, mb: 2 }}
 					>
-						Select Quote Asset
+						Quote Token
+					</Typography>
+					<Typography
+						variant="body2"
+						sx={{ color: 'text.secondary', mb: 2 }}
+					>
+						BNB or stables (e.g. USDC, USDT) are usually used as the Quote token,
+						which represents the price used to trade the Base token.
 					</Typography>
 
 					<Button
@@ -468,34 +546,83 @@ const CreatePoolDialog = ({
 									bgcolor: 'primary.main',
 								}}
 							>
-								E
+								T
 							</Avatar>
 							<Box sx={{ textAlign: 'left' }}>
 								<Typography
 									variant="body1"
 									sx={{ fontWeight: 600, color: 'black' }}
 								>
-									{newPoolToken1 || 'ETH'}
+									{token1Symbol}
 								</Typography>
 								<Typography
 									variant="body2"
 									sx={{ color: 'text.secondary' }}
 								>
-									{tokens.find(t => t.symbol === newPoolToken1)?.name ||
-										'Ethereum'}
+									{tokens.find(t => t.symbol === token1Symbol)?.name || 'Tether USD'}
 								</Typography>
 							</Box>
 						</Box>
 					</Button>
 
-					{/* Bin Step Selection */}
-					<Typography
-						variant="h6"
-						gutterBottom
-						sx={{ fontWeight: 600, mb: 2 }}
+					{/* Base Fee */}
+					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+						<Typography
+							variant="h6"
+							sx={{ fontWeight: 600 }}
+						>
+							Base Fee
+						</Typography>
+						<Tooltip
+							title="The base trading fee percentage charged for each swap. Lower fees attract more trading volume but reduce fee earnings."
+							placement="top"
+						>
+							<InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+						</Tooltip>
+					</Box>
+
+					<ToggleButtonGroup
+						value={selectedBaseFee}
+						exclusive
+						onChange={(_, value) => value && setSelectedBaseFee(value)}
+						sx={{ mb: 3, width: '100%', flexWrap: 'wrap' }}
 					>
-						Choose Bin Step
-					</Typography>
+						{baseFeeOptions.map(option => (
+							<ToggleButton
+								key={option}
+								value={option}
+								sx={{
+									minWidth: '70px',
+									border: '1px solid #e0e0e0 !important',
+									'&.Mui-selected': {
+										backgroundColor: 'primary.main',
+										color: 'white',
+										'&:hover': { backgroundColor: 'primary.dark' },
+									},
+								}}
+							>
+								<Typography variant="body2" fontWeight={600}>
+									{option}
+								</Typography>
+							</ToggleButton>
+						))}
+					</ToggleButtonGroup>
+
+					{/* Bin Step Selection */}
+					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+						<Typography
+							variant="h6"
+							sx={{ fontWeight: 600 }}
+						>
+							Bin Step
+						</Typography>
+						<Tooltip
+							title="The price interval between bins. Smaller bin steps provide tighter liquidity concentration but may have lower trading volume."
+							placement="top"
+						>
+							<InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+						</Tooltip>
+					</Box>
 
 					<ToggleButtonGroup
 						value={selectedBinStep}
@@ -535,14 +662,21 @@ const CreatePoolDialog = ({
 						))}
 					</ToggleButtonGroup>
 
-					{/* Active Price */}
-					<Typography
-						variant="h6"
-						gutterBottom
-						sx={{ fontWeight: 600, mb: 2 }}
-					>
-						Enter Active Price
-					</Typography>
+					{/* Initial Price */}
+					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+						<Typography
+							variant="h6"
+							sx={{ fontWeight: 600 }}
+						>
+							Initial Price
+						</Typography>
+						<Tooltip
+							title="The starting price for the pool. This determines the active bin where trading begins. Use market price for optimal liquidity."
+							placement="top"
+						>
+							<InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+						</Tooltip>
+					</Box>
 
 					<Grid container spacing={2} sx={{ mb: 3 }}>
 						<Grid size={8}>
@@ -555,7 +689,39 @@ const CreatePoolDialog = ({
 								helperText={
 									priceLoading
 										? 'Loading market price...'
-										: `Current market price: ${displayPrice} ${token0Symbol} per ${token1Symbol}`
+										: (
+											<span>
+												<img
+													src="https://bin.bnbstatic.com/static/images/common/favicon.ico"
+													alt="Binance"
+													style={{
+														width: '16px',
+														height: '16px',
+														verticalAlign: 'middle',
+														marginRight: '6px'
+													}}
+												/>
+												Market price: {parseFloat(displayPrice).toLocaleString('en-US', {
+													minimumFractionDigits: 2,
+													maximumFractionDigits: 6
+												})} {token0Symbol}/{token1Symbol}. {
+													binanceSymbolData?.symbol ? (
+														<a
+															href={`https://www.binance.com/en/trade/${binanceSymbolData.symbol}`}
+															target="_blank"
+															rel="noopener noreferrer"
+															style={{
+																color: '#1976d2',
+																textDecoration: 'underline',
+																cursor: 'pointer'
+															}}
+														>
+															Verify
+														</a>
+													) : 'Verify'
+												} before using.
+											</span>
+										)
 								}
 							/>
 						</Grid>
@@ -587,8 +753,7 @@ const CreatePoolDialog = ({
 								variant="body2"
 								sx={{ color: '#856404', fontWeight: 500 }}
 							>
-								⚠️ Pool already exists for {newPoolToken0}/{newPoolToken1} with{' '}
-								{selectedBinStep} bin step.
+								⚠️ Pool already exists for {token0Symbol}/{token1Symbol} with {selectedBinStep} bin step.
 								{poolExists.pairAddress && (
 									<>
 										<br />
