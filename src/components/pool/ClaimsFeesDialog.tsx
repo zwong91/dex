@@ -74,10 +74,10 @@ const ClaimsFeesDialog = ({
 					<Box>
 						<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
 							<Avatar sx={{ width: 32, height: 32 }}>
-								{selectedPosition.icon0}
+								<img src={selectedPosition.icon0} alt={selectedPosition.token0} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
 							</Avatar>
 							<Avatar sx={{ width: 32, height: 32, ml: -1 }}>
-								{selectedPosition.icon1}
+								<img src={selectedPosition.icon1} alt={selectedPosition.token1} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
 							</Avatar>
 							<Typography variant="h6">
 								{selectedPosition.token0}/{selectedPosition.token1}

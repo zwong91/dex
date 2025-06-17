@@ -3,20 +3,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { useChainId } from 'wagmi'
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from '../lbSdkConfig'
 import { PoolData } from '../types'
+import { generateTokenIcon } from '../utils/tokenIconGenerator'
 import { createViemClient } from '../viemClient'
 
-// Simple icon mapping helper
+// Use dynamic icon generation instead of static emoji
 const getTokenIcon = (symbol: string): string => {
-	const iconMap: { [key: string]: string } = {
-		'ETH': '🔷',
-		'WETH': '🔷',
-		'USDC': '💵',
-		'USDT': '💰',
-		'DAI': '🟡',
-		'WBNB': '🟨',
-		'BNB': '🟨'
-	}
-	return iconMap[symbol] || '❓'
+	return generateTokenIcon(symbol, 32)
 }
 
 // Hook to fetch real pool data directly from LB Factory contract (no events)

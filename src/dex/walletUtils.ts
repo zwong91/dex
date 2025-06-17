@@ -1,5 +1,7 @@
 // Utility functions for wallet operations like adding tokens to MetaMask
 
+import { generateTokenIcon } from './utils/tokenIconGenerator'
+
 export interface TokenInfo {
 	address: string;
 	symbol: string;
@@ -13,25 +15,25 @@ export const BSC_TESTNET_TOKENS: Record<string, TokenInfo> = {
 		address: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
 		symbol: "USDT",
 		decimals: 18,
-		image: "https://cryptologos.cc/logos/tether-usdt-logo.png"
+		image: generateTokenIcon('USDT')
 	},
 	USDC: {
 		address: "0x64544969ed7EBf5f083679233325356EbE738930",
 		symbol: "USDC",
 		decimals: 18,
-		image: "https://cryptologos.cc/logos/usd-coin-usdc-logo.png"
+		image: generateTokenIcon('USDC')
 	},
 	WBNB: {
 		address: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
 		symbol: "WBNB",
 		decimals: 18,
-		image: "https://cryptologos.cc/logos/bnb-bnb-logo.png"
+		image: generateTokenIcon('WBNB')
 	},
 	ETH: {
 		address: "0x8babbb98678facc7342735486c851abd7a0d17ca",
 		symbol: "ETH",
 		decimals: 18,
-		image: "https://cryptologos.cc/logos/ethereum-eth-logo.png"
+		image: generateTokenIcon('ETH')
 	}
 };
 

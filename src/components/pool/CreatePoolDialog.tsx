@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
 import { useDexOperations } from '../../dex'
 import { getTokensForChain } from '../../dex/networkTokens'
+import { generateTokenIcon } from '../../dex/utils/tokenIconGenerator'
 
 interface CreatePoolDialogProps {
 	open: boolean
@@ -461,10 +462,9 @@ const CreatePoolDialog = ({
 									width: 24,
 									height: 24,
 									fontSize: '14px',
-									bgcolor: 'primary.main',
 								}}
 							>
-								B
+								<img src={generateTokenIcon(token0Symbol, 24)} alt={token0Symbol} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
 							</Avatar>
 							<Box sx={{ textAlign: 'left' }}>
 								<Typography
@@ -543,10 +543,9 @@ const CreatePoolDialog = ({
 									width: 24,
 									height: 24,
 									fontSize: '14px',
-									bgcolor: 'primary.main',
 								}}
 							>
-								T
+								<img src={generateTokenIcon(token1Symbol, 24)} alt={token1Symbol} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
 							</Avatar>
 							<Box sx={{ textAlign: 'left' }}>
 								<Typography
