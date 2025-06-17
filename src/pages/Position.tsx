@@ -239,7 +239,7 @@ const PositionPage = () => {
               sx={{ textTransform: 'none', fontWeight: 600 }}
             />
             <Tab
-              label="Positions"
+              label="My Positions"
               sx={{ textTransform: 'none', fontWeight: 600 }}
             />
           </Tabs>
@@ -248,7 +248,7 @@ const PositionPage = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Box>
             <Typography variant="h4" fontWeight={600} gutterBottom>
-              Your Positions
+              My Positions
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Manage your liquidity positions and collect fees

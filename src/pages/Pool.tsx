@@ -322,7 +322,7 @@ const PoolPage = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={currentTab} onChange={handleTabChange}>
             <Tab label="All Pools" />
-            <Tab label="Positions" />
+            <Tab label="My Positions" />
           </Tabs>
         </Box>
 
