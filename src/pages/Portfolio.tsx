@@ -128,11 +128,7 @@ const PortfolioPage = () => {
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Avatar sx={{ width: 32, height: 32 }}>
-                                  {token.icon ? (
-                                    <img src={token.icon} alt={token.symbol} style={{ width: '100%', height: '100%' }} />
-                                  ) : (
-                                    token.symbol.charAt(0)
-                                  )}
+                                  <img src={token.icon} alt={token.symbol} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
                                 </Avatar>
                                 <Box>
                                   <Typography variant="body1" fontWeight={600}>
@@ -198,10 +194,18 @@ const PortfolioPage = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
                               <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
-                                {position.icon0}
+                                <img
+                                  src={position.icon0}
+                                  alt={position.token0}
+                                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                                />
                               </Avatar>
                               <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem', ml: -0.5 }}>
-                                {position.icon1}
+                                <img
+                                  src={position.icon1}
+                                  alt={position.token1}
+                                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                                />
                               </Avatar>
                             </Box>
                             <Typography variant="body1" fontWeight={600}>

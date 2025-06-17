@@ -2,22 +2,11 @@
  * Utility functions for DEX calculations
  */
 
-// Token icon mapping - you can expand this with actual icon URLs
-const TOKEN_ICONS: Record<string, string> = {
-  BNB: '/assets/bnb.svg',
-  WBNB: '/assets/bnb.svg',
-  USDC: '/assets/usdc.svg',
-  USDT: '/assets/usdt.svg',
-  ETH: '/assets/eth.svg',
-  WETH: '/assets/eth.svg',
-  BTCB: '/assets/btc.svg',
-  CAKE: '/assets/cake.svg',
-  // Add more token icons as needed
-}
+import { generateTokenIcon } from './tokenIconGenerator'
 
-// Get token icon URL
-export const getTokenIcon = (symbol: string): string => {
-  return TOKEN_ICONS[symbol.toUpperCase()] || '/assets/default-token.svg'
+// Get token icon URL - now uses local SVG generation
+export const getTokenIcon = (symbol: string, size: number = 32): string => {
+  return generateTokenIcon(symbol, size)
 }
 
 // Calculate position value in USD (mock implementation)

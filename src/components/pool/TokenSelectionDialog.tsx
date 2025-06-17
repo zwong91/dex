@@ -71,9 +71,6 @@ const TokenSelectionDialog = ({
 												height: 24,
 												borderRadius: '50%',
 											}}
-											onError={e => {
-												e.currentTarget.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23ddd"/><text x="12" y="16" text-anchor="middle" fill="%23666" font-size="12">${token.symbol[0]}</text></svg>`
-											}}
 										/>
 									</Avatar>
 								</ListItemAvatar>

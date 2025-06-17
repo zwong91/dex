@@ -401,10 +401,18 @@ const PositionPage = () => {
                 {selectedPosition && (
                   <>
                     <Avatar sx={{ width: 32, height: 32 }}>
-                      <img src={selectedPosition.icon0} alt={selectedPosition.token0} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                      <img 
+                        src={selectedPosition.icon0} 
+                        alt={selectedPosition.token0} 
+                        style={{ width: '100%', height: '100%', borderRadius: '50%' }} 
+                      />
                     </Avatar>
                     <Avatar sx={{ width: 32, height: 32, ml: -1 }}>
-                      <img src={selectedPosition.icon1} alt={selectedPosition.token1} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                      <img 
+                        src={selectedPosition.icon1} 
+                        alt={selectedPosition.token1} 
+                        style={{ width: '100%', height: '100%', borderRadius: '50%' }} 
+                      />
                     </Avatar>
                     <Typography variant="h6">
                       {selectedPosition.token0}/{selectedPosition.token1}

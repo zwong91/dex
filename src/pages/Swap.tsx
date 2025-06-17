@@ -338,9 +338,6 @@ const SwapPage = () => {
                         src={fromToken.icon}
                         alt={fromToken.symbol}
                         style={{ width: 20, height: 20, borderRadius: '50%' }}
-                        onError={(e) => {
-                          e.currentTarget.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23ddd"/><text x="12" y="16" text-anchor="middle" fill="%23666" font-size="12">${fromToken.symbol[0]}</text></svg>`;
-                        }}
                       />
                       <Typography fontWeight={600}>{fromToken.symbol}</Typography>
                     </Box>
@@ -434,9 +431,6 @@ const SwapPage = () => {
                         src={toToken.icon}
                         alt={toToken.symbol}
                         style={{ width: 20, height: 20, borderRadius: '50%' }}
-                        onError={(e) => {
-                          e.currentTarget.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23ddd"/><text x="12" y="16" text-anchor="middle" fill="%23666" font-size="12">${toToken.symbol[0]}</text></svg>`;
-                        }}
                       />
                       <Typography fontWeight={600}>{toToken.symbol}</Typography>
                     </Box>
@@ -645,9 +639,6 @@ const SwapPage = () => {
                           src={token.icon}
                           alt={token.symbol}
                           style={{ width: 24, height: 24, borderRadius: '50%' }}
-                          onError={(e) => {
-                            e.currentTarget.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23ddd"/><text x="12" y="16" text-anchor="middle" fill="%23666" font-size="12">${token.symbol[0]}</text></svg>`;
-                          }}
                         />
                       </Avatar>
                     </ListItemAvatar>

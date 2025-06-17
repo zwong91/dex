@@ -128,10 +128,18 @@ const PoolPage = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Avatar sx={{ width: 32, height: 32, fontSize: '1rem' }}>
-                {pool.icon0}
+                <img
+                  src={pool.icon0}
+                  alt={pool.token0}
+                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                />
               </Avatar>
               <Avatar sx={{ width: 32, height: 32, fontSize: '1rem', ml: -1, zIndex: 1 }}>
-                {pool.icon1}
+                <img
+                  src={pool.icon1}
+                  alt={pool.token1}
+                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                />
               </Avatar>
             </Box>
             <Typography variant="h6" fontWeight={600}>
@@ -206,10 +214,18 @@ const PoolPage = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Avatar sx={{ width: 32, height: 32, fontSize: '1rem' }}>
-                {position.icon0}
+                <img
+                  src={position.icon0}
+                  alt={position.token0}
+                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                />
               </Avatar>
               <Avatar sx={{ width: 32, height: 32, fontSize: '1rem', ml: -1, zIndex: 1 }}>
-                {position.icon1}
+                <img
+                  src={position.icon1}
+                  alt={position.token1}
+                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                />
               </Avatar>
             </Box>
             <Typography variant="h6" fontWeight={600}>

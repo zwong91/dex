@@ -442,17 +442,23 @@ const AddLiquidityDialog = ({
 						<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
 							<Avatar
 								sx={{ width: 32, height: 32 }}
-								src={selectedPool.icon0}
 								alt={selectedPool.token0}
 							>
-								{selectedPool.token0.charAt(0)}
+								<img
+									src={selectedPool.icon0}
+									alt={selectedPool.token0}
+									style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+								/>
 							</Avatar>
 							<Avatar
 								sx={{ width: 32, height: 32, ml: -1 }}
-								src={selectedPool.icon1}
 								alt={selectedPool.token1}
 							>
-								{selectedPool.token1.charAt(0)}
+								<img
+									src={selectedPool.icon1}
+									alt={selectedPool.token1}
+									style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+								/>
 							</Avatar>
 							<Typography variant="h6">
 								{selectedPool.token0}/{selectedPool.token1}
