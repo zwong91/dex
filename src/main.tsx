@@ -16,6 +16,7 @@ import PoolPage from "./pages/Pool";
 import PortfolioPage from "./pages/Portfolio";
 import SwapPage from "./pages/Swap";
 import WalletPage from "./pages/Wallet";
+import AddLiquidityPage from "./pages/AddLiquidity";
 
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
@@ -35,6 +36,10 @@ const router = createBrowserRouter([
   {
     path: "/pool",
     element: <PoolPage />,
+  },
+  {
+    path: "/pool/add-liquidity",
+    element: <AddLiquidityPage />,
   },
   {
     path: "/dashboard",

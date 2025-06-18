@@ -20,8 +20,8 @@ import {
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
-import AddLiquidityDialog from '../components/pool/AddLiquidityDialog';
 import AddToPositionDialog from '../components/pool/AddToPositionDialog';
 import ClaimsFeesDialog from '../components/pool/ClaimsFeesDialog';
 import CreatePoolDialog from '../components/pool/CreatePoolDialog';
@@ -50,10 +50,9 @@ interface PoolData {
 
 const PoolPage = () => {
   const { address: userWalletAddress } = useAccount();
+  const navigate = useNavigate();
   const [currentTab, setCurrentTab] = useState(0);
-  const [showAddLiquidity, setShowAddLiquidity] = useState(false);
   const [showAddNewPool, setShowAddNewPool] = useState(false);
-  const [selectedPool, setSelectedPool] = useState<PoolData | null>(null);
 
   // New Pool creation states
   const [newPoolToken0, setNewPoolToken0] = useState('USDC');
@@ -102,8 +101,8 @@ const PoolPage = () => {
   };
 
   const handleAddLiquidity = (pool: PoolData) => {
-    setSelectedPool(pool);
-    setShowAddLiquidity(true);
+    // Navigate to add liquidity page with pool ID as query parameter
+    navigate(`/pool/add-liquidity?poolId=${encodeURIComponent(pool.id)}`);
   };
 
   const handleClaimsFees = (position: UserPosition) => {
@@ -122,7 +121,21 @@ const PoolPage = () => {
   };
 
   const renderPoolCard = (pool: PoolData) => (
-    <Card key={pool.id} elevation={0} sx={{ mb: 2 }}>
+    <Card 
+      key={pool.id} 
+      elevation={0} 
+      sx={{ 
+        mb: 2, 
+        cursor: 'pointer',
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          elevation: 2,
+          transform: 'translateY(-2px)',
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        }
+      }}
+      onClick={() => handleAddLiquidity(pool)}
+    >
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -160,14 +173,10 @@ const PoolPage = () => {
               icon={<TrendingUpIcon />}
             />
           </Box>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => handleAddLiquidity(pool)}
-          >
-            Add
-          </Button>
+          {/* Removed the Add button - clicking the card will add liquidity */}
+          <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            Click to add liquidity
+          </Typography>
         </Box>
 
         <Grid container spacing={2}>
@@ -412,14 +421,6 @@ const PoolPage = () => {
             )}
           </Box>
         )}
-
-        {/* Add Liquidity Dialog */}
-        <AddLiquidityDialog
-          open={showAddLiquidity}
-          onClose={() => setShowAddLiquidity(false)}
-          selectedPool={selectedPool}
-          chainId={chainId}
-        />
 
         {/* Claims Fees Dialog */}
         <ClaimsFeesDialog
