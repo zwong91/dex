@@ -8,12 +8,6 @@ interface PriceRangeVisualizerProps {
 	amount0: string
 	amount1: string
 	strategy: LiquidityStrategy
-	selectedPool: {
-		token0: string
-		token1: string
-		binStep?: number
-	} | null
-	getNumBins: () => string
 	calculateDynamicRange: () => {
 		minPrice: number
 		maxPrice: number
@@ -29,12 +23,51 @@ const PriceRangeVisualizer = ({
 	amount0,
 	amount1,
 	strategy,
-	selectedPool,
-	getNumBins,
 	calculateDynamicRange,
 }: PriceRangeVisualizerProps) => {
 	const getCurrentPrice = () => {
 		return activeBinPrice.toFixed(8)
+	}
+
+	// 计算当前价格指示线的位置 - 固定锚点
+	const getCurrentPriceIndicatorPosition = () => {
+		const amt0 = parseFloat(amount0 || '0')
+		const amt1 = parseFloat(amount1 || '0')
+		
+		if (amt0 > 0 && amt1 === 0) {
+			// 只有Token X，指示线固定在左边作为锚点
+			return '1%'
+		} else if (amt1 > 0 && amt0 === 0) {
+			// 只有Token Y，指示线固定在右边作为锚点
+			return '99%'
+		}
+		// AutoFill模式或混合，指示线在中间
+		return '50%'
+	}
+
+	// 获取价格标签的定位样式
+	const getPriceLabelStyles = () => {
+		const position = getCurrentPriceIndicatorPosition()
+		
+		if (position === '1%') {
+			// 指示器在最左边：标签显示在右侧，紧贴指示棒
+			return {
+				left: '1%',
+				transform: 'translateX(4px)', // 减小偏移距离，更贴近指示棒
+			}
+		} else if (position === '99%') {
+			// 指示器在最右边：标签显示在左侧，紧贴指示棒
+			return {
+				right: '1%',
+				transform: 'translateX(-4px)', // 减小偏移距离，更贴近指示棒
+			}
+		} else {
+			// 指示器在中间：标签居中对齐
+			return {
+				left: '50%',
+				transform: 'translateX(-50%)',
+			}
+		}
 	}
 
 	const renderLiquidityBars = () => {
@@ -59,174 +92,120 @@ const PriceRangeVisualizer = ({
 			)
 		}
 
-		return Array.from({ length: Math.min(149, parseInt(getNumBins())) }, (_, i) => {
-			const binStep = selectedPool?.binStep || 50
-			const binStepFactor = 1 + binStep / 10000
-			const baseBinPrice = activeBinPrice
+		// 根据token分布决定柱子数量和分布
+		let barsToRender = []
+		const baseHeight = 100
+		const numBars = 50 // 固定渲染50根柱子
 
-			const { minPrice: dynMinPrice, maxPrice: dynMaxPrice } = calculateDynamicRange()
-			const minPriceRange = parseFloat(minPrice) || dynMinPrice
-			const maxPriceRange = parseFloat(maxPrice) || dynMaxPrice
+		if (amt0 > 0 && amt1 === 0) {
+			// 只有Token X：从指示棒(锚点)向右渲染
+			for (let i = 0; i < numBars; i++) {
+				let height = baseHeight
+				if (strategy === 'curve') {
+					const decay = Math.max(0.3, 1 - (i * 0.02))
+					height = baseHeight * decay
+				} else if (strategy === 'bid-ask') {
+					const decay = Math.max(0.4, 1 - (i * 0.015))
+					height = baseHeight * decay
+				}
 
-			const minBinId = Math.floor(Math.log(minPriceRange / baseBinPrice) / Math.log(binStepFactor))
-			const currentBinId = minBinId + i
-			const binPrice = baseBinPrice * Math.pow(binStepFactor, currentBinId)
-
-			const position = (binPrice - minPriceRange) / (maxPriceRange - minPriceRange)
-			const centerPosition = (activeBinPrice - minPriceRange) / (maxPriceRange - minPriceRange)
-			const distance = Math.abs(position - centerPosition)
-
-			const isInRange = binPrice >= minPriceRange && binPrice <= maxPriceRange
-			const isCurrentPrice = Math.abs(binPrice - activeBinPrice) < (activeBinPrice * 0.001)
-
-			let shouldShowBar = false
-			if (isCurrentPrice && (amt0 > 0 || amt1 > 0)) {
-				shouldShowBar = true
-			} else if (binPrice < activeBinPrice && amt1 > 0) {
-				shouldShowBar = true
-			} else if (binPrice > activeBinPrice && amt0 > 0) {
-				shouldShowBar = true
-			}
-
-			if (!shouldShowBar) {
-				return (
+				barsToRender.push(
 					<Box
 						key={i}
 						sx={{
-							width: 8,
-							height: 30,
-							background: 'rgba(255, 255, 255, 0.05)',
+							width: 6,
+							height: Math.max(30, Math.min(180, height)),
+							background: `linear-gradient(135deg,
+								rgba(123, 104, 238, 0.8) 0%,
+								rgba(100, 80, 200, 0.9) 50%,
+								rgba(80, 60, 160, 0.7) 100%)`,
 							borderRadius: '3px 3px 0 0',
-							opacity: 0.3
+							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+							boxShadow: '0 0 10px rgba(123, 104, 238, 0.4), 0 2px 8px rgba(123, 104, 238, 0.3)',
 						}}
 					/>
 				)
 			}
+		} else if (amt1 > 0 && amt0 === 0) {
+			// 只有Token Y：从指示棒(锚点)向左渲染，但要用reverse排列
+			for (let i = 0; i < numBars; i++) {
+				let height = baseHeight
+				if (strategy === 'curve') {
+					const decay = Math.max(0.3, 1 - (i * 0.02))
+					height = baseHeight * decay
+				} else if (strategy === 'bid-ask') {
+					const decay = Math.max(0.4, 1 - (i * 0.015))
+					height = baseHeight * decay
+				}
 
-			// Calculate height based on strategy
-			let height = 30
-
-			if (strategy === 'spot') {
-				const baseHeight = 80
-				let tokenInfluence = 1
-				
-				if (isCurrentPrice) {
-					tokenInfluence = 1 + Math.log(1 + (amt0 + amt1)) * 0.8
-				} else if (binPrice < activeBinPrice && amt1 > 0) {
-					const distanceFromActive = Math.abs(position - centerPosition)
-					const sawtoothDecay = Math.max(0.1, 1 - (distanceFromActive * 3))
-					tokenInfluence = (1 + Math.log(1 + amt1) * 0.8) * sawtoothDecay
-				} else if (binPrice > activeBinPrice && amt0 > 0) {
-					const distanceFromActive = Math.abs(position - centerPosition)
-					const sawtoothDecay = Math.max(0.1, 1 - (distanceFromActive * 3))
-					tokenInfluence = (1 + Math.log(1 + amt0) * 0.8) * sawtoothDecay
-				}
-				
-				height = baseHeight * tokenInfluence
-			} else if (strategy === 'curve') {
-				const bellCurve = Math.exp(-Math.pow(distance * 4, 2))
-				let tokenMultiplier = 1
-				
-				if (isCurrentPrice) {
-					tokenMultiplier = 1 + Math.log(1 + (amt0 + amt1)) * 0.8
-				} else if (binPrice < activeBinPrice && amt1 > 0) {
-					const curveDecay = Math.exp(-distance * 2.5)
-					tokenMultiplier = (1 + Math.log(1 + amt1) * 0.6) * curveDecay
-				} else if (binPrice > activeBinPrice && amt0 > 0) {
-					const curveDecay = Math.exp(-distance * 2.5)
-					tokenMultiplier = (1 + Math.log(1 + amt0) * 0.6) * curveDecay
-				}
-				
-				height = (40 + bellCurve * 200) * tokenMultiplier
-			} else if (strategy === 'bid-ask') {
-				let peakHeight = 0
-				
-				if (isCurrentPrice) {
-					peakHeight = 0.3 + Math.log(1 + (amt0 + amt1)) * 0.1
-				} else if (binPrice < activeBinPrice && amt1 > 0) {
-					const distanceFromPeak = Math.abs(position - 0.15)
-					const sawtoothPattern = Math.max(0.05, 1 - (distanceFromPeak * 4))
-					peakHeight = sawtoothPattern * (1 + Math.log(1 + amt1) * 0.6)
-				} else if (binPrice > activeBinPrice && amt0 > 0) {
-					const distanceFromPeak = Math.abs(position - 0.85)
-					const sawtoothPattern = Math.max(0.05, 1 - (distanceFromPeak * 4))
-					peakHeight = sawtoothPattern * (1 + Math.log(1 + amt0) * 0.6)
-				}
-				
-				height = 30 + peakHeight * 250
+				barsToRender.unshift( // 用unshift让柱子从右往左递减
+					<Box
+						key={i}
+						sx={{
+							width: 6,
+							height: Math.max(30, Math.min(180, height)),
+							background: `linear-gradient(135deg,
+								rgba(0, 217, 255, 0.8) 0%,
+								rgba(0, 150, 200, 0.9) 50%,
+								rgba(0, 100, 150, 0.7) 100%)`,
+							borderRadius: '3px 3px 0 0',
+							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+							boxShadow: '0 0 10px rgba(0, 217, 255, 0.4), 0 2px 8px rgba(0, 217, 255, 0.3)',
+						}}
+					/>
+				)
 			}
+		} else if (amt0 > 0 && amt1 > 0) {
+			// AutoFill模式：以指示棒为中心，左右分布
+			for (let i = -25; i <= 25; i++) {
+				let height = baseHeight
+				const distance = Math.abs(i)
+				
+				if (strategy === 'curve') {
+					const decay = Math.max(0.3, 1 - (distance * 0.02))
+					height = baseHeight * decay
+				} else if (strategy === 'bid-ask') {
+					const decay = Math.max(0.4, 1 - (distance * 0.015))
+					height = baseHeight * decay
+				}
 
-			// Color determination
-			let barColor = 'rgba(255, 255, 255, 0.1)'
-			let shadowColor = 'rgba(0, 0, 0, 0.3)'
-			let glowEffect = 'none'
-
-			if (isCurrentPrice) {
-				if (amt0 > 0 && amt1 > 0) {
+				const isCenter = i === 0
+				let barColor
+				if (isCenter) {
 					barColor = 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)'
-				} else if (amt0 > 0) {
-					barColor = '#7B68EE'
+				} else if (i < 0) {
+					barColor = `linear-gradient(135deg,
+						rgba(0, 217, 255, 0.8) 0%,
+						rgba(0, 150, 200, 0.9) 50%,
+						rgba(0, 100, 150, 0.7) 100%)`
 				} else {
-					barColor = '#00D9FF'
+					barColor = `linear-gradient(135deg,
+						rgba(123, 104, 238, 0.8) 0%,
+						rgba(100, 80, 200, 0.9) 50%,
+						rgba(80, 60, 160, 0.7) 100%)`
 				}
-				glowEffect = '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.4)'
-			} else if (isInRange && shouldShowBar) {
-				const intensity = Math.min(1, height / 200)
-				const depthFactor = 0.7 + (intensity * 0.3)
 
-				if (binPrice < activeBinPrice) {
-					const tokenYInfluence = Math.min(1, Math.log(1 + amt1) / 3)
-					barColor = `linear-gradient(135deg,
-						rgba(0, 217, 255, ${(0.8 * depthFactor * tokenYInfluence)}) 0%,
-						rgba(0, 150, 200, ${(0.9 * depthFactor * tokenYInfluence)}) 50%,
-						rgba(0, 100, 150, ${(0.7 * depthFactor * tokenYInfluence)}) 100%)`
-					shadowColor = 'rgba(0, 217, 255, 0.3)'
-					glowEffect = `0 0 10px rgba(0, 217, 255, ${0.4 * intensity * tokenYInfluence})`
-				} else {
-					const tokenXInfluence = Math.min(1, Math.log(1 + amt0) / 3)
-					barColor = `linear-gradient(135deg,
-						rgba(123, 104, 238, ${(0.8 * depthFactor * tokenXInfluence)}) 0%,
-						rgba(100, 80, 200, ${(0.9 * depthFactor * tokenXInfluence)}) 50%,
-						rgba(80, 60, 160, ${(0.7 * depthFactor * tokenXInfluence)}) 100%)`
-					shadowColor = 'rgba(123, 104, 238, 0.3)'
-					glowEffect = `0 0 10px rgba(123, 104, 238, ${0.4 * intensity * tokenXInfluence})`
-				}
+				barsToRender.push(
+					<Box
+						key={i}
+						sx={{
+							width: 6,
+							height: Math.max(30, Math.min(180, height)),
+							background: barColor,
+							borderRadius: '3px 3px 0 0',
+							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+							boxShadow: isCenter 
+								? '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.4)'
+								: i < 0 
+									? '0 0 10px rgba(0, 217, 255, 0.4), 0 2px 8px rgba(0, 217, 255, 0.3)'
+									: '0 0 10px rgba(123, 104, 238, 0.4), 0 2px 8px rgba(123, 104, 238, 0.3)',
+						}}
+					/>
+				)
 			}
+		}
 
-			return (
-				<Box
-					key={i}
-					sx={{
-						width: 6,
-						height: Math.max(30, Math.min(180, height)),
-						background: barColor,
-						borderRadius: '3px 3px 0 0',
-						position: 'relative',
-						transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-						opacity: 1,
-						transform: `
-							perspective(1000px)
-							rotateX(${isInRange ? '0deg' : '5deg'})
-						`,
-						boxShadow: `
-							${glowEffect},
-							0 2px 8px ${shadowColor},
-							inset 0 1px 0 rgba(255, 255, 255, 0.2)
-						`,
-						'&::after': isInRange ? {
-							content: '""',
-							position: 'absolute',
-							top: 0,
-							left: 0,
-							right: 0,
-							bottom: 0,
-							background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.3) 0%, transparent 30%)',
-							borderRadius: '2px 2px 0 0',
-						} : {},
-					}}
-				/>
-			)
-		})
+		return barsToRender
 	}
 
 	return (
@@ -262,7 +241,7 @@ const PriceRangeVisualizer = ({
 				{/* Current price indicator line */}
 				<Box sx={{
 					position: 'absolute',
-					left: '50%',
+					left: getCurrentPriceIndicatorPosition(),
 					top: 30,
 					bottom: 0,
 					width: 2,
@@ -275,14 +254,54 @@ const PriceRangeVisualizer = ({
 						0 0 16px rgba(255, 255, 255, 0.3),
 						0 2px 4px rgba(0, 0, 0, 0.2)
 					`,
+					// 添加脉冲动画增强视觉关联
+					animation: 'pulse 2s ease-in-out infinite',
+					'@keyframes pulse': {
+						'0%, 100%': {
+							boxShadow: `
+								0 0 8px rgba(255, 255, 255, 0.6),
+								0 0 16px rgba(255, 255, 255, 0.3),
+								0 2px 4px rgba(0, 0, 0, 0.2)
+							`,
+						},
+						'50%': {
+							boxShadow: `
+								0 0 12px rgba(255, 255, 255, 0.8),
+								0 0 24px rgba(255, 255, 255, 0.5),
+								0 2px 4px rgba(0, 0, 0, 0.2)
+							`,
+						},
+					},
+				}} />
+
+				{/* Connecting line between indicator and label */}
+				<Box sx={{
+					position: 'absolute',
+					left: getCurrentPriceIndicatorPosition(),
+					top: getCurrentPriceIndicatorPosition() === '50%' ? 26 : 24, // 根据位置调整连接线起点
+					width: getCurrentPriceIndicatorPosition() === '50%' ? 2 : 
+						  getCurrentPriceIndicatorPosition() === '1%' ? 20 : 20, // 连接线长度
+					height: getCurrentPriceIndicatorPosition() === '50%' ? 4 : 2,
+					background: getCurrentPriceIndicatorPosition() === '50%' 
+						? 'linear-gradient(to bottom, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%)'
+						: getCurrentPriceIndicatorPosition() === '1%'
+							? 'linear-gradient(to right, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.2) 100%)'
+							: 'linear-gradient(to left, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.2) 100%)',
+					transform: getCurrentPriceIndicatorPosition() === '50%' 
+						? 'translateX(-50%)'
+						: getCurrentPriceIndicatorPosition() === '1%'
+							? 'translateX(-1px)'
+							: 'translateX(-19px)',
+					zIndex: 2,
+					borderRadius: '1px',
+					opacity: 0.7,
 				}} />
 
 				{/* Current price label */}
 				<Box sx={{
 					position: 'absolute',
-					left: '50%',
 					top: 8,
-					transform: 'translateX(-50%)',
+					...getPriceLabelStyles(), // 使用动态定位样式
 					background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 240, 0.9) 100%)',
 					color: '#1A1B2E',
 					px: 2,
@@ -294,10 +313,58 @@ const PriceRangeVisualizer = ({
 					boxShadow: `
 						0 2px 8px rgba(0, 0, 0, 0.2),
 						0 1px 4px rgba(0, 0, 0, 0.1),
-						inset 0 1px 0 rgba(255, 255, 255, 0.8)
+						inset 0 1px 0 rgba(255, 255, 255, 0.8),
+						0 0 0 2px rgba(255, 255, 255, 0.3)
 					`,
-					border: '1px solid rgba(255, 255, 255, 0.4)',
+					border: '1px solid rgba(255, 255, 255, 0.6)',
 					backdropFilter: 'blur(4px)',
+					// 添加浮动动画 - 与指示棒同步
+					animation: 'labelFloat 2s ease-in-out infinite',
+					'@keyframes labelFloat': {
+						'0%, 100%': {
+							transform: getPriceLabelStyles().transform + ' translateY(0px)',
+							boxShadow: `
+								0 2px 8px rgba(0, 0, 0, 0.2),
+								0 1px 4px rgba(0, 0, 0, 0.1),
+								inset 0 1px 0 rgba(255, 255, 255, 0.8),
+								0 0 0 2px rgba(255, 255, 255, 0.3)
+							`,
+						},
+						'50%': {
+							transform: getPriceLabelStyles().transform + ' translateY(-1px)',
+							boxShadow: `
+								0 4px 12px rgba(0, 0, 0, 0.3),
+								0 2px 6px rgba(0, 0, 0, 0.15),
+								inset 0 1px 0 rgba(255, 255, 255, 0.9),
+								0 0 0 3px rgba(255, 255, 255, 0.5)
+							`,
+						},
+					},
+					'&:hover': {
+						transform: getPriceLabelStyles().transform + ' translateY(-4px) scale(1.05)',
+						boxShadow: `
+							0 6px 16px rgba(0, 0, 0, 0.4),
+							0 3px 8px rgba(0, 0, 0, 0.25),
+							inset 0 1px 0 rgba(255, 255, 255, 0.95),
+							0 0 0 4px rgba(255, 255, 255, 0.7)
+						`,
+						transition: 'all 0.2s ease',
+					},
+					transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+					// 添加一个小箭头或指示符号来增强关联
+					'&::after': {
+						content: '""',
+						position: 'absolute',
+						bottom: '-4px',
+						left: '50%',
+						transform: 'translateX(-50%)',
+						width: 0,
+						height: 0,
+						borderLeft: '4px solid transparent',
+						borderRight: '4px solid transparent',
+						borderTop: '4px solid rgba(255, 255, 255, 0.8)',
+						display: getCurrentPriceIndicatorPosition() === '50%' ? 'block' : 'none',
+					},
 				}}>
 					{getCurrentPrice()}
 				</Box>
