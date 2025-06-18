@@ -2,6 +2,7 @@ import {
   Add as AddIcon,
   TrendingUp as TrendingUpIcon,
   ArrowBack as ArrowBackIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import {
   Avatar,
@@ -99,11 +100,19 @@ const PoolPage = () => {
       sx={{ 
         mb: 2, 
         cursor: 'pointer',
-        transition: 'all 0.2s ease-in-out',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: 2,
         '&:hover': {
-          elevation: 2,
-          transform: 'translateY(-2px)',
-          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          elevation: 4,
+          transform: 'translateY(-4px)',
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          borderColor: 'rgba(76, 175, 80, 0.3)',
+          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(76, 175, 80, 0.1)',
+          '& .chevron-indicator': {
+            color: 'rgba(76, 175, 80, 1)',
+            transform: 'translateX(8px) scale(1.1)',
+          }
         }
       }}
       onClick={() => handleAddLiquidity(pool)}
@@ -145,19 +154,21 @@ const PoolPage = () => {
               icon={<TrendingUpIcon />}
             />
           </Box>
-          {/* Removed the Add button - clicking the card will add liquidity */}
-          <Typography variant="caption" color="text.secondary" sx={{ 
-            fontStyle: 'italic',
-            background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(33, 150, 243, 0.1))',
-            padding: '4px 12px',
-            borderRadius: '12px',
-            border: '1px solid rgba(76, 175, 80, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1
-          }}>
-            ✨ Click to add liquidity
-          </Typography>
+          {/* Intuitive clickable indicator - chevron arrow */}
+          <Box 
+            className="chevron-indicator"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              color: 'rgba(255, 255, 255, 0.4)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            <ChevronRightIcon sx={{ 
+              fontSize: '1.5rem',
+              transition: 'inherit'
+            }} />
+          </Box>
         </Box>
 
         <Grid container spacing={2}>
@@ -229,23 +240,6 @@ const PoolPage = () => {
               >
                 <ArrowBackIcon sx={{ fontSize: '1.5rem' }} />
               </IconButton>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography variant="body1" sx={{ 
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  fontSize: '1rem',
-                  fontWeight: 500
-                }}>
-                  💰 Adding liquidity to
-                </Typography>
-                <Typography variant="h4" component="h1" fontWeight={700} sx={{
-                  background: 'linear-gradient(135deg, #4CAF50, #2196F3)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}>
-                  {selectedPool.token0}/{selectedPool.token1}
-                </Typography>
-              </Box>
             </Box>
 
             {/* Spacious Left/Right Split Layout */}
