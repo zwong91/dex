@@ -240,6 +240,7 @@ export const useUserLiquidityPositions = (userAddress: `0x${string}` | undefined
 					const position: UserPosition = {
 						id: `${lpBalance.pairAddress}`,
 						binId: activeBin,
+						binStep: binStep, // 添加 binStep 字段
 						token0: token0.symbol || 'UNKNOWN',
 						token1: token1.symbol || 'UNKNOWN',
 						icon0: getTokenIcon(token0.symbol || 'UNK'),

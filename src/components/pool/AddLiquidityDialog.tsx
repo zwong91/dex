@@ -23,7 +23,7 @@ import {
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAccount, useChainId } from 'wagmi'
-import { useDexOperations, useTokenBalanceByAddress } from '../../dex'
+import { useDexOperations, useTokenBalanceByAddress, createViemClient } from '../../dex'
 import { getTokensForChain } from '../../dex/networkTokens'
 
 interface PoolData {
@@ -368,18 +368,39 @@ const AddLiquidityDialog = ({
 				amt1,
 				binStep: selectedPool.binStep
 			})
+
+			// Get current active bin ID from the pair
+			const publicClient = createViemClient(currentChainId)
+			const currentActiveBinId = await publicClient.readContract({
+				address: pairAddress as `0x${string}`,
+				abi: [{
+					inputs: [],
+					name: 'getActiveId',
+					outputs: [{ internalType: 'uint24', name: '', type: 'uint24' }],
+					stateMutability: 'view',
+					type: 'function'
+				}],
+				functionName: 'getActiveId'
+			}) as number
+			console.log('🎯 Current active bin ID:', currentActiveBinId)
 			
+			if (!selectedPool.binStep) {
+				console.error('❌ Bin step not found in selected pool')
+				toast.error('Pool bin step not available')
+				return
+			}
+
 			await addLiquidity(
 				pairAddress,
 				tokenXAddress,
 				tokenYAddress,
 				amt0,
 				amt1,
-				undefined, // activeBinId - use default
-				undefined, // deltaIds - use default
-				undefined, // distributionX - use default
-				undefined, // distributionY - use default
-				selectedPool.binStep // pass the actual binStep from selectedPool
+				currentActiveBinId,
+				selectedPool.binStep,
+				undefined,
+				undefined,
+				undefined
 			)
 			console.log('✅ Liquidity added successfully!')
 			toast.success('Liquidity added successfully!')

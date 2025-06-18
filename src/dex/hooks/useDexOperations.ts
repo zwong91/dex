@@ -7,6 +7,24 @@ import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { createViemClient } from "../viemClient"
 import JSBI from 'jsbi'
 
+// ERC20 ABI for allowance and approve functions
+const ERC20_ABI = [
+	{
+		"inputs": [{"name": "owner", "type": "address"}, {"name": "spender", "type": "address"}],
+		"name": "allowance",
+		"outputs": [{"name": "", "type": "uint256"}],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [{"name": "spender", "type": "address"}, {"name": "amount", "type": "uint256"}],
+		"name": "approve",
+		"outputs": [{"name": "", "type": "bool"}],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}
+] as const
+
 // Hook for LB DEX operations (add/remove liquidity, claim fees)
 export const useDexOperations = () => {
 	const { writeContractAsync } = useWriteContract()
@@ -20,11 +38,11 @@ export const useDexOperations = () => {
 		tokenYAddress: string,
 		tokenAAmount: number,
 		tokenBAmount: number,
-		activeBinId?: number,
+		activeBinId: number,
+		binStep: number,
 		deltaIds?: number[],
 		distributionX?: bigint[],
 		distributionY?: bigint[],
-		binStep?: number
 	) => {
 		try {
 			console.log("🔍 addLiquidity called with:", { 
@@ -112,9 +130,9 @@ export const useDexOperations = () => {
 			)
 
 			// 获取LBPair信息
-			const pairVersion = 'v22' as const
+			const pairVersion = 'v22'
 			const publicClient = createViemClient(chainId)
-			const lbPair = await pair.fetchLBPair(binStep || 25, pairVersion, publicClient, CHAIN_ID)
+			const lbPair = await pair.fetchLBPair(binStep, pairVersion, publicClient, CHAIN_ID)
 			
 			if (lbPair.LBPair === '0x0000000000000000000000000000000000000000') {
 				throw new Error(`LB pair not found for ${pair.token0.symbol}/${pair.token1.symbol} with bin step ${binStep || 25}`)
@@ -143,18 +161,57 @@ export const useDexOperations = () => {
 				distributionCount: finalDistributionX.length
 			})
 
+			// 验证LBPair的实际token顺序
+			const actualTokenX = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairV21ABI,
+				functionName: 'getTokenX'
+			}) as string
+			
+			const actualTokenY = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairV21ABI,
+				functionName: 'getTokenY'
+			}) as string
+
+			// 分析 token 顺序映射
+			const isTokenXToken0 = actualTokenX.toLowerCase() === pair.token0.address.toLowerCase()
+			const isTokenYToken1 = actualTokenY.toLowerCase() === pair.token1.address.toLowerCase()
+			
+			console.log("🔍 Token order analysis:", {
+				contractOrder: {
+					tokenX: actualTokenX.toLowerCase(),
+					tokenY: actualTokenY.toLowerCase()
+				},
+				sdkOrder: {
+					token0: pair.token0.address.toLowerCase(),
+					token1: pair.token1.address.toLowerCase()
+				},
+				mapping: {
+					tokenXIsToken0: isTokenXToken0,
+					tokenYIsToken1: isTokenYToken1,
+					orderMatches: isTokenXToken0 && isTokenYToken1
+				}
+			})
+
+			// 根据映射关系确定数量
+			const amountX = isTokenXToken0 ? tokenAmountToken0.raw.toString() : tokenAmountToken1.raw.toString()
+			const amountY = isTokenYToken1 ? tokenAmountToken1.raw.toString() : tokenAmountToken0.raw.toString()
+			const amountXMin = isTokenXToken0 ? minTokenAmount0.toString() : minTokenAmount1.toString()
+			const amountYMin = isTokenYToken1 ? minTokenAmount1.toString() : minTokenAmount0.toString()
+
 			// 构建addLiquidity参数
 			const currentTimeInSec = Math.floor(Date.now() / 1000)
 			const deadline = currentTimeInSec + 1200 // 20分钟后过期
 
 			const addLiquidityInput = {
-				tokenX: pair.token0.address as `0x${string}`,  // 使用SDK排序后的token0
-				tokenY: pair.token1.address as `0x${string}`,  // 使用SDK排序后的token1
+				tokenX: actualTokenX as `0x${string}`,
+				tokenY: actualTokenY as `0x${string}`,
 				binStep: Number(binStep || 25),
-				amountX: tokenAmountToken0.raw.toString(),
-				amountY: tokenAmountToken1.raw.toString(),
-				amountXMin: minTokenAmount0.toString(),
-				amountYMin: minTokenAmount1.toString(),
+				amountX,
+				amountY,
+				amountXMin,
+				amountYMin,
 				activeIdDesired: Number(activeBin),
 				idSlippage: 5,
 				deltaIds: finalDeltaIds,
@@ -171,27 +228,148 @@ export const useDexOperations = () => {
 				amountX: addLiquidityInput.amountX,
 				amountY: addLiquidityInput.amountY,
 				binStep: addLiquidityInput.binStep,
-				activeBin: addLiquidityInput.activeIdDesired
+				activeBin: addLiquidityInput.activeIdDesired,
+				actualTokenOrder: {
+					actualTokenX: actualTokenX.toLowerCase(),
+					actualTokenY: actualTokenY.toLowerCase()
+				}
 			})
 
-			// 最终验证token顺序
-			const finalTokenXLower = addLiquidityInput.tokenX.toLowerCase()
-			const finalTokenYLower = addLiquidityInput.tokenY.toLowerCase()
-			if (finalTokenXLower >= finalTokenYLower) {
-				throw new Error(`Token ordering error: tokenX (${finalTokenXLower}) must be < tokenY (${finalTokenYLower})`)
+			// 验证token顺序 - 确保我们使用的tokenX匹配合约的tokenX
+			if (addLiquidityInput.tokenX.toLowerCase() !== actualTokenX.toLowerCase()) {
+				throw new Error(`Token ordering error: Expected tokenX ${actualTokenX}, got ${addLiquidityInput.tokenX}`)
+			}
+			
+			if (addLiquidityInput.tokenY.toLowerCase() !== actualTokenY.toLowerCase()) {
+				throw new Error(`Token ordering error: Expected tokenY ${actualTokenY}, got ${addLiquidityInput.tokenY}`)
 			}
 
 			console.log("✅ Token ordering validated for LBRouter")
 
-			const result = await writeContractAsync({
-				abi: jsonAbis.LBRouterV22ABI,
-				address: lbRouterAddress as `0x${string}`,
-				functionName: "addLiquidity",
-				args: [addLiquidityInput],
-				chainId: chainId,
+			// 检查和处理 token 授权
+			console.log("🔍 Checking token allowances...")
+			
+			// 额外的钱包连接验证
+			if (!userAddress) {
+				throw new Error("钱包未连接，请先连接钱包")
+			}
+			
+			// 检查 tokenX 授权
+			const tokenXAllowance = await publicClient.readContract({
+				address: actualTokenX as `0x${string}`,
+				abi: ERC20_ABI,
+				functionName: 'allowance',
+				args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
+			}) as bigint
+
+			// 检查 tokenY 授权
+			const tokenYAllowance = await publicClient.readContract({
+				address: actualTokenY as `0x${string}`,
+				abi: ERC20_ABI,
+				functionName: 'allowance',
+				args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
+			}) as bigint
+
+			console.log("💰 Token allowances:", {
+				tokenX: {
+					address: actualTokenX,
+					allowance: tokenXAllowance.toString(),
+					required: addLiquidityInput.amountX
+				},
+				tokenY: {
+					address: actualTokenY,
+					allowance: tokenYAllowance.toString(),
+					required: addLiquidityInput.amountY
+				}
 			})
 
-			return result
+			// 如果 tokenX 授权不足，先授权
+			if (tokenXAllowance < BigInt(addLiquidityInput.amountX)) {
+				console.log("🔑 TokenX allowance insufficient, requesting approval...")
+				
+				try {
+					const approvalTx = await writeContractAsync({
+						address: actualTokenX as `0x${string}`,
+						abi: ERC20_ABI,
+						functionName: 'approve',
+						args: [lbRouterAddress as `0x${string}`, BigInt(addLiquidityInput.amountX)],
+						chainId: chainId,
+					})
+
+					console.log(`✅ TokenX approval sent: ${approvalTx}`)
+					
+					// 等待授权交易确认
+					await publicClient.waitForTransactionReceipt({ 
+						hash: approvalTx as `0x${string}`,
+						timeout: 60000
+					})
+					console.log("✅ TokenX approval confirmed!")
+				} catch (approvalError: any) {
+					if (approvalError.message?.includes('User denied transaction') || 
+						approvalError.message?.includes('not been authorized by the user') ||
+						approvalError.code === 4001) {
+						throw new Error(`用户取消了授权交易。请批准授权 ${tokenA?.symbol || 'TokenX'} 才能继续添加流动性。`)
+					}
+					console.error("TokenX approval error:", approvalError)
+					throw new Error(`授权 ${tokenA?.symbol || 'TokenX'} 失败: ${approvalError.message}`)
+				}
+			}
+
+			// 如果 tokenY 授权不足，先授权
+			if (tokenYAllowance < BigInt(addLiquidityInput.amountY)) {
+				console.log("🔑 TokenY allowance insufficient, requesting approval...")
+				
+				try {
+					const approvalTx = await writeContractAsync({
+						address: actualTokenY as `0x${string}`,
+						abi: ERC20_ABI,
+						functionName: 'approve',
+						args: [lbRouterAddress as `0x${string}`, BigInt(addLiquidityInput.amountY)],
+						chainId: chainId,
+					})
+
+					console.log(`✅ TokenY approval sent: ${approvalTx}`)
+					
+					// 等待授权交易确认
+					await publicClient.waitForTransactionReceipt({ 
+						hash: approvalTx as `0x${string}`,
+						timeout: 60000
+					})
+					console.log("✅ TokenY approval confirmed!")
+				} catch (approvalError: any) {
+					if (approvalError.message?.includes('User denied transaction') || 
+						approvalError.message?.includes('not been authorized by the user') ||
+						approvalError.code === 4001) {
+						throw new Error(`用户取消了授权交易。请批准授权 ${tokenB?.symbol || 'TokenY'} 才能继续添加流动性。`)
+					}
+					console.error("TokenY approval error:", approvalError)
+					throw new Error(`授权 ${tokenB?.symbol || 'TokenY'} 失败: ${approvalError.message}`)
+				}
+			}
+
+			console.log("✅ All token approvals validated")
+
+			try {
+				console.log("🚀 Executing addLiquidity transaction...")
+				const result = await writeContractAsync({
+					abi: jsonAbis.LBRouterV22ABI,
+					address: lbRouterAddress as `0x${string}`,
+					functionName: "addLiquidity",
+					args: [addLiquidityInput],
+					chainId: chainId,
+				})
+
+				console.log("✅ AddLiquidity transaction sent:", result)
+				return result
+			} catch (addLiquidityError: any) {
+				if (addLiquidityError.message?.includes('User denied transaction') || 
+					addLiquidityError.message?.includes('not been authorized by the user') ||
+					addLiquidityError.code === 4001) {
+					throw new Error('用户取消了添加流动性交易。请确认交易以完成操作。')
+				}
+				console.error("AddLiquidity transaction error:", addLiquidityError)
+				throw new Error(`添加流动性失败: ${addLiquidityError.message}`)
+			}
 		} catch (error) {
 			console.error("Add LB liquidity error:", error)
 			throw error

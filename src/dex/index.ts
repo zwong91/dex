@@ -54,4 +54,4 @@ export {
 } from './hooks/useLBPairData'
 
 // Export UserPosition type
-export type { UserPosition } from './hooks/useUserPositions'
+export type { UserPosition } from './hooks/types'

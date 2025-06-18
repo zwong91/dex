@@ -19,6 +19,8 @@ import { getTokensForChain } from '../../dex/networkTokens'
 
 interface Position {
 	id: string
+	binId: number
+	binStep: number
 	token0: string
 	token1: string
 	icon0: string
@@ -117,13 +119,19 @@ const AddToPositionDialog = ({
 				amt1
 			})
 
+			if (!selectedPosition.binStep) {
+				throw new Error('Bin step not found in position data')
+			}
+
 			setStatusMessage('Adding liquidity to position...')
 			await addLiquidity(
 				pairAddress,
 				tokenXAddress,
 				tokenYAddress,
 				amt0,
-				amt1
+				amt1,
+				selectedPosition.binId, // use bin ID from position
+				selectedPosition.binStep // use binStep from position data
 			)
 			setStatusMessage('Transaction completed successfully!')
 			onClose()

@@ -5,6 +5,7 @@
 export interface UserPosition {
   id: string
   binId: number
+  binStep: number // 新增 binStep 字段
   token0: string
   token1: string
   icon0: string

@@ -107,12 +107,22 @@ const PositionPage = () => {
         return;
       }
 
+      if (!selectedPosition.binStep) {
+        toast.error('Bin step not found in position data');
+        return;
+      }
+
+      // Get current active bin ID from the position
+      const activeBinId = selectedPosition.binId; // Use the bin ID from the position
+
       await addLiquidity(
         selectedPosition.pairAddress,
         token0.address,
         token1.address,
         amt0,
-        amt1
+        amt1,
+        activeBinId, // use active bin ID from position
+        selectedPosition.binStep // use binStep from position data
       );
       console.log('🏠 Position.tsx - addLiquidity called with:', {
         pairAddress: selectedPosition.pairAddress,
@@ -401,18 +411,10 @@ const PositionPage = () => {
                 {selectedPosition && (
                   <>
                     <Avatar sx={{ width: 32, height: 32 }}>
-                      <img 
-                        src={selectedPosition.icon0} 
-                        alt={selectedPosition.token0} 
-                        style={{ width: '100%', height: '100%', borderRadius: '50%' }} 
-                      />
+                      <img src={selectedPosition.icon0} alt={selectedPosition.token0} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
                     </Avatar>
                     <Avatar sx={{ width: 32, height: 32, ml: -1 }}>
-                      <img 
-                        src={selectedPosition.icon1} 
-                        alt={selectedPosition.token1} 
-                        style={{ width: '100%', height: '100%', borderRadius: '50%' }} 
-                      />
+                      <img src={selectedPosition.icon1} alt={selectedPosition.token1} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
                     </Avatar>
                     <Typography variant="h6">
                       {selectedPosition.token0}/{selectedPosition.token1}
