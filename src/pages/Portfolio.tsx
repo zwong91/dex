@@ -21,11 +21,6 @@ import {
   Grid,
   IconButton,
   LinearProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
@@ -86,19 +81,34 @@ const PortfolioPage = () => {
   };
 
   const renderDetailedPositionCard = (position: UserPosition) => (
-    <Card key={position.id} elevation={0} sx={{ mb: 2, border: '1px solid', borderColor: 'divider' }}>
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+    <Card 
+      key={position.id} 
+      elevation={0} 
+      sx={{ 
+        mb: 3, 
+        border: '1px solid', 
+        borderColor: 'divider',
+        borderRadius: 3,
+        background: 'white',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.12)'
+        }
+      }}
+    >
+      <CardContent sx={{ p: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-              <Avatar sx={{ width: 40, height: 40, border: '2px solid white', boxShadow: 2 }}>
+              <Avatar sx={{ width: 48, height: 48, border: '3px solid white', boxShadow: 3 }}>
                 <img
                   src={position.icon0}
                   alt={position.token0}
                   style={{ width: '100%', height: '100%', borderRadius: '50%' }}
                 />
               </Avatar>
-              <Avatar sx={{ width: 40, height: 40, ml: -1.5, zIndex: 1, border: '2px solid white', boxShadow: 2 }}>
+              <Avatar sx={{ width: 48, height: 48, ml: -2, zIndex: 1, border: '3px solid white', boxShadow: 3 }}>
                 <img
                   src={position.icon1}
                   alt={position.token1}
@@ -107,121 +117,144 @@ const PortfolioPage = () => {
               </Avatar>
             </Box>
             <Box>
-              <Typography variant="h6" fontWeight={600} sx={{ mb: 0.5 }}>
+              <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>
                 {position.token0}/{position.token1}
               </Typography>
               <Chip
                 label={position.inRange ? 'In Range' : 'Out of Range'}
                 color={position.inRange ? 'success' : 'warning'}
-                size="small"
+                size="medium"
                 variant="filled"
+                sx={{ fontWeight: 600, borderRadius: 2 }}
               />
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
             <Button
               variant="outlined"
-              size="small"
+              size="medium"
               startIcon={<AddIcon />}
               onClick={() => handleAddToPosition(position)}
-              sx={{ minWidth: 'auto' }}
+              sx={{ 
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3
+              }}
             >
               Add
             </Button>
             <Button
               variant="outlined"
-              size="small"
+              size="medium"
               startIcon={<RemoveIcon />}
               onClick={() => handleRemovePosition(position)}
-              sx={{ minWidth: 'auto' }}
+              sx={{ 
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3
+              }}
             >
               Remove
             </Button>
             <Button
               variant="contained"
-              size="small"
+              size="medium"
               color="success"
               onClick={() => handleClaimsFees(position)}
-              sx={{ minWidth: 'auto' }}
+              sx={{ 
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3
+              }}
             >
               Claim Fees
             </Button>
           </Box>
         </Box>
 
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={4} sx={{ mb: 4 }}>
           <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
                 Liquidity
               </Typography>
-              <Typography variant="h6" fontWeight={600}>
+              <Typography variant="h6" fontWeight={700}>
                 {position.liquidity}
               </Typography>
-            </Box>
+            </Card>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'primary.50', borderRadius: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
                 Value
               </Typography>
-              <Typography variant="h6" fontWeight={600} color="primary">
+              <Typography variant="h6" fontWeight={700} color="primary">
                 ${position.value}
               </Typography>
-            </Box>
+            </Card>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
                 24h Fees
               </Typography>
-              <Typography variant="h6" fontWeight={600} color="success.main">
+              <Typography variant="h6" fontWeight={700} color="success.main">
                 ${position.fees24h}
               </Typography>
-            </Box>
+            </Card>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
                 Performance
               </Typography>
               <Typography
                 variant="h6"
-                fontWeight={600}
+                fontWeight={700}
                 color={position.performance.startsWith('+') ? 'success.main' : 'error.main'}
               >
                 {position.performance}
               </Typography>
-            </Box>
+            </Card>
           </Grid>
         </Grid>
 
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          p: 2,
-          bgcolor: 'grey.50',
-          borderRadius: 1
+        <Card elevation={0} sx={{ 
+          p: 3,
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          borderRadius: 2
         }}>
-          <Typography variant="body2" color="text.secondary">
-            Price Range: <strong>{position.range.min}</strong> - <strong>{position.range.max}</strong> 
-            (Current: <strong>{position.range.current}</strong>)
-          </Typography>
-          <LinearProgress
-            variant="determinate"
-            value={75}
-            sx={{ 
-              width: 120, 
-              height: 8, 
-              borderRadius: 4,
-              bgcolor: 'grey.200',
-              '& .MuiLinearProgress-bar': {
-                borderRadius: 4
-              }
-            }}
-          />
-        </Box>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center'
+          }}>
+            <Typography variant="body1" fontWeight={600} color="text.primary">
+              Price Range: <strong>{position.range.min}</strong> - <strong>{position.range.max}</strong> 
+              <br />
+              <Typography component="span" variant="body2" color="text.secondary">
+                Current: <strong>{position.range.current}</strong>
+              </Typography>
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={75}
+              sx={{ 
+                width: 140, 
+                height: 10, 
+                borderRadius: 5,
+                bgcolor: 'grey.300',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 5,
+                  background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
+                }
+              }}
+            />
+          </Box>
+        </Card>
       </CardContent>
     </Card>
   );
@@ -230,16 +263,41 @@ const PortfolioPage = () => {
     return (
       <>
         <Navigation />
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Card elevation={0} sx={{ textAlign: 'center', py: 8 }}>
+        <Container maxWidth="lg" sx={{ py: 8 }}>
+          <Card 
+            elevation={0} 
+            sx={{ 
+              textAlign: 'center', 
+              py: 12,
+              borderRadius: 4,
+              background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+              border: '2px dashed',
+              borderColor: 'divider'
+            }}
+          >
             <CardContent>
-              <WalletIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h5" color="text.secondary" gutterBottom>
-                Connect your wallet to view your portfolio
+              <WalletIcon sx={{ fontSize: 96, color: 'text.secondary', mb: 4, opacity: 0.7 }} />
+              <Typography variant="h3" color="text.primary" gutterBottom fontWeight={700}>
+                Connect Your Wallet
               </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Connect a wallet to see your tokens, liquidity positions, and transaction history.
+              <Typography variant="h6" color="text.secondary" sx={{ mb: 4, maxWidth: 500, mx: 'auto' }}>
+                Connect a wallet to view your portfolio, manage tokens, and track your liquidity positions.
               </Typography>
+              <Button
+                variant="contained"
+                size="large"
+                sx={{ 
+                  px: 6,
+                  py: 2,
+                  fontSize: '1.2rem',
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                }}
+              >
+                Connect Wallet
+              </Button>
             </CardContent>
           </Card>
         </Container>
@@ -250,99 +308,168 @@ const PortfolioPage = () => {
   return (
     <>
       <Navigation />
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        {/* Portfolio Overview */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-          <Box>
-            <Typography variant="h4" fontWeight={600} gutterBottom>
-              Portfolio
-            </Typography>
-            <Typography variant="h2" fontWeight={700} color="primary">
-              {loading ? <LinearProgress sx={{ width: 200 }} /> : walletSummary.totalValue}
-            </Typography>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* Portfolio Header */}
+        <Box sx={{ 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 3,
+          p: 4,
+          mb: 4,
+          color: 'white',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <Box sx={{ 
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 200,
+            height: 200,
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '50%',
+            transform: 'translate(50%, -50%)'
+          }} />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+            <Box>
+              <Typography variant="h3" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
+                Portfolio
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9, mb: 2 }}>
+                Your total portfolio value
+              </Typography>
+              <Typography variant="h2" fontWeight={800} sx={{ color: 'white' }}>
+                {loading ? <LinearProgress sx={{ width: 300, borderRadius: 1 }} /> : walletSummary.totalValue}
+              </Typography>
+            </Box>
+            <IconButton 
+              onClick={handleRefresh} 
+              disabled={refreshing}
+              sx={{ 
+                color: 'white',
+                bgcolor: 'rgba(255,255,255,0.2)',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
+                width: 56,
+                height: 56
+              }}
+            >
+              <RefreshIcon fontSize="large" />
+            </IconButton>
           </Box>
-          <IconButton onClick={handleRefresh} disabled={refreshing}>
-            <RefreshIcon />
-          </IconButton>
         </Box>
 
-        <Grid container spacing={3}>
+        <Grid container spacing={4}>
           {/* Token Holdings */}
-          <Grid size={{ xs: 12, lg: 7 }}>
-            <Card elevation={0} sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Token Holdings
-                </Typography>
+          <Grid size={{ xs: 12, lg: 8 }}>
+            <Card 
+              elevation={0} 
+              sx={{ 
+                mb: 4,
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)'
+              }}
+            >
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <WalletIcon sx={{ fontSize: 28, color: 'primary.main', mr: 2 }} />
+                  <Typography variant="h5" fontWeight={700}>
+                    Token Holdings
+                  </Typography>
+                </Box>
                 {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress />
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress size={48} />
                   </Box>
                 ) : error ? (
-                  <Alert severity="error" sx={{ mb: 2 }}>
+                  <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
                     {error}
                   </Alert>
                 ) : tokenBalances.length > 0 ? (
-                  <Box sx={{ overflowX: 'auto' }}>
-                    <Table sx={{ minWidth: 650 }}>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ minWidth: 180 }}>Asset</TableCell>
-                          <TableCell align="right" sx={{ minWidth: 120 }}>Balance</TableCell>
-                          <TableCell align="right" sx={{ minWidth: 100 }}>Price</TableCell>
-                          <TableCell align="right" sx={{ minWidth: 100 }}>Value</TableCell>
-                          <TableCell align="right" sx={{ minWidth: 120 }}>24h Change</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {tokenBalances.map((token) => (
-                          <TableRow key={token.symbol} hover>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Avatar sx={{ width: 36, height: 36 }}>
-                                  <img 
-                                    src={token.icon} 
-                                    alt={token.symbol} 
-                                    style={{ width: '100%', height: '100%', borderRadius: '50%' }} 
-                                  />
-                                </Avatar>
-                                <Box>
-                                  <Typography variant="body1" fontWeight={600}>
-                                    {token.symbol}
-                                  </Typography>
-                                  <Typography variant="body2" color="text.secondary">
-                                    {token.name}
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body1" fontWeight={500}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {tokenBalances.map((token) => (
+                      <Card 
+                        key={token.symbol} 
+                        elevation={0}
+                        sx={{ 
+                          p: 3,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 2,
+                          background: 'white',
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 8px 25px rgba(0,0,0,0.1)'
+                          }
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar sx={{ width: 48, height: 48, boxShadow: 2 }}>
+                              <img 
+                                src={token.icon} 
+                                alt={token.symbol} 
+                                style={{ width: '100%', height: '100%', borderRadius: '50%' }} 
+                              />
+                            </Avatar>
+                            <Box>
+                              <Typography variant="h6" fontWeight={700}>
+                                {token.symbol}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {token.name}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Balance
+                              </Typography>
+                              <Typography variant="h6" fontWeight={600}>
                                 {token.balanceFormatted}
                               </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body1">
+                            </Box>
+                            
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Price
+                              </Typography>
+                              <Typography variant="h6" fontWeight={600}>
                                 ${token.price}
                               </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body1" fontWeight={600}>
+                            </Box>
+                            
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Value
+                              </Typography>
+                              <Typography variant="h6" fontWeight={700} color="primary">
                                 ${token.value}
                               </Typography>
-                            </TableCell>
-                            <TableCell align="right">
+                            </Box>
+                            
+                            <Box sx={{ textAlign: 'right', minWidth: 100 }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                24h Change
+                              </Typography>
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
                                 {getChangeIcon(token.change24h || '0%')}
-                                <Typography variant="body2" color={getChangeColor(token.change24h || '0%')} fontWeight={500}>
+                                <Typography 
+                                  variant="body1" 
+                                  color={getChangeColor(token.change24h || '0%')} 
+                                  fontWeight={600}
+                                >
                                   {token.change24h}
                                 </Typography>
                               </Box>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Card>
+                    ))}
                   </Box>
                 ) : (
                   <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
@@ -353,26 +480,49 @@ const PortfolioPage = () => {
             </Card>
 
             {/* Liquidity Positions */}
-            <Card elevation={0}>
-              <CardContent>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Your Positions
-                </Typography>
+            <Card 
+              elevation={0}
+              sx={{ 
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)'
+              }}
+            >
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <PoolIcon sx={{ fontSize: 28, color: 'secondary.main', mr: 2 }} />
+                  <Typography variant="h5" fontWeight={700}>
+                    Your Positions
+                  </Typography>
+                </Box>
                 
                 {positionsLoading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress />
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                    <CircularProgress size={48} />
                   </Box>
                 ) : userPositions.length > 0 ? (
-                  userPositions.map(position => renderDetailedPositionCard(position))
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {userPositions.map(position => renderDetailedPositionCard(position))}
+                  </Box>
                 ) : (
-                  <Card elevation={0} sx={{ textAlign: 'center', py: 8, border: '1px solid', borderColor: 'divider' }}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      textAlign: 'center', 
+                      py: 8, 
+                      border: '2px dashed', 
+                      borderColor: 'divider',
+                      borderRadius: 3,
+                      background: 'rgba(0,0,0,0.02)'
+                    }}
+                  >
                     <CardContent>
-                      <PoolIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 3 }} />
-                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                      <PoolIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 3, opacity: 0.5 }} />
+                      <Typography variant="h5" color="text.secondary" gutterBottom fontWeight={600}>
                         No liquidity positions found
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 4, maxWidth: 400, mx: 'auto' }}>
+                      <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 400, mx: 'auto' }}>
                         Start providing liquidity to earn trading fees and contribute to the ecosystem.
                       </Typography>
                       <Button
@@ -380,12 +530,15 @@ const PortfolioPage = () => {
                         size="large"
                         href="/pool"
                         sx={{ 
-                          px: 4,
-                          py: 1.5,
-                          fontSize: '1rem'
+                          px: 6,
+                          py: 2,
+                          fontSize: '1.1rem',
+                          borderRadius: 3,
+                          textTransform: 'none',
+                          fontWeight: 600
                         }}
                       >
-                        Go To Pool
+                        Start Providing Liquidity
                       </Button>
                     </CardContent>
                   </Card>
@@ -395,52 +548,85 @@ const PortfolioPage = () => {
           </Grid>
 
           {/* Quick Stats */}
-          <Grid size={{ xs: 12, lg: 5 }}>
+          <Grid size={{ xs: 12, lg: 4 }}>
             <Box sx={{ position: 'sticky', top: 24 }}>
-              <Grid container spacing={2}>
+              <Grid container spacing={3}>
                 <Grid size={12}>
-                  <Card elevation={0} sx={{ textAlign: 'center', p: 2, border: '1px solid', borderColor: 'divider' }}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 3, 
+                      borderRadius: 3,
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white'
+                    }}
+                  >
                     <CardContent>
-                      <SwapIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
-                      <Typography variant="h6" fontWeight={600} gutterBottom>
+                      <SwapIcon sx={{ fontSize: 56, color: 'white', mb: 2, opacity: 0.9 }} />
+                      <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
                         Token Types
                       </Typography>
-                      <Typography variant="h3" color="primary" fontWeight={700} sx={{ mb: 1 }}>
+                      <Typography variant="h2" fontWeight={800} sx={{ mb: 1, color: 'white' }}>
                         {walletSummary.tokenCount}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body1" sx={{ opacity: 0.8 }}>
                         Different tokens
                       </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
                 <Grid size={12}>
-                  <Card elevation={0} sx={{ textAlign: 'center', p: 2, border: '1px solid', borderColor: 'divider' }}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 3, 
+                      borderRadius: 3,
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                      color: 'white'
+                    }}
+                  >
                     <CardContent>
-                      <PoolIcon sx={{ fontSize: 48, color: 'secondary.main', mb: 2 }} />
-                      <Typography variant="h6" fontWeight={600} gutterBottom>
+                      <PoolIcon sx={{ fontSize: 56, color: 'white', mb: 2, opacity: 0.9 }} />
+                      <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
                         LP Earnings
                       </Typography>
-                      <Typography variant="h3" color="secondary" fontWeight={700} sx={{ mb: 1 }}>
+                      <Typography variant="h2" fontWeight={800} sx={{ mb: 1, color: 'white' }}>
                         {walletSummary.unclaimedFees}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body1" sx={{ opacity: 0.8 }}>
                         Unclaimed fees
                       </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
                 <Grid size={12}>
-                  <Card elevation={0} sx={{ textAlign: 'center', p: 2, border: '1px solid', borderColor: 'divider' }}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 3, 
+                      borderRadius: 3,
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                      color: 'white'
+                    }}
+                  >
                     <CardContent>
-                      <TrendingUpIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
-                      <Typography variant="h6" fontWeight={600} gutterBottom>
+                      <TrendingUpIcon sx={{ fontSize: 56, color: 'white', mb: 2, opacity: 0.9 }} />
+                      <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
                         LP Positions
                       </Typography>
-                      <Typography variant="h3" color="success.main" fontWeight={700} sx={{ mb: 1 }}>
+                      <Typography variant="h2" fontWeight={800} sx={{ mb: 1, color: 'white' }}>
                         {walletSummary.positionCount}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body1" sx={{ opacity: 0.8 }}>
                         Active positions
                       </Typography>
                     </CardContent>
