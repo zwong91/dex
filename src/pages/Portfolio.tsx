@@ -1,5 +1,4 @@
 import {
-  Add as AddIcon,
   Pool as PoolIcon,
   Refresh as RefreshIcon,
   Remove as RemoveIcon,
@@ -23,10 +22,10 @@ import {
   LinearProgress,
   Typography,
 } from '@mui/material';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState } from 'react';
-import { useAccount, useChainId } from 'wagmi';
+import { useAccount } from 'wagmi';
 import Navigation from '../components/Navigation';
-import AddToPositionDialog from '../components/pool/AddToPositionDialog';
 import ClaimsFeesDialog from '../components/pool/ClaimsFeesDialog';
 import RemoveLiquidityDialog from '../components/pool/RemoveLiquidityDialog';
 import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
@@ -34,7 +33,6 @@ import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUs
 
 const PortfolioPage = () => {
   const { address } = useAccount();
-  const chainId = useChainId();
 
   // Use real wallet data instead of mock data
   const { tokenBalances, loading, error, refetch } = useWalletData();
@@ -47,7 +45,6 @@ const PortfolioPage = () => {
 
   // Position management states
   const [showClaimsFees, setShowClaimsFees] = useState(false);
-  const [showAddToPosition, setShowAddToPosition] = useState(false);
   const [showRemovePosition, setShowRemovePosition] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<UserPosition | null>(null);
 
@@ -60,11 +57,6 @@ const PortfolioPage = () => {
   const handleClaimsFees = (position: UserPosition) => {
     setSelectedPosition(position);
     setShowClaimsFees(true);
-  };
-
-  const handleAddToPosition = (position: UserPosition) => {
-    setSelectedPosition(position);
-    setShowAddToPosition(true);
   };
 
   const handleRemovePosition = (position: UserPosition) => {
@@ -130,20 +122,6 @@ const PortfolioPage = () => {
             </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-            <Button
-              variant="outlined"
-              size="medium"
-              startIcon={<AddIcon />}
-              onClick={() => handleAddToPosition(position)}
-              sx={{ 
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-                px: 3
-              }}
-            >
-              Add
-            </Button>
             <Button
               variant="outlined"
               size="medium"
@@ -283,21 +261,135 @@ const PortfolioPage = () => {
               <Typography variant="h6" color="text.secondary" sx={{ mb: 4, maxWidth: 500, mx: 'auto' }}>
                 Connect a wallet to view your portfolio, manage tokens, and track your liquidity positions.
               </Typography>
-              <Button
-                variant="contained"
-                size="large"
-                sx={{ 
-                  px: 6,
-                  py: 2,
-                  fontSize: '1.2rem',
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                }}
-              >
-                Connect Wallet
-              </Button>
+              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <ConnectButton.Custom>
+                  {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+                    const ready = mounted;
+                    const connected = ready && account && chain;
+
+                    return (
+                      <div
+                        {...(!ready && {
+                          'aria-hidden': true,
+                          'style': {
+                            opacity: 0,
+                            pointerEvents: 'none',
+                            userSelect: 'none',
+                          },
+                        })}
+                      >
+                        {(() => {
+                          if (!connected) {
+                            return (
+                              <Button
+                                onClick={openConnectModal}
+                                variant="contained"
+                                size="large"
+                                sx={{ 
+                                  px: 6,
+                                  py: 2,
+                                  fontSize: '1.2rem',
+                                  borderRadius: 3,
+                                  textTransform: 'none',
+                                  fontWeight: 700,
+                                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                  '&:hover': {
+                                    background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                                  }
+                                }}
+                              >
+                                Connect Wallet
+                              </Button>
+                            );
+                          }
+
+                          if (chain.unsupported) {
+                            return (
+                              <Button
+                                onClick={openChainModal}
+                                variant="contained"
+                                color="error"
+                                size="large"
+                                sx={{ 
+                                  px: 6,
+                                  py: 2,
+                                  fontSize: '1.2rem',
+                                  borderRadius: 3,
+                                  textTransform: 'none',
+                                  fontWeight: 700
+                                }}
+                              >
+                                Wrong network
+                              </Button>
+                            );
+                          }
+
+                          return (
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                              <Button
+                                onClick={openChainModal}
+                                variant="outlined"
+                                size="large"
+                                sx={{ 
+                                  px: 4,
+                                  py: 2,
+                                  fontSize: '1rem',
+                                  borderRadius: 3,
+                                  textTransform: 'none',
+                                  fontWeight: 600
+                                }}
+                              >
+                                {chain.hasIcon && (
+                                  <div
+                                    style={{
+                                      background: chain.iconBackground,
+                                      width: 20,
+                                      height: 20,
+                                      borderRadius: 999,
+                                      overflow: 'hidden',
+                                      marginRight: 8,
+                                    }}
+                                  >
+                                    {chain.iconUrl && (
+                                      <img
+                                        alt={chain.name ?? 'Chain icon'}
+                                        src={chain.iconUrl}
+                                        style={{ width: 20, height: 20 }}
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                                {chain.name}
+                              </Button>
+
+                              <Button
+                                onClick={openAccountModal}
+                                variant="contained"
+                                size="large"
+                                sx={{ 
+                                  px: 4,
+                                  py: 2,
+                                  fontSize: '1rem',
+                                  borderRadius: 3,
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                  '&:hover': {
+                                    background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                                  }
+                                }}
+                              >
+                                {account.displayName}
+                                {account.displayBalance && ` (${account.displayBalance})`}
+                              </Button>
+                            </Box>
+                          );
+                        })()}
+                      </div>
+                    );
+                  }}
+                </ConnectButton.Custom>
+              </Box>
             </CardContent>
           </Card>
         </Container>
@@ -493,7 +585,7 @@ const PortfolioPage = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <PoolIcon sx={{ fontSize: 28, color: 'secondary.main', mr: 2 }} />
                   <Typography variant="h5" fontWeight={700}>
-                    Your Positions
+                    Your Positions ({userPositions.length})
                   </Typography>
                 </Box>
                 
@@ -642,14 +734,6 @@ const PortfolioPage = () => {
           open={showClaimsFees}
           onClose={() => setShowClaimsFees(false)}
           selectedPosition={selectedPosition}
-        />
-
-        {/* Add to Position Dialog */}
-        <AddToPositionDialog
-          open={showAddToPosition}
-          onClose={() => setShowAddToPosition(false)}
-          selectedPosition={selectedPosition}
-          chainId={chainId}
         />
 
         {/* Remove Position Dialog */}
