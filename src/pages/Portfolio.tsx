@@ -509,7 +509,7 @@ const PortfolioPage = () => {
                                 Price
                               </Typography>
                               <Typography variant="h6" fontWeight={600}>
-                                ${token.price}
+                                {token.price}
                               </Typography>
                             </Box>
                             

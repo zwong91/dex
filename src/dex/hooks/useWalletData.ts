@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { erc20Abi } from 'viem'
 import { useAccount, useChainId } from 'wagmi'
 import { getTokensForChain } from '../networkTokens'
+import { priceService, formatPriceChange, formatPrice } from '../services/priceService'
 import { createViemClient } from '../viemClient'
 import { useUserLiquidityPositions } from './useUserPositions'
 
@@ -59,6 +60,11 @@ export const useWalletData = () => {
 			const tokens = getTokensForChain(chainId)
 			const client = createViemClient(chainId)
 
+			// First, fetch real prices for all tokens
+			const tokenSymbols = tokens.map(token => token.symbol)
+			console.log('🔄 Fetching prices for tokens:', tokenSymbols)
+			const priceData = await priceService.fetchPrices(tokenSymbols)
+
 			const balancePromises = tokens.map(async (token) => {
 				try {
 					const balance = await client.readContract({
@@ -78,25 +84,11 @@ export const useWalletData = () => {
 
 					const balanceFormatted = formatUnits(balance, decimals)
 
-					// Simple price estimation for demo
-					// In real app, this would come from a price oracle or API
-					let price = '0'
-					let value = '0'
-					let change24h = '0.00%'
-
-					if (token.symbol === 'USDC' || token.symbol === 'USDT') {
-						price = '1.00'
-						value = (parseFloat(balanceFormatted) * 1.0).toFixed(2)
-						change24h = '+0.01%'
-					} else if (token.symbol === 'tBNB') {
-						price = '600.00' // Demo price
-						value = (parseFloat(balanceFormatted) * 600).toFixed(2)
-						change24h = '+2.45%'
-					} else if (token.symbol === 'ETH' || token.symbol === 'WETH') {
-						price = '3400.00' // Demo price
-						value = (parseFloat(balanceFormatted) * 3400).toFixed(2)
-						change24h = '+1.85%'
-					}
+					// Get real price data
+					const tokenPriceData = priceData[token.symbol]
+					const price = formatPrice(tokenPriceData?.price || 0)
+					const value = (parseFloat(balanceFormatted) * (tokenPriceData?.price || 0)).toFixed(2)
+					const change24h = formatPriceChange(tokenPriceData?.change24h || 0)
 
 					const tokenBalance: TokenBalance = {
 						symbol: token.symbol,
@@ -123,7 +115,7 @@ export const useWalletData = () => {
 						balanceFormatted: '0.000000',
 						decimals: 18,
 						value: '0.00',
-						price: '0.00',
+						price: '$0.00',
 						change24h: '0.00%',
 					}
 				}
@@ -136,6 +128,7 @@ export const useWalletData = () => {
 				balance => parseFloat(balance.balanceFormatted) > 0.000001
 			)
 
+			console.log('💰 Final token balances with real prices:', nonZeroBalances)
 			setTokenBalances(nonZeroBalances)
 		} catch (error) {
 			console.error('Error fetching token balances:', error)
