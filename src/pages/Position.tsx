@@ -175,8 +175,9 @@ const PositionPage = () => {
       }
 
       // Calculate actual liquidity tokens to remove based on percentage
-      const liquidityValue = parseFloat(selectedPosition?.liquidity.replace(/[,$]/g, '') || '0');
-      const liquidityToRemove = (liquidityValue * percentage) / 100;
+      // Use the actual LP token balance instead of USD value
+      const currentLPBalance = parseFloat(liquidityBalance || '0');
+      const liquidityToRemove = (currentLPBalance * percentage) / 100;
 
       if (liquidityToRemove <= 0) {
         toast.error('No liquidity to remove');
@@ -188,25 +189,49 @@ const PositionPage = () => {
         return;
       }
 
-      // Get token addresses from the tokens config
-      const token0 = tokens.find(t => t.symbol === selectedPosition.token0);
-      const token1 = tokens.find(t => t.symbol === selectedPosition.token1);
+      // Get token addresses from the position data directly (these are already correctly ordered)
+      const tokenXAddress = selectedPosition.token0Address;
+      const tokenYAddress = selectedPosition.token1Address;
 
-      if (!token0 || !token1) {
-        toast.error('Token addresses not found');
+      if (!tokenXAddress || !tokenYAddress) {
+        toast.error('Token addresses not found in position data');
+        return;
+      }
+
+      console.log('🔍 Remove liquidity debug info:', {
+        percentage,
+        currentLPBalance,
+        liquidityToRemove,
+        tokenXAddress,
+        tokenYAddress,
+        binId: selectedPosition.binId,
+        binStep: selectedPosition.binStep,
+        pairAddress: selectedPosition.pairAddress
+      });
+
+      // Validate inputs before calling removeLiquidity
+      if (!selectedPosition.binStep || selectedPosition.binStep <= 0) {
+        toast.error('Invalid bin step in position data');
+        return;
+      }
+
+      if (liquidityToRemove <= 0) {
+        toast.error('Invalid liquidity amount to remove');
         return;
       }
 
       // For LB, remove from the specific bin
       const binIds = [selectedPosition.binId];
+      // Convert to proper bigint with 18 decimals for LP tokens
       const amounts = [BigInt(Math.floor(liquidityToRemove * 1e18))];
 
       await removeLiquidity(
         selectedPosition.pairAddress,
-        token0.address,
-        token1.address,
+        tokenXAddress,
+        tokenYAddress,
         binIds,
-        amounts
+        amounts,
+        selectedPosition.binStep
       );
       toast.success('Removing liquidity from position...');
       setShowManageDialog(false);

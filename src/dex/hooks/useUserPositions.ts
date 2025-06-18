@@ -236,6 +236,8 @@ export const useUserLiquidityPositions = (userAddress: `0x${string}` | undefined
 						binStep: pair.binStep,
 						token0: token0.symbol || 'UNKNOWN',
 						token1: token1.symbol || 'UNKNOWN',
+						token0Address: pair.tokenXAddress,
+						token1Address: pair.tokenYAddress,
 						icon0: getTokenIcon(token0.symbol || 'UNK'),
 						icon1: getTokenIcon(token1.symbol || 'UNK'),
 						pairAddress: pair.pairAddress,

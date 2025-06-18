@@ -170,7 +170,7 @@ const PortfolioPage = () => {
                 Value
               </Typography>
               <Typography variant="h6" fontWeight={700} color="primary">
-                ${position.value}
+                {position.value}
               </Typography>
             </Card>
           </Grid>
@@ -180,7 +180,7 @@ const PortfolioPage = () => {
                 24h Fees
               </Typography>
               <Typography variant="h6" fontWeight={700} color="success.main">
-                ${position.fees24h}
+                {position.fees24h}
               </Typography>
             </Card>
           </Grid>

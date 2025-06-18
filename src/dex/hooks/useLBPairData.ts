@@ -10,6 +10,8 @@ export const useAllLBPairs = () => {
 		pairAddress: string
 		tokenX: string
 		tokenY: string
+		tokenXAddress: string
+		tokenYAddress: string
 		binStep: number
 	}[]>([])
 	const [loading, setLoading] = useState(false)
@@ -154,6 +156,8 @@ export const useAllLBPairs = () => {
 							pairAddress,
 							tokenX: tokenXInfo.symbol,
 							tokenY: tokenYInfo.symbol,
+							tokenXAddress: tokenX as string,
+							tokenYAddress: tokenY as string,
 							binStep: Number(binStep)
 						}
 					} catch (error) {
@@ -168,6 +172,8 @@ export const useAllLBPairs = () => {
 				pairAddress: string;
 				tokenX: string;
 				tokenY: string;
+				tokenXAddress: string;
+				tokenYAddress: string;
 				binStep: number;
 			} => pair !== null)
 			setPairs(validPairs)

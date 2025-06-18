@@ -8,6 +8,8 @@ export interface UserPosition {
   binStep: number // 新增 binStep 字段
   token0: string
   token1: string
+  token0Address: string // 新增 token0 地址
+  token1Address: string // 新增 token1 地址
   icon0: string
   icon1: string
   pairAddress: string

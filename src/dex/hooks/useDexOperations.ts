@@ -588,7 +588,7 @@ export const useDexOperations = () => {
 		tokenYAddress: string,
 		binIds: number[],
 		amounts: bigint[],
-		binStep?: number
+		binStep: number
 	) => {
 		try {
 			if (!userAddress) {
@@ -615,16 +615,30 @@ export const useDexOperations = () => {
 				tokenA: { symbol: tokenA.symbol, address: tokenA.address },
 				tokenB: { symbol: tokenB.symbol, address: tokenB.address },
 				binIds,
-				amounts: amounts.map(a => a.toString())
+				amounts: amounts.map(a => a.toString()),
+				binStep
 			})
+
+			// 验证参数
+			if (!binStep || binStep <= 0) {
+				throw new Error(`Invalid binStep: ${binStep}`)
+			}
+
+			if (binIds.length === 0 || amounts.length === 0) {
+				throw new Error("No bins or amounts specified")
+			}
+
+			if (binIds.length !== amounts.length) {
+				throw new Error("Bin IDs and amounts arrays must have the same length")
+			}
 
 			// 创建PairV2实例 - SDK会自动按地址排序
 			const pair = new PairV2(tokenA, tokenB)
 			
 			// 获取LBPair信息
-			const pairVersion = 'v22' as const
+			const pairVersion = 'v22'
 			const publicClient = createViemClient(chainId)
-			const lbPair = await pair.fetchLBPair(binStep || 25, pairVersion, publicClient, CHAIN_ID)
+			const lbPair = await pair.fetchLBPair(binStep, pairVersion, publicClient, CHAIN_ID)
 			
 			if (lbPair.LBPair === '0x0000000000000000000000000000000000000000') {
 				throw new Error(`LB pair not found for ${pair.token0.symbol}/${pair.token1.symbol}`)
@@ -662,14 +676,60 @@ export const useDexOperations = () => {
 				console.log("✅ LBPair已授权，无需重新授权")
 			}
 
+			// 验证用户在指定bins中是否有足够的流动性
+			console.log("🔍 验证用户流动性...")
+			
+			// 检查用户在这些bins中的余额
+			for (let i = 0; i < binIds.length; i++) {
+				const binId = binIds[i]
+				const requestedAmount = amounts[i]
+				
+				try {
+					// 获取用户在此bin中的余额
+					const userBalance = await publicClient.readContract({
+						address: lbPair.LBPair as `0x${string}`,
+						abi: jsonAbis.LBPairABI,
+						functionName: 'balanceOf',
+						args: [userAddress as `0x${string}`, BigInt(binId)]
+					}) as bigint
+
+					console.log(`📊 Bin ${binId}: 用户余额=${userBalance.toString()}, 请求移除=${requestedAmount.toString()}`)
+
+					if (userBalance < requestedAmount) {
+						throw new Error(`Insufficient liquidity in bin ${binId}. Available: ${userBalance.toString()}, Requested: ${requestedAmount.toString()}`)
+					}
+				} catch (balanceError) {
+					console.error(`❌ 无法检查bin ${binId}的余额:`, balanceError)
+					throw new Error(`Failed to check balance for bin ${binId}: ${balanceError}`)
+				}
+			}
+
+			console.log("✅ 用户流动性验证通过")
+
 			// 构建removeLiquidity参数
 			const currentTimeInSec = Math.floor(Date.now() / 1000)
 			const deadline = currentTimeInSec + 1200 // 20分钟后过期
 
+			// 确保代币地址顺序正确 (tokenX < tokenY)
+			let finalTokenX: string, finalTokenY: string
+			if (tokenXAddress.toLowerCase() < tokenYAddress.toLowerCase()) {
+				finalTokenX = tokenXAddress
+				finalTokenY = tokenYAddress
+			} else {
+				finalTokenX = tokenYAddress
+				finalTokenY = tokenXAddress
+			}
+
+			console.log("🔄 Token address ordering:", {
+				original: { tokenX: tokenXAddress, tokenY: tokenYAddress },
+				sorted: { tokenX: finalTokenX, tokenY: finalTokenY },
+				swapped: finalTokenX !== tokenXAddress
+			})
+
 			const removeLiquidityInput = {
-				tokenX: pair.token0.address as `0x${string}`,  // 使用SDK排序后的token0
-				tokenY: pair.token1.address as `0x${string}`,  // 使用SDK排序后的token1
-				binStep: Number(binStep || 25),
+				tokenX: finalTokenX as `0x${string}`,  // 使用排序后的tokenX地址
+				tokenY: finalTokenY as `0x${string}`,  // 使用排序后的tokenY地址
+				binStep: Number(binStep),
 				amountXMin: 0, // 接受任何数量输出（可以添加滑点保护）
 				amountYMin: 0,
 				ids: binIds.map(id => Number(id)),
@@ -686,20 +746,23 @@ export const useDexOperations = () => {
 				totalAmounts: removeLiquidityInput.amounts.reduce((sum, amount) => sum + amount, 0n).toString()
 			})
 
-			// 最终验证token顺序
-			const finalTokenXLower = removeLiquidityInput.tokenX.toLowerCase()
-			const finalTokenYLower = removeLiquidityInput.tokenY.toLowerCase()
-			if (finalTokenXLower >= finalTokenYLower) {
-				throw new Error(`Token ordering error: tokenX (${finalTokenXLower}) must be < tokenY (${finalTokenYLower})`)
-			}
-
-			console.log("✅ Token ordering validated for removeLiquidity")
+			console.log("✅ Token ordering automatically handled for removeLiquidity")
 
 			const result = await writeContractAsync({
 				abi: jsonAbis.LBRouterV22ABI,
 				address: lbRouterAddress as `0x${string}`,
 				functionName: "removeLiquidity",
-				args: [removeLiquidityInput],
+				args: [
+					removeLiquidityInput.tokenX,
+					removeLiquidityInput.tokenY,
+					removeLiquidityInput.binStep,
+					removeLiquidityInput.amountXMin,
+					removeLiquidityInput.amountYMin,
+					removeLiquidityInput.ids,
+					removeLiquidityInput.amounts,
+					removeLiquidityInput.to,
+					removeLiquidityInput.deadline
+				],
 				chainId: chainId,
 			})
 

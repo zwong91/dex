@@ -45,6 +45,11 @@ export const getSDKTokensForChain = (chainId: number) => {
 
 // Helper function to get SDK token by address for specific chain
 export const getSDKTokenByAddress = (address: string, chainId: number): Token | undefined => {
+	if (!address) {
+		console.warn('getSDKTokenByAddress: address is undefined or empty')
+		return undefined
+	}
+	
 	const tokens = getSDKTokensForChain(chainId)
 	return Object.values(tokens as Record<string, Token>).find(token =>
 		token.address.toLowerCase() === address.toLowerCase()

@@ -66,9 +66,8 @@ const RemoveLiquidityDialog = ({
 			const amounts = [BigInt(Math.floor(amountToRemove * 1e18))]
 
 			// Get token addresses from the position data
-			// We'll need to add these to UserPosition interface or derive them
-			const tokenXAddress = selectedPosition.token0 // This is symbol, we need address
-			const tokenYAddress = selectedPosition.token1 // This is symbol, we need address
+			const tokenXAddress = selectedPosition.token0Address
+			const tokenYAddress = selectedPosition.token1Address
 
 			// Call the removeLiquidity contract function with LB parameters
 			await removeLiquidity(
@@ -76,7 +75,8 @@ const RemoveLiquidityDialog = ({
 				tokenXAddress,
 				tokenYAddress,
 				binIds,
-				amounts
+				amounts,
+				selectedPosition.binStep
 			)
 			onClose()
 		} catch (err: any) {
