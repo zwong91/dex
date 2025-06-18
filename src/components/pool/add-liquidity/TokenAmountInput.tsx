@@ -84,7 +84,7 @@ const TokenAmountInput = ({
 				</Box>
 			</Box>
 			<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-				<Typography variant="body2" color="text.secondary">
+				<Typography variant="body2" color="rgba(255, 255, 255, 0.8)">
 					Balance: {parseFloat(balance || '0').toFixed(6)}
 				</Typography>
 				<Box sx={{ display: 'flex', gap: 1 }}>

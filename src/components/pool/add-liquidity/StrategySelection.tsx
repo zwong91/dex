@@ -5,20 +5,11 @@ export type LiquidityStrategy = 'spot' | 'curve' | 'bid-ask'
 interface StrategySelectionProps {
 	strategy: LiquidityStrategy
 	onStrategyChange: (strategy: LiquidityStrategy) => void
-	amount0: string
-	amount1: string
-	selectedPool: {
-		token0: string
-		token1: string
-	} | null
 }
 
 const StrategySelection = ({
 	strategy,
 	onStrategyChange,
-	amount0,
-	amount1,
-	selectedPool,
 }: StrategySelectionProps) => {
 	const renderStrategyBars = (strategyType: LiquidityStrategy) => {
 		let heights: number[]
@@ -78,33 +69,19 @@ const StrategySelection = ({
 			case 'spot':
 				return {
 					description: 'Spot provides a uniform distribution that is versatile and risk adjusted, suitable for any type of market and conditions. This is similar to setting a CLMM price range.',
-					tip: (parseFloat(amount0 || '0') > 0 || parseFloat(amount1 || '0') > 0) 
-						? (parseFloat(amount0 || '0') > 0 && parseFloat(amount1 || '0') > 0 
-							? 'Symmetric range based on both token amounts' 
-							: parseFloat(amount0 || '0') > 0 
-								? `Range focuses below current price (${selectedPool?.token0} side)`
-								: `Range focuses above current price (${selectedPool?.token1} side)`)
-						: null,
+					tip: 'Symmetric distribution around current price',
 					color: 'rgba(0, 217, 255, 0.8)'
 				}
 			case 'curve':
 				return {
 					description: 'Curve is ideal for a concentrated approach that aims to maximise capital efficiency. This is great for stables or pairs where the price does not change very often.',
-					tip: (parseFloat(amount0 || '0') > 0 || parseFloat(amount1 || '0') > 0) 
-						? 'Concentrated liquidity around current price - higher capital efficiency'
-						: null,
+					tip: 'Concentrated liquidity around current price - higher capital efficiency',
 					color: 'rgba(123, 104, 238, 0.8)'
 				}
 			case 'bid-ask':
 				return {
 					description: 'Bid-Ask is an inverse Curve distribution, typically deployed single sided for a DCA in or out strategy. It can be used to capture volatility especially when prices vastly move out of the typical range.',
-					tip: (parseFloat(amount0 || '0') > 0 || parseFloat(amount1 || '0') > 0) 
-						? (parseFloat(amount0 || '0') > 0 && parseFloat(amount1 || '0') > 0 
-							? 'Wide range distribution for volatility capture' 
-							: parseFloat(amount0 || '0') > 0 
-								? `DCA out strategy - selling ${selectedPool?.token0} as price rises`
-								: `DCA in strategy - buying ${selectedPool?.token0} as price falls`)
-						: null,
+					tip: 'Wide range distribution for volatility capture and DCA strategies',
 					color: 'rgba(255, 107, 53, 0.8)'
 				}
 		}
@@ -170,18 +147,16 @@ const StrategySelection = ({
 
 			{/* Strategy Description */}
 			<Box sx={{ p: 3, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
-				<Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+				<Typography variant="body1" color="rgba(255, 255, 255, 0.9)" sx={{ mb: 2, fontSize: '0.95rem', lineHeight: 1.6 }}>
 					{getStrategyDescription(strategy).description}
 				</Typography>
-				{getStrategyDescription(strategy).tip && (
-					<Typography 
-						variant="caption" 
-						color={getStrategyDescription(strategy).color} 
-						sx={{ fontSize: '11px' }}
-					>
-						💡 {getStrategyDescription(strategy).tip}
-					</Typography>
-				)}
+				<Typography 
+					variant="caption" 
+					color={getStrategyDescription(strategy).color} 
+					sx={{ fontSize: '12px', fontWeight: 500 }}
+				>
+					💡 {getStrategyDescription(strategy).tip}
+				</Typography>
 			</Box>
 		</Box>
 	)

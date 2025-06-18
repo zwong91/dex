@@ -1,4 +1,4 @@
-import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material'
+import { Add as AddIcon } from '@mui/icons-material'
 import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material'
 
 interface AddLiquidityButtonProps {
@@ -10,7 +10,6 @@ interface AddLiquidityButtonProps {
 	error: Error | null
 	slippageTolerance: number
 	onAddLiquidity: () => void
-	onResetPrice: () => void
 }
 
 const AddLiquidityButton = ({
@@ -22,39 +21,11 @@ const AddLiquidityButton = ({
 	error,
 	slippageTolerance,
 	onAddLiquidity,
-	onResetPrice,
 }: AddLiquidityButtonProps) => {
 	const isDisabled = (!amount0 && !amount1) || isPending || !userWalletAddress
 
 	return (
 		<Box>
-			{/* Reset Price Button */}
-			<Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-				<Button
-					size="small"
-					startIcon={<RefreshIcon />}
-					onClick={onResetPrice}
-					sx={{
-						textTransform: 'none',
-						color: 'white',
-						backgroundColor: 'rgba(255, 255, 255, 0.08)',
-						borderColor: 'rgba(255, 255, 255, 0.3)',
-						border: '1px solid',
-						px: 2,
-						py: 1,
-						fontSize: '0.875rem',
-						fontWeight: 500,
-						'&:hover': {
-							backgroundColor: 'rgba(255, 255, 255, 0.15)',
-							borderColor: 'rgba(255, 255, 255, 0.4)',
-						},
-					}}
-					variant="outlined"
-				>
-					Reset Price
-				</Button>
-			</Box>
-
 			{/* Add Liquidity Button */}
 			<Button
 				fullWidth
@@ -63,14 +34,43 @@ const AddLiquidityButton = ({
 				disabled={isDisabled}
 				onClick={onAddLiquidity}
 				startIcon={
-					isPending ? <CircularProgress size={20} /> : <AddIcon />
+					isPending ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <AddIcon />
 				}
+				sx={{
+					py: 2,
+					fontSize: '1.1rem',
+					fontWeight: 700,
+					textTransform: 'none',
+					borderRadius: 3,
+					background: isDisabled 
+						? 'rgba(255, 255, 255, 0.1)'
+						: 'linear-gradient(135deg, #4CAF50, #2196F3)',
+					border: '2px solid transparent',
+					backgroundClip: 'padding-box',
+					boxShadow: isDisabled 
+						? 'none'
+						: '0 8px 32px rgba(76, 175, 80, 0.4)',
+					'&:hover': {
+						background: isDisabled 
+							? 'rgba(255, 255, 255, 0.1)'
+							: 'linear-gradient(135deg, #66BB6A, #42A5F5)',
+						transform: isDisabled ? 'none' : 'translateY(-2px)',
+						boxShadow: isDisabled 
+							? 'none'
+							: '0 12px 40px rgba(76, 175, 80, 0.5)',
+					},
+					'&:disabled': {
+						color: 'rgba(255, 255, 255, 0.4)',
+						background: 'rgba(255, 255, 255, 0.1)',
+					},
+					transition: 'all 0.3s ease',
+				}}
 			>
 				{!userWalletAddress
-					? 'Connect Wallet'
+					? '🔗 Connect Wallet'
 					: isPending
 						? 'Adding Liquidity...'
-						: 'Add Liquidity'}
+						: '💎 Add Liquidity'}
 			</Button>
 
 			{/* Slippage Helper */}

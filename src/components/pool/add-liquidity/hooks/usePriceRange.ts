@@ -116,7 +116,14 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 	}
 
 	const getCurrentPrice = () => {
-		return activeBinPrice.toFixed(8)
+		// Format price with appropriate decimal places
+		if (activeBinPrice >= 1) {
+			return activeBinPrice.toFixed(4) // 4 decimal places for prices >= 1
+		} else if (activeBinPrice >= 0.01) {
+			return activeBinPrice.toFixed(6) // 6 decimal places for prices >= 0.01
+		} else {
+			return activeBinPrice.toFixed(8) // 8 decimal places for very small prices
+		}
 	}
 
 	const getTokenPairDisplay = () => {

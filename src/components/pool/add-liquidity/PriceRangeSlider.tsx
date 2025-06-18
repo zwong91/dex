@@ -17,7 +17,7 @@ const PriceRangeSlider = ({
 }: PriceRangeSliderProps) => {
 	return (
 		<Box sx={{ px: 3, mb: 4 }}>
-			<Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
+			<Typography variant="body2" color="rgba(255, 255, 255, 0.8)" sx={{ mb: 2, textAlign: 'center' }}>
 				Drag the handles to adjust your price range
 			</Typography>
 			<Box sx={{ position: 'relative', py: 2 }}>

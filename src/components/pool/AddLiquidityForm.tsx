@@ -1,6 +1,5 @@
 import { Box, Button, Card, Grid, Typography } from '@mui/material'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import {
 	TokenAmountInput,
 	StrategySelection,
@@ -130,7 +129,7 @@ const AddLiquidityForm = ({
 	// Handle reset price
 	const handleResetPrice = () => {
 		resetPriceRange()
-		toast.success('Price range updated to current market price')
+		console.log('🔄 Price range reset to current market price')
 	}
 
 	// Handle add liquidity submission
@@ -160,8 +159,8 @@ const AddLiquidityForm = ({
 								Enter deposit amount:
 							</Typography>
 							<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-								<Typography variant="body2" fontWeight={600} color="text.primary">
-									Auto-fill amounts based on strategy:
+								<Typography variant="body2" fontWeight={600} color="rgba(255, 255, 255, 0.9)">
+									Auto-fill:
 								</Typography>
 								<Box
 									sx={{
@@ -227,9 +226,6 @@ const AddLiquidityForm = ({
 					<StrategySelection
 						strategy={liquidityStrategy}
 						onStrategyChange={handleStrategyChange}
-						amount0={amount0}
-						amount1={amount1}
-						selectedPool={selectedPool}
 					/>
 
 					{/* Price Range Configuration */}
@@ -238,38 +234,40 @@ const AddLiquidityForm = ({
 							<Typography variant="h6" fontWeight={600}>
 								Set Price Range
 							</Typography>
-						</Box>
-
-						<Card
-							sx={{
-								p: 2,
-								backgroundColor: '#2A2D3E',
-								border: 1,
-								borderColor: 'rgba(255, 255, 255, 0.1)',
-								borderRadius: 3,
-							}}
-						>
-							{/* Current Price Display */}
-							<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-								<Box sx={{ textAlign: 'center', flex: 1 }}>
-									<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-										Active Bin Price
+							<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+								{/* Current Price Display - Inline */}
+								<Box sx={{ 
+									display: 'flex', 
+									alignItems: 'center', 
+									gap: 1,
+									px: 2,
+									py: 1,
+									borderRadius: 2,
+									background: 'rgba(255, 255, 255, 0.05)',
+									border: 1,
+									borderColor: 'rgba(255, 255, 255, 0.1)',
+								}}>
+									<Typography variant="body2" color="rgba(255, 255, 255, 0.7)">
+										📊
 									</Typography>
-									<Typography variant="h6" fontWeight={600} color="white">
+									<Typography variant="body1" fontWeight={600} sx={{
+										background: 'linear-gradient(135deg, #4CAF50, #2196F3)',
+										backgroundClip: 'text',
+										WebkitBackgroundClip: 'text',
+										WebkitTextFillColor: 'transparent',
+									}}>
 										{getCurrentPrice()} {getTokenPairDisplay()}
 									</Typography>
 								</Box>
 								<Button
-									size="small"
 									onClick={handleResetPrice}
+									size="small"
 									sx={{
-										textTransform: 'none',
-										color: 'white',
-										backgroundColor: 'rgba(255, 255, 255, 0.08)',
+										color: 'rgba(255, 255, 255, 0.8)',
 										borderColor: 'rgba(255, 255, 255, 0.3)',
-										border: '1px solid',
+										borderRadius: '20px',
 										px: 2,
-										py: 1,
+										py: 0.5,
 										fontSize: '0.875rem',
 										fontWeight: 500,
 										'&:hover': {
@@ -282,7 +280,17 @@ const AddLiquidityForm = ({
 									Reset Price
 								</Button>
 							</Box>
+						</Box>
 
+						<Card
+							sx={{
+								p: 2,
+								backgroundColor: '#2A2D3E',
+								border: 1,
+								borderColor: 'rgba(255, 255, 255, 0.1)',
+								borderRadius: 3,
+							}}
+						>
 							{/* Price Range Visualizer */}
 							<PriceRangeVisualizer
 								activeBinPrice={activeBinPrice}
@@ -313,6 +321,7 @@ const AddLiquidityForm = ({
 								getNumBins={getNumBinsForComponents}
 								amount0={amount0}
 								amount1={amount1}
+								strategy={liquidityStrategy}
 								selectedPool={selectedPool}
 								calculateDynamicRange={getDynamicRange}
 							/>
@@ -329,7 +338,6 @@ const AddLiquidityForm = ({
 						error={error}
 						slippageTolerance={slippageTolerance}
 						onAddLiquidity={handleAddLiquiditySubmit}
-						onResetPrice={handleResetPrice}
 					/>
 				</Box>
 			) : (

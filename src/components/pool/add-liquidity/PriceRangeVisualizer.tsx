@@ -197,8 +197,8 @@ const PriceRangeVisualizer = ({
 				<Box
 					key={i}
 					sx={{
-						width: 8,
-						height: Math.max(30, height),
+						width: 6,
+						height: Math.max(30, Math.min(180, height)),
 						background: barColor,
 						borderRadius: '3px 3px 0 0',
 						position: 'relative',
@@ -230,7 +230,7 @@ const PriceRangeVisualizer = ({
 	}
 
 	return (
-		<Box sx={{ mb: 3, position: 'relative' }}>
+		<Box sx={{ mb: 3, position: 'relative', pt: 6 }}>
 			<Box
 				sx={{
 					position: 'relative',
@@ -241,9 +241,10 @@ const PriceRangeVisualizer = ({
 					gap: '1px',
 					background: 'linear-gradient(135deg, #1A1B2E 0%, #252749 50%, #1A1B2E 100%)',
 					borderRadius: 3,
-					p: 0,
+					p: 1,
 					mb: 2,
-					overflow: 'visible',
+					mt: 2,
+					mx: 1,
 					'&::before': {
 						content: '""',
 						position: 'absolute',
@@ -262,17 +263,17 @@ const PriceRangeVisualizer = ({
 				<Box sx={{
 					position: 'absolute',
 					left: '50%',
-					top: 0,
+					top: 30,
 					bottom: 0,
-					width: 3,
-					background: 'linear-gradient(to bottom, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%)',
+					width: 2,
+					background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%)',
 					transform: 'translateX(-50%)',
 					zIndex: 3,
-					borderRadius: '2px',
+					borderRadius: '1px',
 					boxShadow: `
-						0 0 20px rgba(255, 255, 255, 0.8),
-						0 0 40px rgba(255, 255, 255, 0.4),
-						0 4px 8px rgba(0, 0, 0, 0.3)
+						0 0 8px rgba(255, 255, 255, 0.6),
+						0 0 16px rgba(255, 255, 255, 0.3),
+						0 2px 4px rgba(0, 0, 0, 0.2)
 					`,
 				}} />
 
@@ -280,35 +281,23 @@ const PriceRangeVisualizer = ({
 				<Box sx={{
 					position: 'absolute',
 					left: '50%',
-					top: -45,
+					top: 8,
 					transform: 'translateX(-50%)',
-					background: 'linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%)',
+					background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 240, 0.9) 100%)',
 					color: '#1A1B2E',
 					px: 2,
-					py: 1,
-					borderRadius: 2,
-					fontSize: '12px',
-					fontWeight: 700,
+					py: 0.5,
+					borderRadius: 1.5,
+					fontSize: '11px',
+					fontWeight: 600,
 					zIndex: 4,
 					boxShadow: `
-						0 4px 20px rgba(0, 0, 0, 0.3),
-						0 2px 10px rgba(0, 0, 0, 0.2),
+						0 2px 8px rgba(0, 0, 0, 0.2),
+						0 1px 4px rgba(0, 0, 0, 0.1),
 						inset 0 1px 0 rgba(255, 255, 255, 0.8)
 					`,
-					border: '1px solid rgba(255, 255, 255, 0.3)',
-					'&::after': {
-						content: '""',
-						position: 'absolute',
-						top: '100%',
-						left: '50%',
-						transform: 'translateX(-50%)',
-						width: 0,
-						height: 0,
-						borderLeft: '6px solid transparent',
-						borderRight: '6px solid transparent',
-						borderTop: '6px solid #ffffff',
-						filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))',
-					},
+					border: '1px solid rgba(255, 255, 255, 0.4)',
+					backdropFilter: 'blur(4px)',
 				}}>
 					{getCurrentPrice()}
 				</Box>
@@ -318,8 +307,8 @@ const PriceRangeVisualizer = ({
 			<Box sx={{
 				display: 'flex',
 				justifyContent: 'space-between',
-				fontSize: '10px',
-				color: 'text.secondary',
+				fontSize: '11px',
+				color: 'rgba(255, 255, 255, 0.7)',
 				mb: 4,
 				px: 2,
 				py: 1,
@@ -350,11 +339,11 @@ const PriceRangeVisualizer = ({
 							<Typography
 								variant="caption"
 								sx={{
-									fontSize: '9px',
+									fontSize: '10px',
 									fontWeight: isActivePrice ? 700 : 400,
 									color: isActivePrice ? '#ffffff' : 
 										  price < activeBinPrice ? '#00D9FF' : 
-										  price > activeBinPrice ? '#7B68EE' : 'text.secondary',
+										  price > activeBinPrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.6)',
 									transition: 'color 0.3s ease',
 								}}
 							>
