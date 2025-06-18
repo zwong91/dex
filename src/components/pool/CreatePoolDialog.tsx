@@ -125,7 +125,7 @@ const CreatePoolDialog = ({
 
 	// Set default token addresses on load
 	useEffect(() => {
-		const token0 = tokens.find(t => t.symbol === 'BNB' || t.symbol === 'WBNB')
+		const token0 = tokens.find(t => t.symbol === 'BNB')
 		const token1 = tokens.find(t => t.symbol === 'USDT')
 
 		if (token0 && !newPoolToken0Address) {
@@ -163,7 +163,6 @@ const CreatePoolDialog = ({
 
 			// Map common tokens to Binance equivalents
 			const tokenMap: { [key: string]: string } = {
-				WBNB: 'BNB',
 				WETH: 'ETH',
 				WBTC: 'BTC',
 			}
@@ -249,7 +248,7 @@ const CreatePoolDialog = ({
 			if (token0Symbol === 'BNB' && token1Symbol === 'USDT') {
 				return '600.00' // Default BNB per USDT
 			}
-			if (token0Symbol === 'USDT' && (token1Symbol === 'WBNB' || token1Symbol === 'BNB')) {
+			if (token0Symbol === 'USDT' && token1Symbol === 'BNB') {
 				return '0.00167' // Default USDT per BNB (1/600)
 			}
 			if (token0Symbol === 'USDC' && token1Symbol === 'ETH') {
@@ -258,7 +257,7 @@ const CreatePoolDialog = ({
 			if (token0Symbol === 'USDT' && token1Symbol === 'ETH') {
 				return '2618.45' // Default USDT per ETH
 			}
-			if ((token0Symbol === 'WBNB' || token0Symbol === 'BNB') && token1Symbol === 'USDT') {
+			if (token0Symbol === 'BNB' && token1Symbol === 'USDT') {
 				return '600.00' // Default BNB per USDT
 			}
 			if (token0Symbol === 'ETH' && token1Symbol === 'USDC') {

@@ -88,7 +88,7 @@ export const useWalletData = () => {
 						price = '1.00'
 						value = (parseFloat(balanceFormatted) * 1.0).toFixed(2)
 						change24h = '+0.01%'
-					} else if (token.symbol === 'WBNB' || token.symbol === 'BNB') {
+					} else if (token.symbol === 'tBNB') {
 						price = '600.00' // Demo price
 						value = (parseFloat(balanceFormatted) * 600).toFixed(2)
 						change24h = '+2.45%'
@@ -148,19 +148,61 @@ export const useWalletData = () => {
 	// Calculate wallet stats
 	useEffect(() => {
 		const totalTokensValue = tokenBalances.reduce(
-			(sum, token) => sum + parseFloat(token.value || '0'),
+			(sum, token) => {
+				const value = parseFloat(token.value || '0')
+				return sum + (isFinite(value) ? value : 0)
+			},
 			0
 		)
 
 		const totalLPValue = lpPositions.reduce(
-			(sum, position) => sum + parseFloat(position.value || '0'),
+			(sum, position) => {
+				// Parse the position value, removing currency symbols and formatting
+				const valueStr = position.value?.replace(/[$,BMK]/g, '') || '0'
+				let value = parseFloat(valueStr)
+				
+				// Handle K, M, B suffixes
+				if (position.value?.includes('B')) {
+					value = value * 1000000000
+				} else if (position.value?.includes('M')) {
+					value = value * 1000000
+				} else if (position.value?.includes('K')) {
+					value = value * 1000
+				}
+				
+				return sum + (isFinite(value) ? value : 0)
+			},
 			0
 		)
 
 		const totalUnclaimedFees = lpPositions.reduce(
-			(sum, position) => sum + parseFloat(position.feesTotal || '0'),
+			(sum, position) => {
+				// Parse the fees total, removing currency symbols and formatting
+				const feesStr = position.feesTotal?.replace(/[$,BMK]/g, '') || '0'
+				let fees = parseFloat(feesStr)
+				
+				// Handle K, M, B suffixes
+				if (position.feesTotal?.includes('B')) {
+					fees = fees * 1000000000
+				} else if (position.feesTotal?.includes('M')) {
+					fees = fees * 1000000
+				} else if (position.feesTotal?.includes('K')) {
+					fees = fees * 1000
+				}
+				
+				return sum + (isFinite(fees) ? fees : 0)
+			},
 			0
 		)
+
+		console.log('💰 Wallet stats calculation:', {
+			totalTokensValue,
+			totalLPValue,
+			totalUnclaimedFees,
+			totalPortfolioValue: totalTokensValue + totalLPValue,
+			tokenCount: tokenBalances.length,
+			lpPositionCount: lpPositions.length
+		})
 
 		setWalletStats({
 			totalTokensValue,
@@ -191,6 +233,11 @@ export const useWalletSummary = () => {
 	const { walletStats } = useWalletData()
 
 	const formatCurrency = (amount: number) => {
+		// Handle NaN, undefined, or invalid numbers
+		if (!isFinite(amount) || amount < 0) {
+			return '$0.00'
+		}
+		
 		if (amount >= 1000000) {
 			return `$${(amount / 1000000).toFixed(1)}M`
 		} else if (amount >= 1000) {

@@ -23,11 +23,11 @@ export const BSC_TESTNET_TOKENS: Record<string, TokenInfo> = {
 		decimals: 18,
 		image: generateTokenIcon('USDC')
 	},
-	WBNB: {
+	tBNB: {
 		address: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-		symbol: "WBNB",
+		symbol: "tBNB",
 		decimals: 18,
-		image: generateTokenIcon('WBNB')
+		image: generateTokenIcon('tBNB')
 	},
 	ETH: {
 		address: "0x8babbb98678facc7342735486c851abd7a0d17ca",

@@ -16,10 +16,22 @@ export const calculatePositionValue = async (
   amount0: number,
   amount1: number
 ): Promise<string> => {
+  // Validate inputs - handle NaN, undefined, or invalid numbers
+  const safeAmount0 = isFinite(amount0) ? amount0 : 0
+  const safeAmount1 = isFinite(amount1) ? amount1 : 0
+
+  console.log('🧮 calculatePositionValue:', {
+    token0Symbol,
+    token1Symbol,
+    originalAmount0: amount0,
+    originalAmount1: amount1,
+    safeAmount0,
+    safeAmount1
+  })
+
   // Mock price data - in production, fetch from price oracle
   const mockPrices: Record<string, number> = {
     BNB: 600,
-    WBNB: 600,
     USDC: 1,
     USDT: 1,
     ETH: 3400,
@@ -31,9 +43,15 @@ export const calculatePositionValue = async (
   const price0 = mockPrices[token0Symbol.toUpperCase()] || 1
   const price1 = mockPrices[token1Symbol.toUpperCase()] || 1
 
-  const value0 = amount0 * price0
-  const value1 = amount1 * price1
+  const value0 = safeAmount0 * price0
+  const value1 = safeAmount1 * price1
   const totalValue = value0 + value1
+
+  // Additional safety check
+  if (!isFinite(totalValue) || totalValue < 0) {
+    console.warn('⚠️ Invalid totalValue calculated:', { value0, value1, totalValue })
+    return '$0.00'
+  }
 
   if (totalValue >= 1000000) {
     return `$${(totalValue / 1000000).toFixed(2)}M`
