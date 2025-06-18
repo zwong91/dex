@@ -102,11 +102,11 @@ const PriceRangeVisualizer = ({
 			for (let i = 0; i < numBars; i++) {
 				let height = baseHeight
 				if (strategy === 'curve') {
-					const decay = Math.max(0.3, 1 - (i * 0.02))
-					height = baseHeight * decay
+					// 每根柱子一个台阶 - 固定台阶高度（下台阶）
+					height = 180 - (i * 3) // 每根柱子固定下降3个像素
 				} else if (strategy === 'bid-ask') {
-					const decay = Math.max(0.4, 1 - (i * 0.015))
-					height = baseHeight * decay
+					// 每根柱子一个台阶 - 固定台阶高度（上台阶）
+					height = 30 + (i * 3) // 每根柱子固定上升3个像素
 				}
 
 				barsToRender.push(
@@ -114,7 +114,7 @@ const PriceRangeVisualizer = ({
 						key={i}
 						sx={{
 							width: 6,
-							height: Math.max(30, Math.min(180, height)),
+							height: Math.max(30, height), // 移除最大高度限制，让台阶更明显
 							background: `linear-gradient(135deg,
 								rgba(123, 104, 238, 0.8) 0%,
 								rgba(100, 80, 200, 0.9) 50%,
@@ -127,23 +127,24 @@ const PriceRangeVisualizer = ({
 				)
 			}
 		} else if (amt1 > 0 && amt0 === 0) {
-			// 只有Token Y：从指示棒(锚点)向左渲染，但要用reverse排列
+			// 只有Token Y：从指示棒向左渲染，第一根柱子最靠近指示线
 			for (let i = 0; i < numBars; i++) {
 				let height = baseHeight
 				if (strategy === 'curve') {
-					const decay = Math.max(0.3, 1 - (i * 0.02))
-					height = baseHeight * decay
+					// 每根柱子一个台阶 - 从指示线开始下降
+					height = 180 - (i * 3) // 第一根最高，向左递减
 				} else if (strategy === 'bid-ask') {
-					const decay = Math.max(0.4, 1 - (i * 0.015))
-					height = baseHeight * decay
+					// 每根柱子一个台阶 - 从指示线开始上升
+					height = 30 + (i * 3) // 第一根最低，向左递增
 				}
 
-				barsToRender.unshift( // 用unshift让柱子从右往左递减
+				// 直接push，配合flexDirection: 'row-reverse'实现从右向左
+				barsToRender.push(
 					<Box
 						key={i}
 						sx={{
 							width: 6,
-							height: Math.max(30, Math.min(180, height)),
+							height: Math.max(30, height),
 							background: `linear-gradient(135deg,
 								rgba(0, 217, 255, 0.8) 0%,
 								rgba(0, 150, 200, 0.9) 50%,
@@ -162,11 +163,11 @@ const PriceRangeVisualizer = ({
 				const distance = Math.abs(i)
 				
 				if (strategy === 'curve') {
-					const decay = Math.max(0.3, 1 - (distance * 0.02))
-					height = baseHeight * decay
+					// 每根柱子一个台阶 - 固定台阶高度（下台阶）
+					height = 180 - (distance * 3) // 每根柱子固定下降3个像素
 				} else if (strategy === 'bid-ask') {
-					const decay = Math.max(0.4, 1 - (distance * 0.015))
-					height = baseHeight * decay
+					// 每根柱子一个台阶 - 固定台阶高度（上台阶）
+					height = 30 + (distance * 3) // 每根柱子固定上升3个像素
 				}
 
 				const isCenter = i === 0
@@ -190,7 +191,7 @@ const PriceRangeVisualizer = ({
 						key={i}
 						sx={{
 							width: 6,
-							height: Math.max(30, Math.min(180, height)),
+							height: Math.max(30, height), // 移除最大高度限制，让台阶更明显
 							background: barColor,
 							borderRadius: '3px 3px 0 0',
 							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -205,7 +206,29 @@ const PriceRangeVisualizer = ({
 			}
 		}
 
-		return barsToRender
+		return (
+			<Box
+				sx={{
+					position: 'absolute',
+					bottom: 8,
+					right: amt1 > 0 && amt0 === 0 ? '1%' : 
+						   amt0 > 0 && amt1 === 0 ? 'auto' :
+						   '50%',
+					left: amt0 > 0 && amt1 === 0 ? '1%' : 
+						  amt0 > 0 && amt1 > 0 ? '50%' :
+						  'auto',
+					transform: amt0 > 0 && amt1 > 0 ? 'translateX(-50%)' : 'none',
+					display: 'flex',
+					alignItems: 'flex-end',
+					flexDirection: amt1 > 0 && amt0 === 0 ? 'row-reverse' : 'row', // Token Y从右向左
+					gap: 0.5,
+					height: '85%',
+					zIndex: 2,
+				}}
+			>
+				{barsToRender}
+			</Box>
+		)
 	}
 
 	return (
@@ -214,10 +237,6 @@ const PriceRangeVisualizer = ({
 				sx={{
 					position: 'relative',
 					height: 200,
-					display: 'flex',
-					alignItems: 'flex-end',
-					justifyContent: 'stretch',
-					gap: '1px',
 					background: 'linear-gradient(135deg, #1A1B2E 0%, #252749 50%, #1A1B2E 100%)',
 					borderRadius: 3,
 					p: 1,
@@ -236,6 +255,7 @@ const PriceRangeVisualizer = ({
 					},
 				}}
 			>
+				{/* 简单渲染柱子 */}
 				{renderLiquidityBars()}
 
 				{/* Current price indicator line */}
@@ -384,12 +404,26 @@ const PriceRangeVisualizer = ({
 				border: '1px solid rgba(255, 255, 255, 0.05)',
 			}}>
 				{Array.from({ length: 11 }, (_, i) => {
-					const { minPrice: dynMinPrice, maxPrice: dynMaxPrice } = calculateDynamicRange()
-					const minRange = parseFloat(minPrice) || dynMinPrice
-					const maxRange = parseFloat(maxPrice) || dynMaxPrice
-					const totalRange = maxRange - minRange
-					const price = minRange + (i * totalRange / 10)
-					const isActivePrice = Math.abs(price - activeBinPrice) < (activeBinPrice * 0.01)
+					const amt0 = parseFloat(amount0 || '0')
+					const amt1 = parseFloat(amount1 || '0')
+					
+					let price: number
+					
+					if (amt0 > 0 && amt1 === 0) {
+						// Token X模式：从当前价格向右显示价格区间
+						const priceStep = activeBinPrice * 0.01 // 1%步长
+						price = activeBinPrice + (i * priceStep)
+					} else if (amt1 > 0 && amt0 === 0) {
+						// Token Y模式：从当前价格开始，向左递减（显示顺序从高到低）
+						const priceStep = activeBinPrice * 0.01 // 1%步长
+						price = activeBinPrice - ((10 - i) * priceStep) // 反转索引，最左边显示最低价格
+					} else {
+						// AutoFill模式：以当前价格为中心对称显示
+						const priceStep = activeBinPrice * 0.005 // 0.5%步长，更密集
+						price = activeBinPrice + ((i - 5) * priceStep) // i=5时为当前价格
+					}
+					
+					const isActivePrice = Math.abs(price - activeBinPrice) < (activeBinPrice * 0.005)
 
 					return (
 						<Box
