@@ -222,17 +222,12 @@ const PriceRangeVisualizer = ({
 				sx={{
 					position: 'absolute',
 					bottom: 8,
-					right: amt1 > 0 && amt0 === 0 ? '1%' : 
-						   amt0 > 0 && amt1 === 0 ? 'auto' :
-						   '50%',
-					left: amt0 > 0 && amt1 === 0 ? '1%' : 
-						  amt0 > 0 && amt1 > 0 ? '50%' :
-						  'auto',
-					transform: amt0 > 0 && amt1 > 0 ? 'translateX(-50%)' : 'none',
+					left: 0,
+					right: 0,
 					display: 'flex',
 					alignItems: 'flex-end',
-					flexDirection: amt1 > 0 && amt0 === 0 ? 'row-reverse' : 'row', // Token Y从右向左
-					gap: 0.5,
+					flexDirection: amt1 > 0 && amt0 === 0 ? 'row-reverse' : 'row',
+					justifyContent: 'space-between',
 					height: '85%',
 					zIndex: 2,
 				}}
