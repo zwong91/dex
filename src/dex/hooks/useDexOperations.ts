@@ -5,6 +5,7 @@ import { useCallback } from "react"
 import { useAccount, useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { createViemClient } from "../viemClient"
+import { calculateSingleSidedBinRange, getRecommendedBinCount, createConcentratedDistribution, createUniformDistribution, createWeightedDistribution } from "../utils/calculations"
 import JSBI from 'jsbi'
 
 // ERC20 ABI for allowance and approve functions
@@ -32,6 +33,7 @@ export const useDexOperations = () => {
 	const chainId = useChainId()
 
 	// Real LB Router operations for adding liquidity to specific pair and bins
+	// Supports both dual-sided and single-sided liquidity provision
 	const addLiquidity = async (
 		pairAddress: string,
 		tokenXAddress: string,
@@ -43,6 +45,8 @@ export const useDexOperations = () => {
 		deltaIds?: number[],
 		distributionX?: bigint[],
 		distributionY?: bigint[],
+		singleSidedMode?: boolean, // Enable single-sided liquidity
+		singleSidedStrategy?: 'conservative' | 'balanced' | 'aggressive', // Strategy for single-sided
 	) => {
 		try {
 			console.log("🔍 addLiquidity called with:", { 
@@ -55,12 +59,27 @@ export const useDexOperations = () => {
 				deltaIds, 
 				distributionX, 
 				distributionY, 
-				binStep 
+				binStep,
+				singleSidedMode,
+				singleSidedStrategy
 			})
 
 			if (!userAddress) {
 				console.error("❌ Wallet not connected")
 				throw new Error("Wallet not connected")
+			}
+
+			// 检测是否为单边流动性模式
+			const isSingleSided = singleSidedMode || (tokenAAmount > 0 && tokenBAmount === 0) || (tokenAAmount === 0 && tokenBAmount > 0)
+			const isTokenXOnly = tokenAAmount > 0 && tokenBAmount === 0
+			const isTokenYOnly = tokenAAmount === 0 && tokenBAmount > 0
+
+			if (isSingleSided) {
+				console.log("🎯 Single-sided liquidity detected:", {
+					isTokenXOnly,
+					isTokenYOnly,
+					strategy: singleSidedStrategy || 'balanced'
+				})
 			}
 
 			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
@@ -146,20 +165,92 @@ export const useDexOperations = () => {
 
 			console.log(`🎯 Active bin ID: ${activeBin}`)
 
-			// 生成流动性分布
-			const binRange: [number, number] = deltaIds ? 
-				[activeBin + Math.min(...deltaIds), activeBin + Math.max(...deltaIds)] :
-				[activeBin - 2, activeBin + 2] // 默认5个bin
+			// 生成流动性分布 - 支持单边和双边模式
+			let finalDeltaIds: number[]
+			let finalDistributionX: bigint[]
+			let finalDistributionY: bigint[]
 
-			const { deltaIds: finalDeltaIds, distributionX: finalDistributionX, distributionY: finalDistributionY } = 
-				getUniformDistributionFromBinRange(activeBin, binRange)
+			if (isSingleSided) {
+				// 单边流动性模式
+				const strategy = singleSidedStrategy || 'balanced'
+				const recommendedBinCount = getRecommendedBinCount(
+					Math.max(tokenAAmount, tokenBAmount), 
+					strategy === 'conservative' ? 0.05 : strategy === 'aggressive' ? 0.2 : 0.1
+				)
+				
+				const concentration = strategy === 'conservative' ? 5 : strategy === 'aggressive' ? 2 : 3
+				
+				// 确定是tokenX还是tokenY
+				const isProvidingTokenX = isTokenXOnly
+				
+				const { deltaIds: calculatedDeltaIds } = calculateSingleSidedBinRange(
+					activeBin, 
+					isProvidingTokenX, 
+					recommendedBinCount, 
+					concentration
+				)
 
-			console.log("� Liquidity distribution:", {
-				activeBin,
-				binRange,
-				deltaIds: finalDeltaIds,
-				distributionCount: finalDistributionX.length
-			})
+				finalDeltaIds = deltaIds || calculatedDeltaIds
+				
+				// 生成基础分布
+				const binRange: [number, number] = [
+					activeBin + Math.min(...finalDeltaIds), 
+					activeBin + Math.max(...finalDeltaIds)
+				]
+				
+				// 不需要SDK的分布，直接创建自定义分布
+
+				// 创建自定义分布
+				let customDistribution: bigint[]
+				switch (strategy) {
+					case 'conservative':
+						customDistribution = createConcentratedDistribution(finalDeltaIds.length)
+						break
+					case 'aggressive':
+						customDistribution = createWeightedDistribution(finalDeltaIds.length, isProvidingTokenX)
+						break
+					default: // balanced
+						customDistribution = createUniformDistribution(finalDeltaIds.length)
+				}
+
+				// 对于单边流动性，只在相应方向提供流动性
+				if (isProvidingTokenX) {
+					finalDistributionX = distributionX || customDistribution
+					finalDistributionY = new Array(finalDistributionX.length).fill(BigInt(0))
+				} else {
+					finalDistributionY = distributionY || customDistribution
+					finalDistributionX = new Array(finalDistributionY.length).fill(BigInt(0))
+				}
+
+				console.log("🔍 Single-sided liquidity distribution:", {
+					strategy,
+					activeBin,
+					binRange,
+					deltaIds: finalDeltaIds,
+					isProvidingTokenX,
+					distributionXSum: finalDistributionX.reduce((sum, val) => sum + val, BigInt(0)).toString(),
+					distributionYSum: finalDistributionY.reduce((sum, val) => sum + val, BigInt(0)).toString()
+				})
+			} else {
+				// 双边流动性模式（原有逻辑）
+				const binRange: [number, number] = deltaIds ? 
+					[activeBin + Math.min(...deltaIds), activeBin + Math.max(...deltaIds)] :
+					[activeBin - 2, activeBin + 2] // 默认5个bin
+
+				const { deltaIds: calculatedDeltaIds, distributionX: calculatedDistributionX, distributionY: calculatedDistributionY } = 
+					getUniformDistributionFromBinRange(activeBin, binRange)
+
+				finalDeltaIds = deltaIds || calculatedDeltaIds
+				finalDistributionX = distributionX || calculatedDistributionX
+				finalDistributionY = distributionY || calculatedDistributionY
+
+				console.log("🔍 Dual-sided liquidity distribution:", {
+					activeBin,
+					binRange,
+					deltaIds: finalDeltaIds,
+					distributionCount: finalDistributionX.length
+				})
+			}
 
 			// 验证LBPair的实际token顺序
 			const actualTokenX = await publicClient.readContract({
@@ -229,6 +320,8 @@ export const useDexOperations = () => {
 				amountY: addLiquidityInput.amountY,
 				binStep: addLiquidityInput.binStep,
 				activeBin: addLiquidityInput.activeIdDesired,
+				mode: isSingleSided ? 'single-sided' : 'dual-sided',
+				strategy: isSingleSided ? (singleSidedStrategy || 'balanced') : 'standard',
 				actualTokenOrder: {
 					actualTokenX: actualTokenX.toLowerCase(),
 					actualTokenY: actualTokenY.toLowerCase()
@@ -246,7 +339,7 @@ export const useDexOperations = () => {
 
 			console.log("✅ Token ordering validated for LBRouter")
 
-			// 检查和处理 token 授权
+			// 检查和处理 token 授权 - 智能检测需要授权的token
 			console.log("🔍 Checking token allowances...")
 			
 			// 额外的钱包连接验证
@@ -254,103 +347,120 @@ export const useDexOperations = () => {
 				throw new Error("钱包未连接，请先连接钱包")
 			}
 			
+			// 智能授权 - 只授权实际需要的token
+			const needTokenXApproval = BigInt(addLiquidityInput.amountX) > 0
+			const needTokenYApproval = BigInt(addLiquidityInput.amountY) > 0
+			
+			console.log("💡 Smart approval detection:", {
+				needTokenXApproval,
+				needTokenYApproval,
+				amountX: addLiquidityInput.amountX,
+				amountY: addLiquidityInput.amountY,
+				mode: isSingleSided ? 'single-sided' : 'dual-sided'
+			})
+
 			// 检查 tokenX 授权
-			const tokenXAllowance = await publicClient.readContract({
-				address: actualTokenX as `0x${string}`,
-				abi: ERC20_ABI,
-				functionName: 'allowance',
-				args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
-			}) as bigint
+			if (needTokenXApproval) {
+				const tokenXAllowance = await publicClient.readContract({
+					address: actualTokenX as `0x${string}`,
+					abi: ERC20_ABI,
+					functionName: 'allowance',
+					args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
+				}) as bigint
 
-			// 检查 tokenY 授权
-			const tokenYAllowance = await publicClient.readContract({
-				address: actualTokenY as `0x${string}`,
-				abi: ERC20_ABI,
-				functionName: 'allowance',
-				args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
-			}) as bigint
-
-			console.log("💰 Token allowances:", {
-				tokenX: {
+				console.log("💰 TokenX allowance:", {
 					address: actualTokenX,
 					allowance: tokenXAllowance.toString(),
 					required: addLiquidityInput.amountX
-				},
-				tokenY: {
-					address: actualTokenY,
-					allowance: tokenYAllowance.toString(),
-					required: addLiquidityInput.amountY
-				}
-			})
+				})
 
-			// 如果 tokenX 授权不足，先授权
-			if (tokenXAllowance < BigInt(addLiquidityInput.amountX)) {
-				console.log("🔑 TokenX allowance insufficient, requesting approval...")
-				
-				try {
-					const approvalTx = await writeContractAsync({
-						address: actualTokenX as `0x${string}`,
-						abi: ERC20_ABI,
-						functionName: 'approve',
-						args: [lbRouterAddress as `0x${string}`, BigInt(addLiquidityInput.amountX)],
-						chainId: chainId,
-					})
-
-					console.log(`✅ TokenX approval sent: ${approvalTx}`)
+				if (tokenXAllowance < BigInt(addLiquidityInput.amountX)) {
+					console.log("🔑 TokenX allowance insufficient, requesting approval...")
 					
-					// 等待授权交易确认
-					await publicClient.waitForTransactionReceipt({ 
-						hash: approvalTx as `0x${string}`,
-						timeout: 60000
-					})
-					console.log("✅ TokenX approval confirmed!")
-				} catch (approvalError: any) {
-					if (approvalError.message?.includes('User denied transaction') || 
-						approvalError.message?.includes('not been authorized by the user') ||
-						approvalError.code === 4001) {
-						throw new Error(`用户取消了授权交易。请批准授权 ${tokenA?.symbol || 'TokenX'} 才能继续添加流动性。`)
+					try {
+						const approvalTx = await writeContractAsync({
+							address: actualTokenX as `0x${string}`,
+							abi: ERC20_ABI,
+							functionName: 'approve',
+							args: [lbRouterAddress as `0x${string}`, BigInt(addLiquidityInput.amountX)],
+							chainId: chainId,
+						})
+
+						console.log(`✅ TokenX approval sent: ${approvalTx}`)
+						
+						// 等待授权交易确认
+						await publicClient.waitForTransactionReceipt({ 
+							hash: approvalTx as `0x${string}`,
+							timeout: 60000
+						})
+						console.log("✅ TokenX approval confirmed!")
+					} catch (approvalError: any) {
+						if (approvalError.message?.includes('User denied transaction') || 
+							approvalError.message?.includes('not been authorized by the user') ||
+							approvalError.code === 4001) {
+							throw new Error(`用户取消了授权交易。请批准授权 ${tokenA?.symbol || 'TokenX'} 才能继续添加流动性。`)
+						}
+						console.error("TokenX approval error:", approvalError)
+						throw new Error(`授权 ${tokenA?.symbol || 'TokenX'} 失败: ${approvalError.message}`)
 					}
-					console.error("TokenX approval error:", approvalError)
-					throw new Error(`授权 ${tokenA?.symbol || 'TokenX'} 失败: ${approvalError.message}`)
 				}
 			}
 
-			// 如果 tokenY 授权不足，先授权
-			if (tokenYAllowance < BigInt(addLiquidityInput.amountY)) {
-				console.log("🔑 TokenY allowance insufficient, requesting approval...")
-				
-				try {
-					const approvalTx = await writeContractAsync({
-						address: actualTokenY as `0x${string}`,
-						abi: ERC20_ABI,
-						functionName: 'approve',
-						args: [lbRouterAddress as `0x${string}`, BigInt(addLiquidityInput.amountY)],
-						chainId: chainId,
-					})
+			// 检查 tokenY 授权
+			if (needTokenYApproval) {
+				const tokenYAllowance = await publicClient.readContract({
+					address: actualTokenY as `0x${string}`,
+					abi: ERC20_ABI,
+					functionName: 'allowance',
+					args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
+				}) as bigint
 
-					console.log(`✅ TokenY approval sent: ${approvalTx}`)
+				console.log("💰 TokenY allowance:", {
+					address: actualTokenY,
+					allowance: tokenYAllowance.toString(),
+					required: addLiquidityInput.amountY
+				})
+
+				if (tokenYAllowance < BigInt(addLiquidityInput.amountY)) {
+					console.log("🔑 TokenY allowance insufficient, requesting approval...")
 					
-					// 等待授权交易确认
-					await publicClient.waitForTransactionReceipt({ 
-						hash: approvalTx as `0x${string}`,
-						timeout: 60000
-					})
-					console.log("✅ TokenY approval confirmed!")
-				} catch (approvalError: any) {
-					if (approvalError.message?.includes('User denied transaction') || 
-						approvalError.message?.includes('not been authorized by the user') ||
-						approvalError.code === 4001) {
-						throw new Error(`用户取消了授权交易。请批准授权 ${tokenB?.symbol || 'TokenY'} 才能继续添加流动性。`)
+					try {
+						const approvalTx = await writeContractAsync({
+							address: actualTokenY as `0x${string}`,
+							abi: ERC20_ABI,
+							functionName: 'approve',
+							args: [lbRouterAddress as `0x${string}`, BigInt(addLiquidityInput.amountY)],
+							chainId: chainId,
+						})
+
+						console.log(`✅ TokenY approval sent: ${approvalTx}`)
+						
+						// 等待授权交易确认
+						await publicClient.waitForTransactionReceipt({ 
+							hash: approvalTx as `0x${string}`,
+							timeout: 60000
+						})
+						console.log("✅ TokenY approval confirmed!")
+					} catch (approvalError: any) {
+						if (approvalError.message?.includes('User denied transaction') || 
+							approvalError.message?.includes('not been authorized by the user') ||
+							approvalError.code === 4001) {
+							throw new Error(`用户取消了授权交易。请批准授权 ${tokenB?.symbol || 'TokenY'} 才能继续添加流动性。`)
+						}
+						console.error("TokenY approval error:", approvalError)
+						throw new Error(`授权 ${tokenB?.symbol || 'TokenY'} 失败: ${approvalError.message}`)
 					}
-					console.error("TokenY approval error:", approvalError)
-					throw new Error(`授权 ${tokenB?.symbol || 'TokenY'} 失败: ${approvalError.message}`)
 				}
 			}
 
 			console.log("✅ All token approvals validated")
 
 			try {
-				console.log("🚀 Executing addLiquidity transaction...")
+				const actionDescription = isSingleSided ? 
+					`单边流动性 (${isTokenXOnly ? 'TokenX' : 'TokenY'} only, ${singleSidedStrategy || 'balanced'} strategy)` : 
+					'双边流动性'
+				
+				console.log(`🚀 Executing ${actionDescription} transaction...`)
 				const result = await writeContractAsync({
 					abi: jsonAbis.LBRouterV22ABI,
 					address: lbRouterAddress as `0x${string}`,
@@ -359,16 +469,22 @@ export const useDexOperations = () => {
 					chainId: chainId,
 				})
 
-				console.log("✅ AddLiquidity transaction sent:", result)
+				console.log(`✅ ${actionDescription} transaction sent:`, result)
 				return result
 			} catch (addLiquidityError: any) {
 				if (addLiquidityError.message?.includes('User denied transaction') || 
 					addLiquidityError.message?.includes('not been authorized by the user') ||
 					addLiquidityError.code === 4001) {
-					throw new Error('用户取消了添加流动性交易。请确认交易以完成操作。')
+					const errorMessage = isSingleSided ? 
+						'用户取消了添加单边流动性交易。请确认交易以完成操作。' : 
+						'用户取消了添加流动性交易。请确认交易以完成操作。'
+					throw new Error(errorMessage)
 				}
 				console.error("AddLiquidity transaction error:", addLiquidityError)
-				throw new Error(`添加流动性失败: ${addLiquidityError.message}`)
+				const errorMessage = isSingleSided ? 
+					`添加单边流动性失败: ${addLiquidityError.message}` : 
+					`添加流动性失败: ${addLiquidityError.message}`
+				throw new Error(errorMessage)
 			}
 		} catch (error) {
 			console.error("Add LB liquidity error:", error)

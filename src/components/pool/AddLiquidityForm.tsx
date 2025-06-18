@@ -59,6 +59,16 @@ const AddLiquidityForm = ({
 	const [liquidityStrategy, setLiquidityStrategy] = useState<
 		'spot' | 'curve' | 'bid-ask'
 	>('spot')
+	
+	// 将现有策略映射到单边流动性策略
+	const getSingleSidedStrategy = (strategy: 'spot' | 'curve' | 'bid-ask'): 'conservative' | 'balanced' | 'aggressive' => {
+		switch (strategy) {
+			case 'curve': return 'conservative'  // 集中分布，高集中度
+			case 'spot': return 'balanced'       // 平衡分布，中等集中度
+			case 'bid-ask': return 'aggressive'  // 分散分布，低集中度
+			default: return 'balanced'
+		}
+	}
 
 	// Strategy change handler - update dynamic range when strategy changes
 	const handleStrategyChange = (newStrategy: 'spot' | 'curve' | 'bid-ask') => {
@@ -468,6 +478,112 @@ const AddLiquidityForm = ({
 				return
 			}
 
+			// Enhanced pre-transaction validation
+			console.log('🔍 Pre-transaction validation...')
+			
+			// Check token balances
+			const tokenXBal = parseFloat(tokenXBalance?.toString() || '0')
+			const tokenYBal = parseFloat(tokenYBalance?.toString() || '0')
+			
+			if (amt0 > 0 && tokenXBal < amt0) {
+				console.error('❌ Insufficient Token X balance:', { required: amt0, available: tokenXBal })
+				toast.error(`Insufficient ${selectedPool.token0} balance. Required: ${amt0}, Available: ${tokenXBal.toFixed(6)}`)
+				return
+			}
+			
+			if (amt1 > 0 && tokenYBal < amt1) {
+				console.error('❌ Insufficient Token Y balance:', { required: amt1, available: tokenYBal })
+				toast.error(`Insufficient ${selectedPool.token1} balance. Required: ${amt1}, Available: ${tokenYBal.toFixed(6)}`)
+				return
+			}
+			
+			// Validate active bin ID is reasonable
+			if (currentActiveBinId < 0 || currentActiveBinId > 16777215) { // 2^24 - 1
+				console.error('❌ Invalid active bin ID:', currentActiveBinId)
+				toast.error('Invalid pool state. Please try a different pool.')
+				return
+			}
+			
+			// Validate bin step is supported
+			const supportedBinSteps = [1, 5, 10, 15, 20, 25, 50, 100, 150, 200, 250, 500, 1000]
+			if (!supportedBinSteps.includes(selectedPool.binStep)) {
+				console.error('❌ Unsupported bin step:', selectedPool.binStep)
+				toast.error('Unsupported pool bin step.')
+				return
+			}
+			
+			// Validate amounts are not too small (avoid precision issues)
+			const minAmount = 0.000001 // Minimum meaningful amount
+			if (amt0 > 0 && amt0 < minAmount) {
+				console.error('❌ Amount0 too small:', amt0)
+				toast.error(`${selectedPool.token0} amount too small. Minimum: ${minAmount}`)
+				return
+			}
+			
+			if (amt1 > 0 && amt1 < minAmount) {
+				console.error('❌ Amount1 too small:', amt1)
+				toast.error(`${selectedPool.token1} amount too small. Minimum: ${minAmount}`)
+				return
+			}
+			
+			// Validate we have at least one meaningful amount
+			if (amt0 === 0 && amt1 === 0) {
+				console.error('❌ Both amounts are zero')
+				toast.error('Please enter at least one token amount')
+				return
+			}
+			
+			console.log('✅ Pre-transaction validation passed')
+
+			console.log('🎯 Final addLiquidity parameters:', {
+				pairAddress,
+				tokenXAddress,
+				tokenYAddress,
+				amount0: amt0,
+				amount1: amt1,
+				activeBinId: currentActiveBinId,
+				binStep: selectedPool.binStep,
+				tokenXBalance: tokenXBal,
+				tokenYBalance: tokenYBal,
+				chainId: currentChainId,
+				userAddress: userWalletAddress,
+				timestamp: new Date().toISOString()
+			})
+
+			// Double-check the addresses are valid
+			try {
+				// Verify the pair contract exists and is valid
+				await publicClient.readContract({
+					address: pairAddress as `0x${string}`,
+					abi: [{
+						inputs: [],
+						name: 'getActiveId',
+						outputs: [{ internalType: 'uint24', name: '', type: 'uint24' }],
+						stateMutability: 'view',
+						type: 'function'
+					}],
+					functionName: 'getActiveId'
+				})
+				console.log('✅ Pair contract is valid and responsive')
+			} catch (contractError) {
+				console.error('❌ Pair contract validation failed:', contractError)
+				toast.error('Invalid pool contract. Please try a different pool.')
+				return
+			}
+
+			// 智能检测是否为单边流动性
+			const isSingleSided = amt0 === 0 || amt1 === 0
+			const mappedSingleSidedStrategy = getSingleSidedStrategy(liquidityStrategy)
+			
+			console.log('🎯 Liquidity mode detection:', {
+				amt0,
+				amt1,
+				isSingleSided,
+				mode: isSingleSided ? 'single-sided' : 'dual-sided',
+				strategy: isSingleSided ? mappedSingleSidedStrategy : 'standard',
+				currentStrategy: liquidityStrategy
+			})
+
 			await addLiquidity(
 				pairAddress,
 				tokenXAddress,
@@ -476,9 +592,11 @@ const AddLiquidityForm = ({
 				amt1,
 				currentActiveBinId,
 				selectedPool.binStep,
-				undefined,
-				undefined,
-				undefined
+				undefined, // deltaIds - 让系统自动计算
+				undefined, // distributionX - 让系统自动生成
+				undefined, // distributionY - 让系统自动生成
+				isSingleSided, // 明确设置单边模式
+				isSingleSided ? mappedSingleSidedStrategy : undefined // 只在单边模式时使用策略
 			)
 			console.log('✅ Liquidity added successfully!')
 			toast.success('Liquidity added successfully!')
@@ -490,14 +608,77 @@ const AddLiquidityForm = ({
 			console.error('💥 Add liquidity error:', err)
 			const error = err instanceof Error ? err : new Error('Unknown error occurred')
 			
-			// Show user-friendly error message
+			// Enhanced error detection for common issues
 			let errorMessage = 'Failed to add liquidity'
-			if (error.message.includes('User rejected')) {
+			
+			if (error.message.includes('User rejected') || error.message.includes('user denied')) {
 				errorMessage = 'Transaction was cancelled by user'
-			} else if (error.message.includes('insufficient funds')) {
+			} else if (error.message.includes('insufficient funds') || error.message.includes('insufficient balance')) {
 				errorMessage = 'Insufficient funds for transaction'
-			} else if (error.message.includes('allowance')) {
+			} else if (error.message.includes('allowance') || error.message.includes('ERC20: transfer amount exceeds allowance')) {
 				errorMessage = 'Token allowance insufficient. Please approve tokens first.'
+			} else if (error.message.includes('execution reverted')) {
+				// More specific error detection for execution reverted
+				if (error.message.includes('INSUFFICIENT_AMOUNT') || error.message.includes('InsufficientAmount')) {
+					errorMessage = 'Insufficient token amount. Try increasing the amount.'
+				} else if (error.message.includes('INSUFFICIENT_LIQUIDITY') || error.message.includes('InsufficientLiquidity')) {
+					errorMessage = 'Insufficient liquidity in the pool. Try a different amount.'
+				} else if (error.message.includes('EXPIRED') || error.message.includes('Expired')) {
+					errorMessage = 'Transaction expired. Please try again.'
+				} else if (error.message.includes('SLIPPAGE') || error.message.includes('Slippage')) {
+					errorMessage = 'Price slippage too high. Try again with higher slippage tolerance.'
+				} else if (error.message.includes('INVALID_BIN') || error.message.includes('InvalidBin')) {
+					errorMessage = 'Invalid price range. Please adjust your price range.'
+				} else if (error.message.includes('ZERO_AMOUNT') || error.message.includes('ZeroAmount')) {
+					errorMessage = 'Amount cannot be zero. Please enter a valid amount.'
+				} else if (error.message.includes('PAIR_NOT_EXISTS') || error.message.includes('PairNotExists')) {
+					errorMessage = 'Pool does not exist. Please select a valid pool.'
+				} else if (error.message.includes('DEADLINE_EXCEEDED') || error.message.includes('DeadlineExceeded')) {
+					errorMessage = 'Transaction deadline exceeded. Please try again.'
+				} else if (error.message.includes('LBRouter__AmountSlippageBPTooBig')) {
+					errorMessage = 'Slippage tolerance too high. Please reduce slippage and try again.'
+				} else if (error.message.includes('LBRouter__LengthsMismatch')) {
+					errorMessage = 'Invalid liquidity distribution parameters. Please try again.'
+				} else if (error.message.includes('LBRouter__WrongAmounts')) {
+					errorMessage = 'Invalid token amounts. Please check your inputs.'
+				} else if (error.message.includes('LBRouter__MaxAmountSlippageExceeded')) {
+					errorMessage = 'Amount slippage exceeded. Try with higher slippage tolerance.'
+				} else if (error.message.includes('LBRouter__IdSlippageExceeded')) {
+					errorMessage = 'Price slippage exceeded. Try again when price is more stable.'
+				} else if (error.message.includes('LBRouter__BrokenSwapSafetyCheck')) {
+					errorMessage = 'Safety check failed. Please try with smaller amounts.'
+				} else if (error.message.includes('LBPair__InsufficientAmounts')) {
+					errorMessage = 'Insufficient amounts for this pool. Try increasing your amounts.'
+				} else if (error.message.includes('LBPair__OnlyStrictlyIncreasingId')) {
+					errorMessage = 'Invalid price range order. Please check your price settings.'
+				} else if (error.message.includes('LBPair__ZeroAmountsOut')) {
+					errorMessage = 'Zero output amounts. Please try different amounts.'
+				} else if (error.message.includes('LBPair__CompositionFactorFlawed')) {
+					errorMessage = 'Invalid liquidity composition. Please try different amounts.'
+				} else {
+					errorMessage = 'Transaction failed (execution reverted). Please check your inputs and try again.'
+					
+					// Additional debugging for unknown execution reverted errors
+					console.error('🔍 Execution reverted - Debug info:', {
+						errorMessage: error.message,
+						selectedPool: selectedPool?.id,
+						amount0,
+						amount1,
+						userWalletAddress,
+						timestamp: new Date().toISOString()
+					})
+					
+					// Provide helpful suggestions
+					toast.error('Transaction failed. Try: 1) Reducing amounts, 2) Refreshing price range, 3) Checking token balances', {
+						duration: 10000
+					})
+				}
+			} else if (error.message.includes('gas')) {
+				errorMessage = 'Transaction failed due to gas issues. Try increasing gas limit.'
+			} else if (error.message.includes('nonce')) {
+				errorMessage = 'Transaction nonce error. Please reset your wallet and try again.'
+			} else if (error.message.includes('network') || error.message.includes('connection')) {
+				errorMessage = 'Network connection error. Please check your connection and try again.'
 			} else if (error.message) {
 				errorMessage = error.message
 			}

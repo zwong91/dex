@@ -115,6 +115,18 @@ const PositionPage = () => {
       // Get current active bin ID from the position
       const activeBinId = selectedPosition.binId; // Use the bin ID from the position
 
+      // 智能检测是否为单边流动性
+      const isSingleSided = amt0 === 0 || amt1 === 0
+      const singleSidedStrategy = isSingleSided ? 'balanced' : undefined // 默认使用平衡策略
+      
+      console.log('🎯 Position liquidity mode detection:', {
+        amt0,
+        amt1,
+        isSingleSided,
+        mode: isSingleSided ? 'single-sided' : 'dual-sided',
+        strategy: singleSidedStrategy
+      })
+
       await addLiquidity(
         selectedPosition.pairAddress,
         token0.address,
@@ -122,7 +134,12 @@ const PositionPage = () => {
         amt0,
         amt1,
         activeBinId, // use active bin ID from position
-        selectedPosition.binStep // use binStep from position data
+        selectedPosition.binStep, // use binStep from position data
+        undefined, // deltaIds - 让系统自动计算
+        undefined, // distributionX - 让系统自动生成
+        undefined, // distributionY - 让系统自动生成
+        isSingleSided, // 明确设置单边模式
+        singleSidedStrategy // 使用平衡策略
       );
       console.log('🏠 Position.tsx - addLiquidity called with:', {
         pairAddress: selectedPosition.pairAddress,
