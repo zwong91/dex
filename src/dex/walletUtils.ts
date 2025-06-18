@@ -23,11 +23,11 @@ export const BSC_TESTNET_TOKENS: Record<string, TokenInfo> = {
 		decimals: 18,
 		image: generateTokenIcon('USDC')
 	},
-	tBNB: {
+	BNB: {
 		address: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
-		symbol: "tBNB",
+		symbol: "BNB",
 		decimals: 18,
-		image: generateTokenIcon('tBNB')
+		image: generateTokenIcon('BNB')
 	},
 	ETH: {
 		address: "0x8babbb98678facc7342735486c851abd7a0d17ca",
@@ -114,8 +114,8 @@ export const switchToBSCTestnet = async (): Promise<boolean> => {
 							chainId: '0x61',
 							chainName: 'BSC Testnet',
 							nativeCurrency: {
-								name: 'tBNB',
-								symbol: 'tBNB',
+								name: 'BNB',
+								symbol: 'BNB',
 								decimals: 18,
 							},
 							rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],

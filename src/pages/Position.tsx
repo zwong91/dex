@@ -30,7 +30,6 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAccount, useChainId, useWriteContract } from 'wagmi';
 import Navigation from '../components/Navigation';
-import AddLiquidityDialog from '../components/pool/AddLiquidityDialog';
 import {
   useDexOperations,
   useLiquidityTokenBalance,

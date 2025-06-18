@@ -5,7 +5,7 @@ export const SUPPORTED_NETWORKS = {
   bscTestnet: {
     id: bscTestnet.id,
     name: "BSC Testnet",
-    symbol: "tBNB",
+    symbol: "BNB",
     nativeCurrency: bscTestnet.nativeCurrency,
     rpcUrls: bscTestnet.rpcUrls,
     blockExplorers: bscTestnet.blockExplorers,

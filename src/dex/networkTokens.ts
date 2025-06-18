@@ -4,10 +4,10 @@ import { generateTokenIcon } from './utils/tokenIconGenerator'
 export const NETWORK_TOKEN_CONFIGS = {
   97: [ // BSC Testnet
     {
-      symbol: 'tBNB',
-      name: 'tBNB',
+      symbol: 'BNB',
+      name: 'BNB',
       address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd',
-      icon: generateTokenIcon('tBNB')
+      icon: generateTokenIcon('BNB')
     },
     {
       symbol: 'ETH',

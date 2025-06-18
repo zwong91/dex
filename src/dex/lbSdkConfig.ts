@@ -5,7 +5,7 @@ import { ChainId, Token } from "@lb-xyz/sdk-core"
 // Multi-network token definitions
 export const TOKEN_CONFIGS = {
 	[ChainId.BNB_TESTNET]: {
-		tBNB: new Token(ChainId.BNB_TESTNET, "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd", 18, "tBNB", "Test BNB"),
+		BNB: new Token(ChainId.BNB_TESTNET, "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd", 18, "BNB", "BNB"),
 		ETH: new Token(ChainId.BNB_TESTNET, "0x8babbb98678facc7342735486c851abd7a0d17ca", 18, "ETH", "Ethereum"),
 		USDC: new Token(ChainId.BNB_TESTNET, "0x64544969ed7EBf5f083679233325356EbE738930", 18, "USDC", "USD Coin"),
 		USDT: new Token(ChainId.BNB_TESTNET, "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd", 18, "USDT", "Tether"),

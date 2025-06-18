@@ -11,7 +11,6 @@ export interface PriceData {
 // CoinGecko token ID mapping
 const COINGECKO_TOKEN_IDS: { [symbol: string]: string } = {
   'BNB': 'binancecoin',
-  'tBNB': 'binancecoin', // Use same price as BNB for testnet
   'ETH': 'ethereum',
   'USDC': 'usd-coin',
   'USDT': 'tether',
@@ -109,7 +108,6 @@ class PriceService {
   private getFallbackPrices(symbols: string[]): PriceData {
     const fallbackPrices: { [symbol: string]: TokenPrice } = {
       'BNB': { price: 600, change24h: 2.45 },
-      'tBNB': { price: 600, change24h: 2.45 }, // Same as BNB for testnet
       'ETH': { price: 3400, change24h: 1.85 },
       'USDC': { price: 1.0, change24h: 0.01 },
       'USDT': { price: 1.0, change24h: 0.01 },
