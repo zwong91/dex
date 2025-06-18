@@ -217,10 +217,12 @@ export const useUserLPBalances = (userAddress: `0x${string}` | undefined) => {
 			setLoading(true)
 			const publicClient = createViemClient(chainId)
 
-			// Check LP token balance for each pair
+			// Check LP token balance for each pair using a more efficient approach
 			const balancePromises = pairs.map(async (pair) => {
 				try {
-					// Get the active bin for this pair to know where to look
+					console.log(`🔍 Checking balances for ${pair.tokenX}/${pair.tokenY} at ${pair.pairAddress}`)
+					
+					// Get the active bin for reference
 					const activeBin = await publicClient.readContract({
 						address: pair.pairAddress as `0x${string}`,
 						abi: [{
@@ -234,15 +236,21 @@ export const useUserLPBalances = (userAddress: `0x${string}` | undefined) => {
 						args: []
 					}) as number
 
-					// Check a reasonable range around the active bin for user balances
-					const rangeToCheck = 200 // Check 200 bins on each side (increased from 50)
+					console.log(`📍 Active bin for ${pair.tokenX}/${pair.tokenY}:`, activeBin)
+
+					// Instead of checking a range, let's use a broader and more strategic approach
+					// Check a wider range but with better error handling and logging
+					const rangeToCheck = 500 // Increased range to catch more positions
 					const startBin = Math.max(0, activeBin - rangeToCheck)
 					const endBin = Math.min(16777215, activeBin + rangeToCheck)
 
 					let totalBalance = BigInt(0)
+					let binsWithBalance = 0
 
-					// Check balances in smaller batches to avoid RPC timeouts
-					const batchSize = 20
+					console.log(`🔍 Checking bins ${startBin} to ${endBin} for ${pair.tokenX}/${pair.tokenY}`)
+
+					// Check balances in smaller batches with better error handling
+					const batchSize = 10 // Reduced batch size for better reliability
 					for (let i = startBin; i <= endBin; i += batchSize) {
 						const batchEnd = Math.min(i + batchSize - 1, endBin)
 						const binIds = []
@@ -252,31 +260,49 @@ export const useUserLPBalances = (userAddress: `0x${string}` | undefined) => {
 
 						try {
 							const balanceChecks = await Promise.all(
-								binIds.map(binId =>
-									publicClient.readContract({
-										address: pair.pairAddress as `0x${string}`,
-										abi: [{
-											"inputs": [
-												{"internalType": "address", "name": "account", "type": "address"},
-												{"internalType": "uint256", "name": "id", "type": "uint256"}
-											],
-											"name": "balanceOf",
-											"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-											"stateMutability": "view",
-											"type": "function"
-										}],
-										functionName: 'balanceOf',
-										args: [userAddress, BigInt(binId)]
-									}).catch(() => BigInt(0))
-								)
+								binIds.map(async binId => {
+									try {
+										const balance = await publicClient.readContract({
+											address: pair.pairAddress as `0x${string}`,
+											abi: [{
+												"inputs": [
+													{"internalType": "address", "name": "account", "type": "address"},
+													{"internalType": "uint256", "name": "id", "type": "uint256"}
+												],
+												"name": "balanceOf",
+												"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+												"stateMutability": "view",
+												"type": "function"
+											}],
+											functionName: 'balanceOf',
+											args: [userAddress, BigInt(binId)]
+										}) as bigint
+										
+										if (balance > 0) {
+											console.log(`💰 Found balance in bin ${binId}: ${balance.toString()}`)
+											binsWithBalance++
+										}
+										return balance
+									} catch (balanceError) {
+										// Silent fail for individual bin checks
+										return BigInt(0)
+									}
+								})
 							)
 
 							const batchBalance = balanceChecks.reduce((sum, balance) => sum + balance, BigInt(0))
 							totalBalance += batchBalance
 						} catch (batchError) {
-							console.warn('Error checking batch for pair:', pair.pairAddress, batchError)
+							console.warn(`Error checking batch ${i}-${batchEnd} for pair:`, pair.pairAddress, batchError)
+						}
+
+						// Add a small delay to avoid overwhelming the RPC
+						if (i < endBin - batchSize) {
+							await new Promise(resolve => setTimeout(resolve, 10))
 						}
 					}
+
+					console.log(`🔍 Completed check for ${pair.tokenX}/${pair.tokenY}: totalBalance=${totalBalance.toString()}, binsWithBalance=${binsWithBalance}`)
 
 					if (totalBalance > 0) {
 						console.log(`✅ Found LP balance for ${pair.tokenX}/${pair.tokenY}:`, totalBalance.toString())
@@ -293,6 +319,84 @@ export const useUserLPBalances = (userAddress: `0x${string}` | undefined) => {
 					return null
 				} catch (error) {
 					console.warn(`Error checking balance for pair ${pair.pairAddress}:`, error)
+					
+					// Fallback: Try to check just around the active bin with different ranges
+					try {
+						console.log(`🔄 Fallback: checking smaller range for ${pair.tokenX}/${pair.tokenY}`)
+						const activeBin = await publicClient.readContract({
+							address: pair.pairAddress as `0x${string}`,
+							abi: [{
+								inputs: [],
+								name: 'getActiveId',
+								outputs: [{ internalType: 'uint24', name: '', type: 'uint24' }],
+								stateMutability: 'view',
+								type: 'function'
+							}],
+							functionName: 'getActiveId',
+							args: []
+						}) as number
+
+						// Check smaller ranges with different strategies
+						const ranges = [
+							{ start: activeBin - 50, end: activeBin + 50 },    // Close to active
+							{ start: activeBin - 200, end: activeBin - 51 },   // Below active
+							{ start: activeBin + 51, end: activeBin + 200 },   // Above active
+						]
+
+						let totalFallbackBalance = BigInt(0)
+
+						for (const range of ranges) {
+							const startBin = Math.max(0, range.start)
+							const endBin = Math.min(16777215, range.end)
+
+							try {
+								// Check just a few key bins in each range
+								const keyBins = [startBin, Math.floor((startBin + endBin) / 2), endBin]
+								
+								for (const binId of keyBins) {
+									try {
+										const balance = await publicClient.readContract({
+											address: pair.pairAddress as `0x${string}`,
+											abi: [{
+												"inputs": [
+													{"internalType": "address", "name": "account", "type": "address"},
+													{"internalType": "uint256", "name": "id", "type": "uint256"}
+												],
+												"name": "balanceOf",
+												"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+												"stateMutability": "view",
+												"type": "function"
+											}],
+											functionName: 'balanceOf',
+											args: [userAddress, BigInt(binId)]
+										}) as bigint
+
+										if (balance > 0) {
+											console.log(`💰 Fallback found balance in bin ${binId}: ${balance.toString()}`)
+											totalFallbackBalance += balance
+										}
+									} catch {
+										// Continue to next bin
+									}
+								}
+							} catch {
+								// Continue to next range
+							}
+						}
+
+						if (totalFallbackBalance > 0) {
+							console.log(`✅ Fallback found LP balance for ${pair.tokenX}/${pair.tokenY}:`, totalFallbackBalance.toString())
+							return {
+								pairAddress: pair.pairAddress,
+								balance: totalFallbackBalance,
+								tokenX: pair.tokenX,
+								tokenY: pair.tokenY
+							}
+						}
+					} catch (fallbackError) {
+						console.warn(`Fallback also failed for ${pair.pairAddress}:`, fallbackError)
+					}
+
 					return null
 				}
 			})

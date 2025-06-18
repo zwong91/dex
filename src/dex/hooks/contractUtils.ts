@@ -8,7 +8,7 @@ export interface PairData {
   activeBin: number
   binStep: number
   reserves: [bigint, bigint]
-  totalSupply: bigint
+  totalLiquidity?: bigint // Optional since LB pairs don't have a single total supply
 }
 
 // Batch fetch pair data for multiple pairs to improve performance
@@ -37,8 +37,8 @@ export const batchFetchPairData = async (
         }
       }
 
-      // Get all necessary data for the pair - use simpler calls first to validate
-      const [activeBin, binStep, reserves, totalSupply] = await Promise.all([
+      // Get all necessary data for the pair - LB pairs don't have totalSupply
+      const [activeBin, binStep, reserves] = await Promise.all([
         client.readContract({
           address: pairAddress as `0x${string}`,
           abi: [{
@@ -65,17 +65,6 @@ export const batchFetchPairData = async (
           address: pairAddress as `0x${string}`,
           abi: jsonAbis.LBPairV21ABI,
           functionName: 'getReserves'
-        }),
-        client.readContract({
-          address: pairAddress as `0x${string}`,
-          abi: [{
-            inputs: [],
-            name: 'totalSupply',
-            outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-            stateMutability: 'view',
-            type: 'function'
-          }],
-          functionName: 'totalSupply'
         })
       ])
 
@@ -85,7 +74,7 @@ export const batchFetchPairData = async (
           activeBin: Number(activeBin),
           binStep: Number(binStep),
           reserves: reserves as [bigint, bigint],
-          totalSupply: totalSupply as bigint
+          totalLiquidity: undefined // LB pairs don't have a single total supply
         }
       }
     } catch (error) {

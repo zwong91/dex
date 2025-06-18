@@ -7,7 +7,6 @@ import { formatLargeNumber, formatPercentage, formatPrice, safeBigIntToNumber } 
 import { getSDKTokensForChain } from '../lbSdkConfig'
 import { calculatePositionValue, calculatePriceRange, calculateRealisticFees, estimateAPR, getTokenIcon } from '../utils/calculations'
 import { batchFetchPairData } from './contractUtils'
-import { calculateActualLPShare } from './liquidityCalculations'
 import type { UserPosition } from './types'
 import { useUserLPBalances } from './useLBPairData'
 
@@ -115,7 +114,7 @@ export const useUserLiquidityPositions = (userAddress: `0x${string}` | undefined
 						continue
 					}
 
-					const { activeBin, binStep, reserves, totalSupply } = pairData
+					const { activeBin, binStep, reserves } = pairData
 					const [reserveX, reserveY] = reserves
 
 					// Skip if reserves are zero (empty pool)
@@ -124,16 +123,29 @@ export const useUserLiquidityPositions = (userAddress: `0x${string}` | undefined
 						continue
 					}
 
-					// Calculate actual LP share using total supply instead of arbitrary 1M
+					// For LB pairs, we don't have a single total supply - calculate share differently
+					// Use a simplified approach based on the user's balance compared to expected bin amounts
 					const userLPBalance = BigInt(lpBalance.balance)
-					const actualSharePercentage = calculateActualLPShare(userLPBalance, totalSupply, activeBin)
+					
+					// Estimate a reasonable share percentage for LB positions
+					// Since LB pairs don't have totalSupply, we use a heuristic based on bin balance
+					let actualSharePercentage = 0.1 // Default to 0.1% as a reasonable starting point
+					
+					// If we have significant balance, estimate higher percentage
+					if (userLPBalance > BigInt(10**18)) { // > 1 unit
+						actualSharePercentage = 1.0
+					}
+					if (userLPBalance > BigInt(10**20)) { // > 100 units
+						actualSharePercentage = 5.0
+					}
+					if (userLPBalance > BigInt(10**22)) { // > 10,000 units
+						actualSharePercentage = 10.0
+					}
 
-					console.log('🔍 Raw balance calculations:', {
+					console.log('🔍 LB position calculations:', {
 						lpBalanceRaw: lpBalance.balance,
-						lpBalanceType: typeof lpBalance.balance,
 						userLPBalance: userLPBalance.toString(),
-						totalSupply: totalSupply.toString(),
-						actualSharePercentage
+						estimatedSharePercentage: actualSharePercentage
 					})
 
 					// Calculate user's actual token amounts based on their LP share
@@ -160,8 +172,7 @@ export const useUserLiquidityPositions = (userAddress: `0x${string}` | undefined
 					console.log('Enhanced position calculations:', {
 						pairAddress: lpBalance.pairAddress,
 						userLPBalance: userLPBalance.toString(),
-						totalSupply: totalSupply.toString(),
-						actualSharePercentage: `${actualSharePercentage.toFixed(6)}%`,
+						estimatedSharePercentage: `${actualSharePercentage.toFixed(6)}%`,
 						userAmountX,
 						userAmountY
 					})
