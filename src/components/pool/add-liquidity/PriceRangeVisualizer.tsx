@@ -1,29 +1,40 @@
+import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { LiquidityStrategy } from './StrategySelection'
 
+/**
+ * PriceRangeVisualizer Component
+ * 
+ * This component displays a 3D visualization of liquidity distribution across price ranges
+ * based on the pool's bin step configuration. It calculates precise price scales using
+ * the actual bin step of the liquidity pool.
+ * 
+ * Bin Step Calculation:
+ * - binStep is measured in basis points (e.g., 1 = 0.01%, 25 = 0.25%)
+ * - Each bin represents a discrete price level
+ * - Price scales are calculated using compound interest formula: P * (1 + binStep/10000)^n
+ * 
+ * Examples:
+ * - With binStep = 1 (0.01%) and activeBinPrice = 19.05560:
+ *   - Bin 0: 19.05560
+ *   - Bin 10: 19.05560 * (1.0001)^10 ≈ 19.07462
+ *   - Bin 20: 19.05560 * (1.0001)^20 ≈ 19.09365
+ */
+
 interface PriceRangeVisualizerProps {
 	activeBinPrice: number
-	minPrice: string
-	maxPrice: string
 	amount0: string
 	amount1: string
 	strategy: LiquidityStrategy
-	calculateDynamicRange: () => {
-		minPrice: number
-		maxPrice: number
-		leftMultiplier: number
-		rightMultiplier: number
-	}
+	binStep?: number // 添加 binStep prop，以基点为单位（例如25表示0.25%）
 }
 
 const PriceRangeVisualizer = ({
 	activeBinPrice,
-	minPrice,
-	maxPrice,
 	amount0,
 	amount1,
 	strategy,
-	calculateDynamicRange,
+	binStep = 25, // 默认值25基点（0.25%）
 }: PriceRangeVisualizerProps) => {
 	const getCurrentPrice = () => {
 		return activeBinPrice.toFixed(8)
@@ -231,6 +242,38 @@ const PriceRangeVisualizer = ({
 		)
 	}
 
+	/**
+	 * Helper function to demonstrate bin step price calculations
+	 * This shows exactly how prices would be calculated for different bin steps
+	 */
+	const demonstrateBinStepCalculation = () => {
+		if (process.env.NODE_ENV === 'development') {
+			const examples = [
+				{ binStep: 1, description: '0.01% (1 basis point)' },
+				{ binStep: 25, description: '0.25% (25 basis points)' },
+				{ binStep: 100, description: '1.00% (100 basis points)' }
+			]
+			
+			console.log('📊 Bin Step Price Calculation Examples:')
+			examples.forEach(({ binStep: exampleBinStep, description }) => {
+				const binStepDecimal = exampleBinStep / 10000
+				const prices = []
+				
+				for (let i = 0; i <= 10; i++) {
+					const price = activeBinPrice * Math.pow(1 + binStepDecimal, i * 10)
+					prices.push(price.toFixed(5))
+				}
+				
+				console.log(`  ${description}:`, prices.slice(0, 5), '...')
+			})
+		}
+	}
+
+	// Run demonstration on component mount (development only)
+	React.useEffect(() => {
+		demonstrateBinStepCalculation()
+	}, [binStep, activeBinPrice])
+
 	return (
 		<Box sx={{ mb: 3, position: 'relative', pt: 6 }}>
 			<Box
@@ -407,20 +450,44 @@ const PriceRangeVisualizer = ({
 					const amt0 = parseFloat(amount0 || '0')
 					const amt1 = parseFloat(amount1 || '0')
 					
+					// 使用bin step计算精确的价格刻度
+					// binStep是基点，例如1表示0.01%，25表示0.25%
+					const binStepDecimal = binStep / 10000
+					
 					let price: number
 					
 					if (amt0 > 0 && amt1 === 0) {
 						// Token X模式：从当前价格向右显示价格区间
-						const priceStep = activeBinPrice * 0.01 // 1%步长
-						price = activeBinPrice + (i * priceStep)
+						// 每个刻度代表几个bin的步长
+						const binsPerTick = 10 // 每个刻度跨越10个bin
+						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
+						price = activeBinPrice * Math.pow(priceMultiplier, i)
 					} else if (amt1 > 0 && amt0 === 0) {
-						// Token Y模式：从当前价格开始，向左递减（显示顺序从高到低）
-						const priceStep = activeBinPrice * 0.01 // 1%步长
-						price = activeBinPrice - ((10 - i) * priceStep) // 反转索引，最左边显示最低价格
+						// Token Y模式：从当前价格开始，向左递减
+						const binsPerTick = 10 // 每个刻度跨越10个bin
+						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
+						price = activeBinPrice * Math.pow(priceMultiplier, -(10 - i)) // 反转索引
 					} else {
 						// AutoFill模式：以当前价格为中心对称显示
-						const priceStep = activeBinPrice * 0.005 // 0.5%步长，更密集
-						price = activeBinPrice + ((i - 5) * priceStep) // i=5时为当前价格
+						const binsPerTick = 5 // 中心模式使用更小的步长
+						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
+						price = activeBinPrice * Math.pow(priceMultiplier, (i - 5)) // i=5时为当前价格
+					}
+					
+					// 添加日志以验证计算结果（仅在开发模式下）
+					if (process.env.NODE_ENV === 'development' && i === 0) {
+						console.log('🔢 Price Scale Calculation:', {
+							binStep,
+							binStepDecimal,
+							binStepPercentage: `${binStep / 100}%`,
+							activeBinPrice,
+							mode: amt0 > 0 && amt1 === 0 ? 'Token X' : 
+								  amt1 > 0 && amt0 === 0 ? 'Token Y' : 'AutoFill',
+							samplePrices: [
+								activeBinPrice.toFixed(5),
+								price.toFixed(5)
+							]
+						})
 					}
 					
 					const isActivePrice = Math.abs(price - activeBinPrice) < (activeBinPrice * 0.005)

@@ -294,15 +294,10 @@ const AddLiquidityForm = ({
 							{/* Price Range Visualizer */}
 							<PriceRangeVisualizer
 								activeBinPrice={activeBinPrice}
-								minPrice={minPrice}
-								maxPrice={maxPrice}
 								amount0={amount0}
 								amount1={amount1}
 								strategy={liquidityStrategy}
-								autoFill={autoFill}
-								selectedPool={selectedPool}
-								getNumBins={getNumBinsForComponents}
-								calculateDynamicRange={getDynamicRange}
+								binStep={selectedPool?.binStep} // 传递池子的bin step
 							/>
 
 							{/* Price Range Slider */}
