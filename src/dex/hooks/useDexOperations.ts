@@ -774,37 +774,6 @@ export const useDexOperations = () => {
 		}
 	}
 
-	// Real LB Pair operation for claiming collected fees
-	const claimFees = async (pairAddress: string, binIds: number[]) => {
-		try {
-			if (!userAddress) {
-				throw new Error("Wallet not connected")
-			}
-
-			console.log("Claiming LB fees:", {
-				pairAddress,
-				binIds
-			})
-
-			// Use the LB Pair's collectFees function directly
-			const result = await writeContractAsync({
-				abi: jsonAbis.LBPairABI,
-				address: pairAddress as `0x${string}`,
-				functionName: "collectFees",
-				args: [
-					userAddress as `0x${string}`, // account address
-					binIds.map(id => BigInt(id))
-				],
-				chainId: chainId,
-			})
-
-			return result
-		} catch (error) {
-			console.error("Claim LB fees error:", error)
-			throw error
-		}
-	}
-
 	// Check if an LB pool already exists
 	const checkPoolExists = useCallback(async (
 		tokenXAddress: string,
@@ -934,7 +903,6 @@ export const useDexOperations = () => {
 	return {
 		addLiquidity,
 		removeLiquidity,
-		claimFees,
 		createPool,
 		checkPoolExists
 	}

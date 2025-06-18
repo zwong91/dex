@@ -26,7 +26,6 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import Navigation from '../components/Navigation';
-import ClaimsFeesDialog from '../components/pool/ClaimsFeesDialog';
 import RemoveLiquidityDialog from '../components/pool/RemoveLiquidityDialog';
 import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
 import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUserPositions';
@@ -44,7 +43,6 @@ const PortfolioPage = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   // Position management states
-  const [showClaimsFees, setShowClaimsFees] = useState(false);
   const [showRemovePosition, setShowRemovePosition] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<UserPosition | null>(null);
 
@@ -52,11 +50,6 @@ const PortfolioPage = () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
-  };
-
-  const handleClaimsFees = (position: UserPosition) => {
-    setSelectedPosition(position);
-    setShowClaimsFees(true);
   };
 
   const handleRemovePosition = (position: UserPosition) => {
@@ -123,7 +116,7 @@ const PortfolioPage = () => {
           </Box>
           <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
             <Button
-              variant="outlined"
+              variant="contained"
               size="medium"
               startIcon={<RemoveIcon />}
               onClick={() => handleRemovePosition(position)}
@@ -134,21 +127,7 @@ const PortfolioPage = () => {
                 px: 3
               }}
             >
-              Remove
-            </Button>
-            <Button
-              variant="contained"
-              size="medium"
-              color="success"
-              onClick={() => handleClaimsFees(position)}
-              sx={{ 
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-                px: 3
-              }}
-            >
-              Claim Fees
+              Withdraw Liquidity
             </Button>
           </Box>
         </Box>
@@ -175,12 +154,12 @@ const PortfolioPage = () => {
             </Card>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
-            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 2 }}>
+            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'info.50', borderRadius: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-                24h Fees
+                APR
               </Typography>
-              <Typography variant="h6" fontWeight={700} color="success.main">
-                {position.fees24h}
+              <Typography variant="h6" fontWeight={700} color="info.main">
+                {position.apr || 'N/A'}
               </Typography>
             </Card>
           </Grid>
@@ -686,13 +665,13 @@ const PortfolioPage = () => {
                     <CardContent>
                       <PoolIcon sx={{ fontSize: 56, color: 'white', mb: 2, opacity: 0.9 }} />
                       <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
-                        LP Earnings
+                        LP Value
                       </Typography>
                       <Typography variant="h2" fontWeight={800} sx={{ mb: 1, color: 'white' }}>
-                        {walletSummary.unclaimedFees}
+                        {walletSummary.lpValue || '$0.00'}
                       </Typography>
                       <Typography variant="body1" sx={{ opacity: 0.8 }}>
-                        Unclaimed fees
+                        Total liquidity
                       </Typography>
                     </CardContent>
                   </Card>
@@ -728,13 +707,6 @@ const PortfolioPage = () => {
             </Box>
           </Grid>
         </Grid>
-
-        {/* Claims Fees Dialog */}
-        <ClaimsFeesDialog
-          open={showClaimsFees}
-          onClose={() => setShowClaimsFees(false)}
-          selectedPosition={selectedPosition}
-        />
 
         {/* Remove Position Dialog */}
         <RemoveLiquidityDialog
