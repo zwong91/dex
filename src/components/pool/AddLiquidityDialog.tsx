@@ -67,9 +67,22 @@ const AddLiquidityDialog = ({
 		'spot' | 'curve' | 'bid-ask'
 	>('spot')
 
+	// Strategy change handler - update dynamic range when strategy changes
+	const handleStrategyChange = (newStrategy: 'spot' | 'curve' | 'bid-ask') => {
+		setLiquidityStrategy(newStrategy)
+		
+		// Reset manual price overrides to allow dynamic calculation
+		if (!minPrice && !maxPrice) {
+			// Trigger re-calculation by updating amounts
+			updateDynamicPriceRange(amount0, amount1)
+		}
+		
+		console.log('🔄 Strategy changed to:', newStrategy, 'with amounts:', { amount0, amount1 })
+	}
+
 	// Active Bin price - this is the actual current price from the pool
-	const activeBinPrice = 19.05559749 // USDC per AVAX - this should come from pool data
-	const [minPrice, setMinPrice] = useState((activeBinPrice * 0.95).toString()) // 5% below active bin
+	const activeBinPrice = 19.05560 // USDC per AVAX - this should come from pool data
+	const [minPrice, setMinPrice] = useState(activeBinPrice.toString()) // Start at active bin (no left side)
 	const [maxPrice, setMaxPrice] = useState((activeBinPrice * 1.05).toString()) // 5% above active bin
 
 	// Current price is the Active Bin price
@@ -83,16 +96,95 @@ const AddLiquidityDialog = ({
 		return `${selectedPool.token1}/${selectedPool.token0}` // USDC per AVAX format
 	}
 
+	// Calculate dynamic number of bins and price range based on token amounts and strategy
+	const calculateDynamicRange = () => {
+		const amt0 = parseFloat(amount0 || '0') // Token X (left input, affects right side bars)
+		const amt1 = parseFloat(amount1 || '0') // Token Y (right input, affects left side bars)
+		
+		// Base range calculation
+		let baseRangeMultiplier = 0.05 // 5% default
+		
+		// Adjust range based on token amounts - more tokens = wider range
+		const totalValue = amt0 + amt1 // Simplified - in real case should use USD values
+		if (totalValue > 0) {
+			// Larger amounts can support wider ranges
+			baseRangeMultiplier = Math.min(0.2, 0.05 + (totalValue / 1000) * 0.1)
+		}
+		
+		// Strategy-specific adjustments with correct token mapping
+		let leftMultiplier = 0  // Left side (lower prices) - Token Y liquidity
+		let rightMultiplier = baseRangeMultiplier // Right side (higher prices) - Token X liquidity
+		
+		if (liquidityStrategy === 'spot') {
+			// Symmetric range for spot strategy
+			if (amt0 > 0 && amt1 > 0) {
+				// Both tokens provided - symmetric range based on token amounts
+				const tokenXRatio = amt0 / (amt0 + amt1) // Token X affects right side
+				const tokenYRatio = amt1 / (amt0 + amt1) // Token Y affects left side
+				leftMultiplier = baseRangeMultiplier * tokenYRatio * 2
+				rightMultiplier = baseRangeMultiplier * tokenXRatio * 2
+			} else if (amt0 > 0) {
+				// Only Token X - range above current price (right side)
+				leftMultiplier = baseRangeMultiplier * 0.1
+				rightMultiplier = baseRangeMultiplier * 2
+			} else if (amt1 > 0) {
+				// Only Token Y - range below current price (left side)
+				leftMultiplier = baseRangeMultiplier * 2
+				rightMultiplier = baseRangeMultiplier * 0.1
+			}
+		} else if (liquidityStrategy === 'curve') {
+			// Concentrated around current price
+			const concentrationFactor = 0.3
+			if (amt0 > 0 && amt1 > 0) {
+				// Both tokens - symmetric concentration
+				leftMultiplier = baseRangeMultiplier * concentrationFactor
+				rightMultiplier = baseRangeMultiplier * concentrationFactor
+			} else if (amt0 > 0) {
+				// Only Token X - slight concentration above current price
+				leftMultiplier = baseRangeMultiplier * concentrationFactor * 0.5
+				rightMultiplier = baseRangeMultiplier * concentrationFactor * 1.5
+			} else if (amt1 > 0) {
+				// Only Token Y - slight concentration below current price
+				leftMultiplier = baseRangeMultiplier * concentrationFactor * 1.5
+				rightMultiplier = baseRangeMultiplier * concentrationFactor * 0.5
+			}
+		} else if (liquidityStrategy === 'bid-ask') {
+			// Wide range for bid-ask strategy
+			const spreadFactor = 1.5
+			if (amt0 > 0 && amt1 > 0) {
+				// Both tokens - wide spread
+				leftMultiplier = baseRangeMultiplier * spreadFactor
+				rightMultiplier = baseRangeMultiplier * spreadFactor
+			} else if (amt0 > 0) {
+				// Token X only - DCA strategy selling as price rises
+				leftMultiplier = baseRangeMultiplier * 0.2
+				rightMultiplier = baseRangeMultiplier * spreadFactor * 2
+			} else if (amt1 > 0) {
+				// Token Y only - DCA strategy buying as price falls
+				leftMultiplier = baseRangeMultiplier * spreadFactor * 2
+				rightMultiplier = baseRangeMultiplier * 0.2
+			}
+		}
+		
+		return {
+			minPrice: activeBinPrice * (1 - leftMultiplier),
+			maxPrice: activeBinPrice * (1 + rightMultiplier),
+			leftMultiplier,
+			rightMultiplier
+		}
+	}
+
 	// Calculate dynamic number of bins based on price range and bin step
 	const getNumBins = () => {
-		const binStep = selectedPool?.binStep || 20 // Default bin step if not available
-		const minPriceNum = parseFloat(minPrice || (activeBinPrice * 0.95).toString())
-		const maxPriceNum = parseFloat(maxPrice || (activeBinPrice * 1.05).toString())
+		const binStep = selectedPool?.binStep || 50 // Use 50 as default bin step
+		const { minPrice: dynMinPrice, maxPrice: dynMaxPrice } = calculateDynamicRange()
+		
+		// Use dynamic range if no manual price is set, otherwise use manual prices
+		const minPriceNum = parseFloat(minPrice) || dynMinPrice
+		const maxPriceNum = parseFloat(maxPrice) || dynMaxPrice
 
-		// Calculate bin IDs based on price and bin step
-		// Formula: binId = log(price / baseBinPrice) / log(1 + binStep/10000)
 		const binStepFactor = 1 + binStep / 10000
-		const baseBinPrice = activeBinPrice // Use active bin as reference
+		const baseBinPrice = activeBinPrice
 
 		const minBinId = Math.floor(Math.log(minPriceNum / baseBinPrice) / Math.log(binStepFactor))
 		const maxBinId = Math.ceil(Math.log(maxPriceNum / baseBinPrice) / Math.log(binStepFactor))
@@ -101,27 +193,7 @@ const AddLiquidityDialog = ({
 		return Math.min(149, Math.max(1, totalBins)).toString()
 	}
 
-	// Get array of exact bin prices based on bin step
-	const getPricePoints = () => {
-		const binStep = selectedPool?.binStep || 20
-		const binStepFactor = 1 + binStep / 10000
-		const baseBinPrice = activeBinPrice
 
-		const minPriceNum = parseFloat(minPrice || (activeBinPrice * 0.95).toString())
-		const maxPriceNum = parseFloat(maxPrice || (activeBinPrice * 1.05).toString())
-
-		const minBinId = Math.floor(Math.log(minPriceNum / baseBinPrice) / Math.log(binStepFactor))
-		const maxBinId = Math.ceil(Math.log(maxPriceNum / baseBinPrice) / Math.log(binStepFactor))
-
-		const prices = []
-		for (let binId = minBinId; binId <= maxBinId; binId++) {
-			// Calculate exact price for this bin: price = baseBinPrice * (1 + binStep/10000)^binId
-			const binPrice = baseBinPrice * Math.pow(binStepFactor, binId)
-			prices.push(binPrice.toFixed(5))
-		}
-
-		return prices.slice(0, 149) // Limit to max 149 bins
-	}
 
 	// Web3 hooks
 	const { addLiquidity } = useDexOperations()
@@ -178,7 +250,7 @@ const AddLiquidityDialog = ({
 		handleAmount1Change(amount)
 	}
 
-	// Auto-fill logic - calculate token1 amount based on token0 input
+	// Auto-fill logic - calculate token1 amount based on token0 input and update dynamic range
 	const handleAmount0Change = (value: string) => {
 		console.log('🔢 Amount0 changed:', value)
 		setAmount0(value)
@@ -192,13 +264,28 @@ const AddLiquidityDialog = ({
 
 			const numValue = parseFloat(value)
 			if (!isNaN(numValue) && numValue > 0) {
-				// Simple 1:1 ratio for demo - in real app should use pool reserves/price ratio
-				const calculatedAmount1 = numValue.toFixed(6)
-				setAmount1(calculatedAmount1)
+				// Calculate based on current price and strategy
+				let calculatedAmount1 = 0
+				
+				if (liquidityStrategy === 'spot') {
+					// For spot, maintain price ratio
+					calculatedAmount1 = numValue * activeBinPrice * 0.5 // 50% allocation
+				} else if (liquidityStrategy === 'curve') {
+					// For curve, concentrated around current price
+					calculatedAmount1 = numValue * activeBinPrice * 0.8 // 80% allocation to match current price
+				} else if (liquidityStrategy === 'bid-ask') {
+					// For bid-ask, single-sided is preferred
+					calculatedAmount1 = numValue * activeBinPrice * 0.2 // 20% allocation
+				}
+				
+				setAmount1(calculatedAmount1.toFixed(6))
 			} else {
 				setAmount1('')
 			}
 		}
+		
+		// Update dynamic price range based on new amounts
+		updateDynamicPriceRange(value, amount1)
 	}
 
 	const handleAmount1Change = (value: string) => {
@@ -214,12 +301,37 @@ const AddLiquidityDialog = ({
 
 			const numValue = parseFloat(value)
 			if (!isNaN(numValue) && numValue > 0) {
-				// Simple 1:1 ratio for demo - in real app should use pool reserves/price ratio
-				const calculatedAmount0 = numValue.toFixed(6)
-				setAmount0(calculatedAmount0)
+				// Calculate based on current price and strategy
+				let calculatedAmount0 = 0
+				
+				if (liquidityStrategy === 'spot') {
+					// For spot, maintain price ratio
+					calculatedAmount0 = numValue / activeBinPrice * 0.5 // 50% allocation
+				} else if (liquidityStrategy === 'curve') {
+					// For curve, concentrated around current price
+					calculatedAmount0 = numValue / activeBinPrice * 0.8 // 80% allocation
+				} else if (liquidityStrategy === 'bid-ask') {
+					// For bid-ask, single-sided is preferred
+					calculatedAmount0 = numValue / activeBinPrice * 0.2 // 20% allocation
+				}
+				
+				setAmount0(calculatedAmount0.toFixed(6))
 			} else {
 				setAmount0('')
 			}
+		}
+		
+		// Update dynamic price range based on new amounts
+		updateDynamicPriceRange(amount0, value)
+	}
+
+	// Update dynamic price range when amounts or strategy changes
+	const updateDynamicPriceRange = (amt0: string, amt1: string) => {
+		// Only update if user hasn't manually set prices
+		if (!minPrice && !maxPrice) {
+			const dynamicRange = calculateDynamicRange()
+			console.log('📊 Dynamic range calculated for amounts:', { amt0, amt1 }, 'range:', dynamicRange)
+			// Don't actually set the state to preserve manual control, just trigger re-render
 		}
 	}
 
@@ -433,7 +545,7 @@ const AddLiquidityDialog = ({
 		setAmount0('')
 		setAmount1('')
 		setLiquidityStrategy('spot')
-		setMinPrice((activeBinPrice * 0.95).toString()) // 5% below active bin
+		setMinPrice(activeBinPrice.toString()) // Start at active bin (no left side)
 		setMaxPrice((activeBinPrice * 1.05).toString()) // 5% above active bin
 		setAutoFill(false)
 		setIsSuccess(false)
@@ -484,283 +596,6 @@ const AddLiquidityDialog = ({
 							<Typography variant="h6">
 								{selectedPool.token0}/{selectedPool.token1}
 							</Typography>
-						</Box>
-
-						{/* Liquidity Strategy Selection */}
-						<Box sx={{ mb: 4 }}>
-							<Box
-								sx={{
-									display: 'flex',
-									justifyContent: 'space-between',
-									alignItems: 'center',
-									mb: 3,
-								}}
-							>
-								<Typography variant="h6" fontWeight={600}>
-									Select Volatility Strategy
-								</Typography>
-							</Box>
-
-							<Grid container spacing={2} sx={{ mb: 2 }}>
-								<Grid size={4}>
-									<Card
-										elevation={0}
-										sx={{
-											cursor: 'pointer',
-											border: 2,
-											borderColor:
-												liquidityStrategy === 'spot'
-													? '#FF6B35'
-													: 'rgba(255, 255, 255, 0.1)',
-											borderRadius: 3,
-											backgroundColor: '#1A1B2E',
-											transition: 'all 0.2s ease',
-											'&:hover': {
-												borderColor:
-													liquidityStrategy === 'spot'
-														? '#FF6B35'
-														: 'rgba(255, 255, 255, 0.2)',
-											},
-										}}
-										onClick={() => setLiquidityStrategy('spot')}
-									>
-									<CardContent sx={{ textAlign: 'center', py: 4 }}>
-										{/* Spot - Uniform distribution with center split */}
-										<Box
-											sx={{
-												mb: 2,
-												display: 'flex',
-												justifyContent: 'center',
-												alignItems: 'end',
-												gap: 0.5,
-											}}
-										>
-											{[30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30].map(
-												(height, index) => {
-													const isSelected = liquidityStrategy === 'spot'
-													const isCenter = index === 6 // Only the right center bar for active price
-
-													if (isSelected && isCenter) {
-														// Center bar with split colors (top purple, bottom teal)
-														return (
-															<Box
-																key={index}
-																sx={{
-																	width: 4,
-																	height: height,
-																	borderRadius: '2px 2px 0 0',
-																	background: 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)',
-																}}
-															/>
-														)
-													}
-
-													return (
-														<Box
-															key={index}
-															sx={{
-																width: 4,
-																height: height,
-																borderRadius: '2px 2px 0 0',
-																background:
-																	isSelected
-																		? index < 6
-																			? '#00D9FF' // Left side - teal
-																			: index > 6
-																				? '#7B68EE' // Right side - purple
-																				: '#4A5568'
-																		: '#4A5568',
-															}}
-														/>
-													)
-												},
-											)}
-										</Box>
-										<Typography variant="h6" fontWeight={600} color="white">
-											Spot
-										</Typography>
-									</CardContent>
-								</Card>
-								</Grid>
-								<Grid size={4}>
-									<Card
-										elevation={0}
-										sx={{
-											cursor: 'pointer',
-											border: 2,
-											borderColor:
-												liquidityStrategy === 'curve'
-													? '#FF6B35'
-													: 'rgba(255, 255, 255, 0.1)',
-											borderRadius: 3,
-											backgroundColor: '#1A1B2E',
-											transition: 'all 0.2s ease',
-											'&:hover': {
-												borderColor:
-													liquidityStrategy === 'curve'
-														? '#FF6B35'
-														: 'rgba(255, 255, 255, 0.2)',
-											},
-										}}
-										onClick={() => setLiquidityStrategy('curve')}
-									>
-									<CardContent sx={{ textAlign: 'center', py: 4 }}>
-										{/* Curve - Bell curve distribution */}
-										<Box
-											sx={{
-												mb: 2,
-												display: 'flex',
-												justifyContent: 'center',
-												alignItems: 'end',
-												gap: 0.5,
-											}}
-										>
-											{[5, 8, 12, 18, 25, 32, 35, 32, 25, 18, 12, 8].map(
-												(height, index) => {
-													const isSelected = liquidityStrategy === 'curve'
-													const isCenter = index === 6 // Only the right center bar for active price
-
-													if (isSelected && isCenter) {
-														// Center bar with split colors (top purple, bottom teal)
-														return (
-															<Box
-																key={index}
-																sx={{
-																	width: 4,
-																	height: height,
-																	borderRadius: '2px 2px 0 0',
-																	background: 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)',
-																}}
-															/>
-														)
-													}
-
-													return (
-														<Box
-															key={index}
-															sx={{
-																width: 4,
-																height: height,
-																borderRadius: '2px 2px 0 0',
-																background:
-																	isSelected
-																		? index < 6
-																			? '#00D9FF' // Left side - teal
-																			: index > 6
-																				? '#7B68EE' // Right side - purple
-																				: '#4A5568'
-																		: '#4A5568',
-															}}
-														/>
-													)
-												},
-											)}
-										</Box>
-										<Typography variant="h6" fontWeight={600} color="white">
-											Curve
-										</Typography>
-									</CardContent>
-								</Card>
-								</Grid>								<Grid size={4}>
-									<Card
-										elevation={0}
-										sx={{
-											cursor: 'pointer',
-											border: 2,
-											borderColor:
-												liquidityStrategy === 'bid-ask'
-													? '#FF6B35'
-													: 'rgba(255, 255, 255, 0.1)',
-											borderRadius: 3,
-											backgroundColor: '#1A1B2E',
-											transition: 'all 0.2s ease',
-											'&:hover': {
-												borderColor:
-													liquidityStrategy === 'bid-ask'
-														? '#FF6B35'
-														: 'rgba(255, 255, 255, 0.2)',
-											},
-										}}
-										onClick={() => setLiquidityStrategy('bid-ask')}
-									>
-									<CardContent sx={{ textAlign: 'center', py: 4 }}>
-										{/* Bid-Ask - Two separate peaks */}
-										<Box
-											sx={{
-												mb: 2,
-												display: 'flex',
-												justifyContent: 'center',
-												alignItems: 'end',
-												gap: 0.5,
-											}}
-										>
-											{[30, 25, 20, 15, 10, 5, 5, 10, 15, 20, 25, 30].map(
-												(height, index) => {
-													const isSelected = liquidityStrategy === 'bid-ask'
-													const isCenter = index === 6 // Only the right center bar for active price
-
-													if (isSelected && isCenter) {
-														// Center bar with split colors (top purple, bottom teal)
-														return (
-															<Box
-																key={index}
-																sx={{
-																	width: 4,
-																	height: height,
-																	borderRadius: '2px 2px 0 0',
-																	background: 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)',
-																}}
-															/>
-														)
-													}
-
-													return (
-														<Box
-															key={index}
-															sx={{
-																width: 4,
-																height: height,
-																borderRadius: '2px 2px 0 0',
-																background:
-																	isSelected
-																		? index < 6
-																			? '#00D9FF' // Left side - teal
-																			: index > 6
-																				? '#7B68EE' // Right side - purple
-																				: '#4A5568'
-																		: '#4A5568',
-															}}
-														/>
-													)
-												},
-											)}
-										</Box>
-										<Typography variant="h6" fontWeight={600} color="white">
-											Bid-Ask
-										</Typography>
-									</CardContent>
-								</Card>
-								</Grid>
-							</Grid>
-
-							{/* Strategy Description - Only show for selected strategy */}
-							<Box sx={{ p: 3, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
-								{liquidityStrategy === 'spot' && (
-									<Typography variant="body1" color="text.secondary">
-										Spot provides a uniform distribution that is versatile and risk adjusted, suitable for any type of market and conditions. This is similar to setting a CLMM price range.
-									</Typography>
-								)}
-								{liquidityStrategy === 'curve' && (
-									<Typography variant="body1" color="text.secondary">
-										Curve is ideal for a concentrated approach that aims to maximise capital efficiency. This is great for stables or pairs where the price does not change very often.
-									</Typography>
-								)}
-								{liquidityStrategy === 'bid-ask' && (
-									<Typography variant="body1" color="text.secondary">
-										Bid-Ask is an inverse Curve distribution, typically deployed single sided for a DCA in or out strategy. It can be used to capture volatility especially when prices vastly move out of the typical range.
-									</Typography>
-								)}
-							</Box>
 						</Box>
 
 						{/* Token Amounts */}
@@ -1034,6 +869,313 @@ const AddLiquidityDialog = ({
 							</Grid>
 						</Box>
 
+						{/* Liquidity Strategy Selection */}
+						<Box sx={{ mb: 4 }}>
+							<Box
+								sx={{
+									display: 'flex',
+									justifyContent: 'space-between',
+									alignItems: 'center',
+									mb: 3,
+								}}
+							>
+								<Typography variant="h6" fontWeight={600}>
+									Select Volatility Strategy
+								</Typography>
+							</Box>
+
+							<Grid container spacing={2} sx={{ mb: 2 }}>
+								<Grid size={4}>
+									<Card
+										elevation={0}
+										sx={{
+											cursor: 'pointer',
+											border: 2,
+											borderColor:
+												liquidityStrategy === 'spot'
+													? '#FF6B35'
+													: 'rgba(255, 255, 255, 0.1)',
+											borderRadius: 3,
+											backgroundColor: '#1A1B2E',
+											transition: 'all 0.2s ease',
+											'&:hover': {
+												borderColor:
+													liquidityStrategy === 'spot'
+														? '#FF6B35'
+														: 'rgba(255, 255, 255, 0.2)',
+											},
+										}}
+										onClick={() => handleStrategyChange('spot')}
+									>
+									<CardContent sx={{ textAlign: 'center', py: 4 }}>
+										{/* Spot - Uniform distribution with center split */}
+										<Box
+											sx={{
+												mb: 2,
+												display: 'flex',
+												justifyContent: 'center',
+												alignItems: 'end',
+												gap: 0.5,
+											}}
+										>
+											{[30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30].map(
+												(height, index) => {
+													const isSelected = liquidityStrategy === 'spot'
+													const isCenter = index === 6 // Only the right center bar for active price
+
+													if (isSelected && isCenter) {
+														// Center bar with split colors (top purple, bottom teal)
+														return (
+															<Box
+																key={index}
+																sx={{
+																	width: 4,
+																	height: height,
+																	borderRadius: '2px 2px 0 0',
+																	background: 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)',
+																}}
+															/>
+														)
+													}
+
+													return (
+														<Box
+															key={index}
+															sx={{
+																width: 4,
+																height: height,
+																borderRadius: '2px 2px 0 0',
+																background:
+																	isSelected
+																		? index < 6
+																			? '#00D9FF' // Left side - teal
+																			: index > 6
+																				? '#7B68EE' // Right side - purple
+																				: '#4A5568'
+																		: '#4A5568',
+															}}
+														/>
+													)
+												},
+											)}
+										</Box>
+										<Typography variant="h6" fontWeight={600} color="white">
+											Spot
+										</Typography>
+									</CardContent>
+								</Card>
+								</Grid>
+								<Grid size={4}>
+									<Card
+										elevation={0}
+										sx={{
+											cursor: 'pointer',
+											border: 2,
+											borderColor:
+												liquidityStrategy === 'curve'
+													? '#FF6B35'
+													: 'rgba(255, 255, 255, 0.1)',
+											borderRadius: 3,
+											backgroundColor: '#1A1B2E',
+											transition: 'all 0.2s ease',
+											'&:hover': {
+												borderColor:
+													liquidityStrategy === 'curve'
+														? '#FF6B35'
+														: 'rgba(255, 255, 255, 0.2)',
+											},
+										}}
+										onClick={() => handleStrategyChange('curve')}
+									>
+									<CardContent sx={{ textAlign: 'center', py: 4 }}>
+										{/* Curve - Bell curve distribution */}
+										<Box
+											sx={{
+												mb: 2,
+												display: 'flex',
+												justifyContent: 'center',
+												alignItems: 'end',
+												gap: 0.5,
+											}}
+										>
+											{[5, 8, 12, 18, 25, 32, 35, 32, 25, 18, 12, 8].map(
+												(height, index) => {
+													const isSelected = liquidityStrategy === 'curve'
+													const isCenter = index === 6 // Only the right center bar for active price
+
+													if (isSelected && isCenter) {
+														// Center bar with split colors (top purple, bottom teal)
+														return (
+															<Box
+																key={index}
+																sx={{
+																	width: 4,
+																	height: height,
+																	borderRadius: '2px 2px 0 0',
+																	background: 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)',
+																}}
+															/>
+														)
+													}
+
+													return (
+														<Box
+															key={index}
+															sx={{
+																width: 4,
+																height: height,
+																borderRadius: '2px 2px 0 0',
+																background:
+																	isSelected
+																		? index < 6
+																			? '#00D9FF' // Left side - teal
+																			: index > 6
+																				? '#7B68EE' // Right side - purple
+																				: '#4A5568'
+																		: '#4A5568',
+															}}
+														/>
+													)
+												},
+											)}
+										</Box>
+										<Typography variant="h6" fontWeight={600} color="white">
+											Curve
+										</Typography>
+									</CardContent>
+								</Card>
+								</Grid>
+								<Grid size={4}>
+									<Card
+										elevation={0}
+										sx={{
+											cursor: 'pointer',
+											border: 2,
+											borderColor:
+												liquidityStrategy === 'bid-ask'
+													? '#FF6B35'
+													: 'rgba(255, 255, 255, 0.1)',
+											borderRadius: 3,
+											backgroundColor: '#1A1B2E',
+											transition: 'all 0.2s ease',
+											'&:hover': {
+												borderColor:
+													liquidityStrategy === 'bid-ask'
+														? '#FF6B35'
+														: 'rgba(255, 255, 255, 0.2)',
+											},
+										}}
+										onClick={() => handleStrategyChange('bid-ask')}
+									>
+									<CardContent sx={{ textAlign: 'center', py: 4 }}>
+										{/* Bid-Ask - Two separate peaks */}
+										<Box
+											sx={{
+												mb: 2,
+												display: 'flex',
+												justifyContent: 'center',
+												alignItems: 'end',
+												gap: 0.5,
+											}}
+										>
+											{[30, 25, 20, 15, 10, 5, 5, 10, 15, 20, 25, 30].map(
+												(height, index) => {
+													const isSelected = liquidityStrategy === 'bid-ask'
+													const isCenter = index === 6 // Only the right center bar for active price
+
+													if (isSelected && isCenter) {
+														// Center bar with split colors (top purple, bottom teal)
+														return (
+															<Box
+																key={index}
+																sx={{
+																	width: 4,
+																	height: height,
+																	borderRadius: '2px 2px 0 0',
+																	background: 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)',
+																}}
+															/>
+														)
+													}
+
+													return (
+														<Box
+															key={index}
+															sx={{
+																width: 4,
+																height: height,
+																borderRadius: '2px 2px 0 0',
+																background:
+																	isSelected
+																		? index < 6
+																			? '#00D9FF' // Left side - teal
+																			: index > 6
+																				? '#7B68EE' // Right side - purple
+																				: '#4A5568'
+																		: '#4A5568',
+															}}
+														/>
+													)
+												},
+											)}
+										</Box>
+										<Typography variant="h6" fontWeight={600} color="white">
+											Bid-Ask
+										</Typography>
+									</CardContent>
+								</Card>
+								</Grid>
+							</Grid>
+
+							{/* Strategy Description - Enhanced with dynamic info */}
+							<Box sx={{ p: 3, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
+								{liquidityStrategy === 'spot' && (
+									<Box>
+										<Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+											Spot provides a uniform distribution that is versatile and risk adjusted, suitable for any type of market and conditions. This is similar to setting a CLMM price range.
+										</Typography>
+										{(parseFloat(amount0 || '0') > 0 || parseFloat(amount1 || '0') > 0) && (
+											<Typography variant="caption" color="rgba(0, 217, 255, 0.8)" sx={{ fontSize: '11px' }}>
+												💡 {parseFloat(amount0 || '0') > 0 && parseFloat(amount1 || '0') > 0 
+													? 'Symmetric range based on both token amounts' 
+													: parseFloat(amount0 || '0') > 0 
+													? `Range focuses below current price (${selectedPool?.token0} side)`
+													: `Range focuses above current price (${selectedPool?.token1} side)`}
+											</Typography>
+										)}
+									</Box>
+								)}
+								{liquidityStrategy === 'curve' && (
+									<Box>
+										<Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+											Curve is ideal for a concentrated approach that aims to maximise capital efficiency. This is great for stables or pairs where the price does not change very often.
+										</Typography>
+										{(parseFloat(amount0 || '0') > 0 || parseFloat(amount1 || '0') > 0) && (
+											<Typography variant="caption" color="rgba(123, 104, 238, 0.8)" sx={{ fontSize: '11px' }}>
+												💡 Concentrated liquidity around current price - higher capital efficiency with {getNumBins()} bins
+											</Typography>
+										)}
+									</Box>
+								)}
+								{liquidityStrategy === 'bid-ask' && (
+									<Box>
+										<Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+											Bid-Ask is an inverse Curve distribution, typically deployed single sided for a DCA in or out strategy. It can be used to capture volatility especially when prices vastly move out of the typical range.
+										</Typography>
+										{(parseFloat(amount0 || '0') > 0 || parseFloat(amount1 || '0') > 0) && (
+											<Typography variant="caption" color="rgba(255, 107, 53, 0.8)" sx={{ fontSize: '11px' }}>
+												💡 {parseFloat(amount0 || '0') > 0 && parseFloat(amount1 || '0') > 0 
+													? 'Wide range distribution for volatility capture' 
+													: parseFloat(amount0 || '0') > 0 
+													? `DCA out strategy - selling ${selectedPool?.token0} as price rises`
+													: `DCA in strategy - buying ${selectedPool?.token0} as price falls`}
+											</Typography>
+										)}
+									</Box>
+								)}
+							</Box>
+						</Box>
+
 						{/* Price Range Configuration */}
 						<Box sx={{ mb: 4 }}>
 							<Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
@@ -1063,7 +1205,7 @@ const AddLiquidityDialog = ({
 										size="small"
 										startIcon={<RefreshIcon />}
 										onClick={() => {
-											setMinPrice((activeBinPrice * 0.95).toString()) // 5% below active bin
+											setMinPrice(activeBinPrice.toString()) // Start at active bin (no left side)
 											setMaxPrice((activeBinPrice * 1.05).toString()) // 5% above active bin
 											toast.success('Price range updated to current market price')
 										}}
@@ -1116,120 +1258,229 @@ const AddLiquidityDialog = ({
 											},
 										}}
 									>
-										{/* Generate bars based on actual bins (max 149) */}
-										{Array.from({ length: Math.min(149, parseInt(getNumBins())) }, (_, i) => {
-											const binStep = selectedPool?.binStep || 20
-											const binStepFactor = 1 + binStep / 10000
-											const baseBinPrice = activeBinPrice
-
-											// Calculate exact bin price
-											const minPriceRange = parseFloat(minPrice || (activeBinPrice * 0.95).toString())
-											const maxPriceRange = parseFloat(maxPrice || (activeBinPrice * 1.05).toString())
-
-											const minBinId = Math.floor(Math.log(minPriceRange / baseBinPrice) / Math.log(binStepFactor))
-											// Calculate current bin price based on position in range
-											const currentBinId = minBinId + i
-											const binPrice = baseBinPrice * Math.pow(binStepFactor, currentBinId)
-
-											// Calculate position relative to the range (0-1)
-											const position = (binPrice - minPriceRange) / (maxPriceRange - minPriceRange)
-											const centerPosition = (activeBinPrice - minPriceRange) / (maxPriceRange - minPriceRange)
-											const distance = Math.abs(position - centerPosition)
-
-											// Check if this bar is within the selected range and is the active bin
-											const isInRange = binPrice >= minPriceRange && binPrice <= maxPriceRange
-											const isCurrentPrice = Math.abs(binPrice - activeBinPrice) < (activeBinPrice * 0.001) // Within 0.1%
-
-											// Calculate height based on strategy - FIXED HEIGHT with bigger bars
-											let height = 30 // 增加基础高度从8到30
-
-											// Fixed distribution calculations (not dependent on input amounts)
-											if (liquidityStrategy === 'spot') {
-												// Uniform distribution with slight center emphasis
-												const baseHeight = 80 + Math.sin(i * 0.2) * 20 // 增加高度
-												const centerBoost = Math.exp(-Math.pow(distance * 2.5, 2)) * 80
-												height = baseHeight + centerBoost
-											} else if (liquidityStrategy === 'curve') {
-												// Enhanced bell curve with smooth transitions
-												const bellCurve = Math.exp(-Math.pow(distance * 4, 2))
-												height = 40 + bellCurve * 300 // 增加最大高度
-											} else if (liquidityStrategy === 'bid-ask') {
-												// Enhanced bid-ask with clearer separation
-												const leftPeak = Math.exp(-Math.pow((distance - 0.35) * 8, 2))
-												const rightPeak = Math.exp(-Math.pow((distance + 0.35 - 1) * 8, 2))
-												const edgeEffect = distance > 0.2 ? (leftPeak + rightPeak) : 0.05
-												height = 30 + edgeEffect * 250 // 增加高度
+										{/* Meteora-style dynamic liquidity visualization */}
+										{(() => {
+											const amt0 = parseFloat(amount0 || '0') // Token X (left input, right side bars)
+											const amt1 = parseFloat(amount1 || '0') // Token Y (right input, left side bars)
+											
+											// If no tokens provided, show empty state
+											if (amt0 === 0 && amt1 === 0) {
+												return (
+													<Box
+														sx={{
+															display: 'flex',
+															alignItems: 'center',
+															justifyContent: 'center',
+															height: '100%',
+															color: 'rgba(255, 255, 255, 0.5)',
+															fontSize: '14px',
+															fontStyle: 'italic'
+														}}
+													>
+														Enter token amounts to see liquidity distribution
+													</Box>
+												)
 											}
 
-											// Enhanced color determination with 3D effects - show selection range
-											let barColor = 'rgba(255, 255, 255, 0.1)'
-											let shadowColor = 'rgba(0, 0, 0, 0.3)'
-											let glowEffect = 'none'
+											// Generate bars with proper Meteora logic
+											return Array.from({ length: Math.min(149, parseInt(getNumBins())) }, (_, i) => {
+												const binStep = selectedPool?.binStep || 50 // Use 50 as default bin step
+												const binStepFactor = 1 + binStep / 10000
+												const baseBinPrice = activeBinPrice
 
-											if (isCurrentPrice) {
-												barColor = '#ffffff'
-												glowEffect = '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.4)'
-											} else if (isInRange) {
-												// Show selected range with gradient colors (always visible when range is selected)
-												const intensity = Math.min(1, height / 150)
-												const depthFactor = 0.7 + (intensity * 0.3)
+												// Use dynamic range calculation
+												const { minPrice: dynMinPrice, maxPrice: dynMaxPrice } = calculateDynamicRange()
+												const minPriceRange = parseFloat(minPrice) || dynMinPrice
+												const maxPriceRange = parseFloat(maxPrice) || dynMaxPrice
 
-												if (binPrice < activeBinPrice) {
-													// Left side - teal gradient with depth
-													barColor = `linear-gradient(135deg,
-														rgba(0, 217, 255, ${0.8 * depthFactor}) 0%,
-														rgba(0, 150, 200, ${0.9 * depthFactor}) 50%,
-														rgba(0, 100, 150, ${0.7 * depthFactor}) 100%)`
-													shadowColor = 'rgba(0, 217, 255, 0.3)'
-													glowEffect = `0 0 10px rgba(0, 217, 255, ${0.4 * intensity})`
-												} else {
-													// Right side - purple gradient with depth
-													barColor = `linear-gradient(135deg,
-														rgba(123, 104, 238, ${0.8 * depthFactor}) 0%,
-														rgba(100, 80, 200, ${0.9 * depthFactor}) 50%,
-														rgba(80, 60, 160, ${0.7 * depthFactor}) 100%)`
-													shadowColor = 'rgba(123, 104, 238, 0.3)'
-													glowEffect = `0 0 10px rgba(123, 104, 238, ${0.4 * intensity})`
+												const minBinId = Math.floor(Math.log(minPriceRange / baseBinPrice) / Math.log(binStepFactor))
+												// Calculate current bin price based on position in range
+												const currentBinId = minBinId + i
+												const binPrice = baseBinPrice * Math.pow(binStepFactor, currentBinId)
+
+												// Debug: Log some bin prices for verification
+												if (i < 5) {
+													console.log(`🔍 Bin ${i}: ID=${currentBinId}, Price=${binPrice.toFixed(5)}, BinStep=${binStep}`)
 												}
-											} else {
-												// Default inactive bars
-												barColor = 'rgba(255, 255, 255, 0.15)'
-											}
 
-											return (
-												<Box
-													key={i}
-													sx={{
-														width: 8, // 增加宽度从4到8
-														height: Math.max(30, height), // 增加最小高度从4到30
-														background: barColor,
-														borderRadius: '3px 3px 0 0', // 稍微增加圆角
-														position: 'relative',
-														transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-														opacity: 1, // Always full opacity for fixed display
-														transform: `
-															perspective(1000px)
-															rotateX(${isInRange ? '0deg' : '5deg'})
-														`,
-														boxShadow: `
-															${glowEffect},
-															0 2px 8px ${shadowColor},
-															inset 0 1px 0 rgba(255, 255, 255, 0.2)
-														`,
-														'&::after': isInRange ? {
-															content: '""',
-															position: 'absolute',
-															top: 0,
-															left: 0,
-															right: 0,
-															bottom: 0,
-															background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.3) 0%, transparent 30%)',
-															borderRadius: '2px 2px 0 0',
-														} : {},
-													}}
-												/>
-											)
-										})}
+												// Calculate position relative to the range (0-1)
+												const position = (binPrice - minPriceRange) / (maxPriceRange - minPriceRange)
+												const centerPosition = (activeBinPrice - minPriceRange) / (maxPriceRange - minPriceRange)
+												const distance = Math.abs(position - centerPosition)
+
+												// Check if this bar is within the selected range and is the active bin
+												const isInRange = binPrice >= minPriceRange && binPrice <= maxPriceRange
+												const isCurrentPrice = Math.abs(binPrice - activeBinPrice) < (activeBinPrice * 0.001)
+
+												// Meteora logic: Only show bars where tokens are provided
+												let shouldShowBar = false
+												if (isCurrentPrice && (amt0 > 0 || amt1 > 0)) {
+													// Active bin shows when either token is provided
+													shouldShowBar = true
+												} else if (binPrice < activeBinPrice && amt1 > 0) {
+													// Left side bars only show when Token Y is provided
+													shouldShowBar = true
+												} else if (binPrice > activeBinPrice && amt0 > 0) {
+													// Right side bars only show when Token X is provided
+													shouldShowBar = true
+												}
+
+												// If bar shouldn't show, return null or minimal height
+												if (!shouldShowBar) {
+													return (
+														<Box
+															key={i}
+															sx={{
+																width: 8,
+																height: 30,
+																background: 'rgba(255, 255, 255, 0.05)',
+																borderRadius: '3px 3px 0 0',
+																opacity: 0.3
+															}}
+														/>
+													)
+												}
+
+												// Calculate height based on strategy and token amounts
+												let height = 30
+
+												// Strategy-specific height calculations with correct token mapping
+												if (liquidityStrategy === 'spot') {
+													// Uniform distribution adjusted by token amounts
+													const baseHeight = 80
+													let tokenInfluence = 1
+													
+													if (isCurrentPrice) {
+														// Active bin gets boost from both tokens
+														tokenInfluence = 1 + Math.log(1 + (amt0 + amt1)) * 0.8
+													} else if (binPrice < activeBinPrice && amt1 > 0) {
+														// Left side influenced by Token Y amount - create sawtooth decay pattern
+														const distanceFromActive = Math.abs(position - centerPosition)
+														const sawtoothDecay = Math.max(0.1, 1 - (distanceFromActive * 3)) // Sharp linear decay
+														tokenInfluence = (1 + Math.log(1 + amt1) * 0.8) * sawtoothDecay
+													} else if (binPrice > activeBinPrice && amt0 > 0) {
+														// Right side influenced by Token X amount - create sawtooth decay pattern
+														const distanceFromActive = Math.abs(position - centerPosition)
+														const sawtoothDecay = Math.max(0.1, 1 - (distanceFromActive * 3)) // Sharp linear decay
+														tokenInfluence = (1 + Math.log(1 + amt0) * 0.8) * sawtoothDecay
+													}
+													
+													height = baseHeight * tokenInfluence
+												} else if (liquidityStrategy === 'curve') {
+													// Enhanced bell curve with token amount scaling
+													const bellCurve = Math.exp(-Math.pow(distance * 4, 2))
+													let tokenMultiplier = 1
+													
+													if (isCurrentPrice) {
+														tokenMultiplier = 1 + Math.log(1 + (amt0 + amt1)) * 0.8
+													} else if (binPrice < activeBinPrice && amt1 > 0) {
+														// Left side - more gradual decay for curve strategy
+														const curveDecay = Math.exp(-distance * 2.5)
+														tokenMultiplier = (1 + Math.log(1 + amt1) * 0.6) * curveDecay
+													} else if (binPrice > activeBinPrice && amt0 > 0) {
+														// Right side - more gradual decay for curve strategy
+														const curveDecay = Math.exp(-distance * 2.5)
+														tokenMultiplier = (1 + Math.log(1 + amt0) * 0.6) * curveDecay
+													}
+													
+													height = (40 + bellCurve * 200) * tokenMultiplier
+												} else if (liquidityStrategy === 'bid-ask') {
+													// Enhanced bid-ask with token-specific peaks
+													let peakHeight = 0
+													
+													if (isCurrentPrice) {
+														// Active bin gets minimal liquidity in bid-ask
+														peakHeight = 0.3 + Math.log(1 + (amt0 + amt1)) * 0.1
+													} else if (binPrice < activeBinPrice && amt1 > 0) {
+														// Left peak (lower prices) enhanced by Token Y - wider sawtooth pattern
+														const distanceFromPeak = Math.abs(position - 0.15) // Peak at 15% from left
+														const sawtoothPattern = Math.max(0.05, 1 - (distanceFromPeak * 4))
+														peakHeight = sawtoothPattern * (1 + Math.log(1 + amt1) * 0.6)
+													} else if (binPrice > activeBinPrice && amt0 > 0) {
+														// Right peak (higher prices) enhanced by Token X - wider sawtooth pattern
+														const distanceFromPeak = Math.abs(position - 0.85) // Peak at 85% from left
+														const sawtoothPattern = Math.max(0.05, 1 - (distanceFromPeak * 4))
+														peakHeight = sawtoothPattern * (1 + Math.log(1 + amt0) * 0.6)
+													}
+													
+													height = 30 + peakHeight * 250
+												}
+
+												// Enhanced color determination with correct token mapping
+												let barColor = 'rgba(255, 255, 255, 0.1)'
+												let shadowColor = 'rgba(0, 0, 0, 0.3)'
+												let glowEffect = 'none'
+
+												if (isCurrentPrice) {
+													// Active bin with split colors when both tokens are provided
+													if (amt0 > 0 && amt1 > 0) {
+														barColor = 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)'
+													} else if (amt0 > 0) {
+														barColor = '#7B68EE' // Only Token X - purple
+													} else {
+														barColor = '#00D9FF' // Only Token Y - teal
+													}
+													glowEffect = '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.4)'
+												} else if (isInRange && shouldShowBar) {
+													const intensity = Math.min(1, height / 200)
+													const depthFactor = 0.7 + (intensity * 0.3)
+
+													if (binPrice < activeBinPrice) {
+														// Left side bars - Token Y (USDC) - Teal color
+														const tokenYInfluence = Math.min(1, Math.log(1 + amt1) / 3)
+														barColor = `linear-gradient(135deg,
+															rgba(0, 217, 255, ${(0.8 * depthFactor * tokenYInfluence)}) 0%,
+															rgba(0, 150, 200, ${(0.9 * depthFactor * tokenYInfluence)}) 50%,
+															rgba(0, 100, 150, ${(0.7 * depthFactor * tokenYInfluence)}) 100%)`
+														shadowColor = 'rgba(0, 217, 255, 0.3)'
+														glowEffect = `0 0 10px rgba(0, 217, 255, ${0.4 * intensity * tokenYInfluence})`
+													} else {
+														// Right side bars - Token X (AVAX) - Purple color
+														const tokenXInfluence = Math.min(1, Math.log(1 + amt0) / 3)
+														barColor = `linear-gradient(135deg,
+															rgba(123, 104, 238, ${(0.8 * depthFactor * tokenXInfluence)}) 0%,
+															rgba(100, 80, 200, ${(0.9 * depthFactor * tokenXInfluence)}) 50%,
+															rgba(80, 60, 160, ${(0.7 * depthFactor * tokenXInfluence)}) 100%)`
+														shadowColor = 'rgba(123, 104, 238, 0.3)'
+														glowEffect = `0 0 10px rgba(123, 104, 238, ${0.4 * intensity * tokenXInfluence})`
+													}
+												}
+
+												return (
+													<Box
+														key={i}
+														sx={{
+															width: 8,
+															height: Math.max(30, height),
+															background: barColor,
+															borderRadius: '3px 3px 0 0',
+															position: 'relative',
+															transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+															opacity: 1,
+															transform: `
+																perspective(1000px)
+																rotateX(${isInRange ? '0deg' : '5deg'})
+															`,
+															boxShadow: `
+																${glowEffect},
+																0 2px 8px ${shadowColor},
+																inset 0 1px 0 rgba(255, 255, 255, 0.2)
+															`,
+															'&::after': isInRange ? {
+																content: '""',
+																position: 'absolute',
+																top: 0,
+																left: 0,
+																right: 0,
+																bottom: 0,
+																background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.3) 0%, transparent 30%)',
+																borderRadius: '2px 2px 0 0',
+															} : {},
+														}}
+													/>
+												)
+											})
+										})()}
 
 										{/* Enhanced current price indicator line */}
 										<Box sx={{
@@ -1291,7 +1542,7 @@ const AddLiquidityDialog = ({
 										<Box
 											sx={{
 												position: 'absolute',
-												left: `${((parseFloat(minPrice || (activeBinPrice * 0.95).toString()) - (activeBinPrice * 0.8)) / ((activeBinPrice * 1.2) - (activeBinPrice * 0.8))) * 100}%`,
+												left: `${((parseFloat(minPrice || activeBinPrice.toString()) - (activeBinPrice * 0.8)) / ((activeBinPrice * 1.2) - (activeBinPrice * 0.8))) * 100}%`,
 												top: 0, // Start from the top of container
 												bottom: 0, // Go to the bottom of container
 												width: 3,
@@ -1316,7 +1567,7 @@ const AddLiquidityDialog = ({
 												e.preventDefault()
 												const chartRect = e.currentTarget.parentElement!.getBoundingClientRect()
 												const startX = e.clientX
-												const startMinPrice = parseFloat(minPrice || (activeBinPrice * 0.95).toString())
+												const startMinPrice = parseFloat(minPrice || activeBinPrice.toString())
 
 												const handleMouseMove = (moveEvent: MouseEvent) => {
 													const deltaX = moveEvent.clientX - startX
@@ -1395,7 +1646,7 @@ const AddLiquidityDialog = ({
 													const newMaxPrice = Math.min(
 														activeBinPrice * 1.2,
 														Math.max(
-															parseFloat(minPrice || (activeBinPrice * 0.95).toString()) + 0.01,
+															parseFloat(minPrice || activeBinPrice.toString()) + 0.01,
 															startMaxPrice + (deltaPercent * priceRange)
 														)
 													)
@@ -1442,11 +1693,13 @@ const AddLiquidityDialog = ({
 										border: '1px solid rgba(255, 255, 255, 0.05)',
 									}}>
 										{Array.from({ length: 11 }, (_, i) => {
-											const minRange = parseFloat(minPrice || (activeBinPrice * 0.95).toString())
-											const maxRange = parseFloat(maxPrice || (activeBinPrice * 1.05).toString())
+											const { minPrice: dynMinPrice, maxPrice: dynMaxPrice } = calculateDynamicRange()
+											const minRange = parseFloat(minPrice) || dynMinPrice
+											const maxRange = parseFloat(maxPrice) || dynMaxPrice
 											const totalRange = maxRange - minRange
 											const price = minRange + (i * totalRange / 10)
 											const isInRange = price >= minRange && price <= maxRange
+											const isActivePrice = Math.abs(price - activeBinPrice) < (activeBinPrice * 0.01)
 
 											return (
 												<Box
@@ -1464,8 +1717,10 @@ const AddLiquidityDialog = ({
 														variant="caption"
 														sx={{
 															fontSize: '9px',
-															fontWeight: isInRange ? 600 : 400,
-															color: isInRange ? '#00D9FF' : 'text.secondary',
+															fontWeight: isActivePrice ? 700 : isInRange ? 600 : 400,
+															color: isActivePrice ? '#ffffff' : 
+																  price < activeBinPrice ? '#00D9FF' : 
+																  price > activeBinPrice ? '#7B68EE' : 'text.secondary',
 															transition: 'color 0.3s ease',
 														}}
 													>
@@ -1485,7 +1740,7 @@ const AddLiquidityDialog = ({
 									<Box sx={{ position: 'relative', py: 2 }}>
 										<Slider
 											value={[
-												parseFloat(minPrice || (activeBinPrice * 0.95).toString()),
+												parseFloat(minPrice || activeBinPrice.toString()),
 												parseFloat(maxPrice || (activeBinPrice * 1.05).toString()),
 											]}
 											onChange={(_e, newValue) => {
@@ -1589,7 +1844,7 @@ const AddLiquidityDialog = ({
 									</Box>
 								</Box>
 
-								{/* Enhanced Price Information Grid */}
+								{/* Enhanced Price Information Grid with Dynamic Info */}
 								<Grid container spacing={3} sx={{ mb: 3 }}>
 									<Grid size={4}>
 										<Box sx={{ textAlign: 'center', p: 2, backgroundColor: 'rgba(0, 217, 255, 0.1)', borderRadius: 2 }}>
@@ -1597,15 +1852,33 @@ const AddLiquidityDialog = ({
 												Min Price
 											</Typography>
 											<Typography variant="h6" fontWeight={600} color="white">
-												{parseFloat(minPrice || (activeBinPrice * 0.95).toString()).toFixed(6)}
+												{(() => {
+													const { minPrice: dynMinPrice } = calculateDynamicRange()
+													const displayMinPrice = parseFloat(minPrice) || dynMinPrice
+													return displayMinPrice.toFixed(6)
+												})()}
 											</Typography>
 											<Typography
 												variant="body2"
-												color={parseFloat(minPrice || (activeBinPrice * 0.95).toString()) < activeBinPrice ? '#00D9FF' : '#7B68EE'}
+												color={(() => {
+													const { minPrice: dynMinPrice } = calculateDynamicRange()
+													const displayMinPrice = parseFloat(minPrice) || dynMinPrice
+													return displayMinPrice < activeBinPrice ? '#00D9FF' : '#7B68EE'
+												})()}
 												fontWeight={600}
 											>
-												{parseFloat(minPrice || (activeBinPrice * 0.95).toString()) < activeBinPrice ? '-' : '+'}{Math.abs(((parseFloat(minPrice || (activeBinPrice * 0.95).toString()) / activeBinPrice) - 1) * 100).toFixed(2)}%
+												{(() => {
+													const { minPrice: dynMinPrice } = calculateDynamicRange()
+													const displayMinPrice = parseFloat(minPrice) || dynMinPrice
+													const percentChange = Math.abs(((displayMinPrice / activeBinPrice) - 1) * 100)
+													return (displayMinPrice < activeBinPrice ? '-' : '+') + percentChange.toFixed(2) + '%'
+												})()}
 											</Typography>
+											{!minPrice && (
+												<Typography variant="caption" color="rgba(0, 217, 255, 0.7)" sx={{ fontSize: '10px' }}>
+													Auto-calculated
+												</Typography>
+											)}
 										</Box>
 									</Grid>
 									<Grid size={4}>
@@ -1614,15 +1887,33 @@ const AddLiquidityDialog = ({
 												Max Price
 											</Typography>
 											<Typography variant="h6" fontWeight={600} color="white">
-												{parseFloat(maxPrice || (activeBinPrice * 1.05).toString()).toFixed(6)}
+												{(() => {
+													const { maxPrice: dynMaxPrice } = calculateDynamicRange()
+													const displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
+													return displayMaxPrice.toFixed(6)
+												})()}
 											</Typography>
 											<Typography
 												variant="body2"
-												color={parseFloat(maxPrice || (activeBinPrice * 1.05).toString()) < activeBinPrice ? '#00D9FF' : '#7B68EE'}
+												color={(() => {
+													const { maxPrice: dynMaxPrice } = calculateDynamicRange()
+													const displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
+													return displayMaxPrice < activeBinPrice ? '#00D9FF' : '#7B68EE'
+												})()}
 												fontWeight={600}
 											>
-												{parseFloat(maxPrice || (activeBinPrice * 1.05).toString()) < activeBinPrice ? '-' : '+'}{Math.abs(((parseFloat(maxPrice || (activeBinPrice * 1.05).toString()) / activeBinPrice) - 1) * 100).toFixed(2)}%
+												{(() => {
+													const { maxPrice: dynMaxPrice } = calculateDynamicRange()
+													const displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
+													const percentChange = Math.abs(((displayMaxPrice / activeBinPrice) - 1) * 100)
+													return (displayMaxPrice < activeBinPrice ? '-' : '+') + percentChange.toFixed(2) + '%'
+												})()}
 											</Typography>
+											{!maxPrice && (
+												<Typography variant="caption" color="rgba(123, 104, 238, 0.7)" sx={{ fontSize: '10px' }}>
+													Auto-calculated
+												</Typography>
+											)}
 										</Box>
 									</Grid>
 									<Grid size={4}>
@@ -1633,14 +1924,24 @@ const AddLiquidityDialog = ({
 											<Typography variant="h6" fontWeight={600} color="white">
 												{getNumBins()}
 											</Typography>
-											{/* Show first few price points as preview */}
+											{/* Show token distribution info */}
 											<Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', fontSize: '10px' }}>
-												{getPricePoints().slice(0, 3).join(', ')}...
+												{(() => {
+													const amt0 = parseFloat(amount0 || '0')
+													const amt1 = parseFloat(amount1 || '0')
+													if (amt0 > 0 && amt1 > 0) {
+														return `${selectedPool?.token0}: ${((amt0 / (amt0 + amt1)) * 100).toFixed(0)}%`
+													} else if (amt0 > 0) {
+														return `${selectedPool?.token0} only`
+													} else if (amt1 > 0) {
+														return `${selectedPool?.token1} only`
+													}
+													return 'No tokens set'
+												})()}
 											</Typography>
 										</Box>
 									</Grid>
 								</Grid>
-
 							</Card>
 						</Box>
 
