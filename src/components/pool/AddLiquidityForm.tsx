@@ -54,6 +54,7 @@ const AddLiquidityForm = ({
 	const [amount0, setAmount0] = useState('')
 	const [amount1, setAmount1] = useState('')
 	const [autoFill, setAutoFill] = useState(false)
+	const [slippageTolerance] = useState(1) // Default 1% slippage tolerance
 
 	// Liquidity strategy states
 	const [liquidityStrategy, setLiquidityStrategy] = useState<
@@ -596,7 +597,8 @@ const AddLiquidityForm = ({
 				undefined, // distributionX - 让系统自动生成
 				undefined, // distributionY - 让系统自动生成
 				isSingleSided, // 明确设置单边模式
-				isSingleSided ? mappedSingleSidedStrategy : undefined // 只在单边模式时使用策略
+				isSingleSided ? mappedSingleSidedStrategy : undefined, // 只在单边模式时使用策略
+				slippageTolerance // 传递用户设置的滑点容忍度
 			)
 			console.log('✅ Liquidity added successfully!')
 			toast.success('Liquidity added successfully!')
@@ -641,6 +643,17 @@ const AddLiquidityForm = ({
 					errorMessage = 'Invalid liquidity distribution parameters. Please try again.'
 				} else if (error.message.includes('LBRouter__WrongAmounts')) {
 					errorMessage = 'Invalid token amounts. Please check your inputs.'
+				} else if (error.message.includes('LBRouter__AmountSlippageCaught')) {
+					// 专门处理滑点捕获错误
+					const match = error.message.match(/LBRouter__AmountSlippageCaught \(amountXMin=(\d+), amountX=(\d+), amountYMin=(\d+), amountY=(\d+)/)
+					if (match) {
+						const [, amountXMin, amountX, amountYMin, amountY] = match
+						console.error('🎯 Slippage error details:', { amountXMin, amountX, amountYMin, amountY })
+						
+						errorMessage = `Price slippage protection triggered. Expected minimum: X=${amountXMin}, Y=${amountYMin}, but got: X=${amountX}, Y=${amountY}. Please try again when market conditions are more stable, or try with smaller amounts.`
+					} else {
+						errorMessage = 'Price slippage too high. The price moved significantly during transaction. Please try again with higher slippage tolerance or when markets are less volatile.'
+					}
 				} else if (error.message.includes('LBRouter__MaxAmountSlippageExceeded')) {
 					errorMessage = 'Amount slippage exceeded. Try with higher slippage tolerance.'
 				} else if (error.message.includes('LBRouter__IdSlippageExceeded')) {
@@ -1564,6 +1577,7 @@ const AddLiquidityForm = ({
 															`,
 															'&::after': isInRange ? {
 																content: '""',
+
 																position: 'absolute',
 																top: 0,
 																left: 0,
@@ -2069,6 +2083,18 @@ const AddLiquidityForm = ({
 									? 'Adding Liquidity...'
 									: 'Add Liquidity'}
 						</Button>
+
+						{/* Slippage Helper */}
+						{error && error.message.includes('LBRouter__AmountSlippageCaught') && (
+							<Alert severity="info" sx={{ mt: 2 }}>
+								<Typography variant="body2" sx={{ mb: 1 }}>
+									<strong>Slippage Protection Triggered:</strong> The transaction was prevented because the price moved too much during execution.
+								</Typography>
+								<Typography variant="body2">
+									💡 Try: Increase slippage tolerance to {Math.min(20, slippageTolerance + 5)}% or wait for price to stabilize.
+								</Typography>
+							</Alert>
+						)}
 
 						{/* Success/Error Messages */}
 						{isSuccess && (

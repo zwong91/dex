@@ -47,6 +47,7 @@ export const useDexOperations = () => {
 		distributionY?: bigint[],
 		singleSidedMode?: boolean, // Enable single-sided liquidity
 		singleSidedStrategy?: 'conservative' | 'balanced' | 'aggressive', // Strategy for single-sided
+		customSlippageTolerance?: number, // Custom slippage tolerance percentage (e.g., 5 for 5%)
 	) => {
 		try {
 			console.log("🔍 addLiquidity called with:", { 
@@ -135,18 +136,27 @@ export const useDexOperations = () => {
 			const tokenAmountToken0 = new TokenAmount(pair.token0, typedValueToken0Parsed)
 			const tokenAmountToken1 = new TokenAmount(pair.token1, typedValueToken1Parsed)
 
-			// 滑点容忍度 (50 bips = 0.5%)
-			const allowedAmountsSlippage = 50
+			// 使用用户设置的滑点容忍度，或根据模式使用默认值
+			// customSlippageTolerance 是百分比 (e.g., 5 for 5%)
+			const userSlippagePercentage = customSlippageTolerance || (isSingleSided ? 10 : 5)
+			const allowedAmountsSlippage = userSlippagePercentage * 100 // 转换为 bips (5% = 500 bips)
 
-			// 基于滑点计算最小数量
-			const minTokenAmount0 = JSBI.divide(
+			console.log("🎯 Slippage configuration:", {
+				userSlippagePercentage: userSlippagePercentage + "%",
+				allowedAmountsSlippage: allowedAmountsSlippage + " bips",
+				mode: isSingleSided ? 'single-sided' : 'dual-sided'
+			})
+
+			// 基于滑点计算最小数量 - 对于单边流动性，只有一个代币有值，另一个为0
+			const minTokenAmount0 = amountToken0 > 0 ? JSBI.divide(
 				JSBI.multiply(tokenAmountToken0.raw, JSBI.BigInt(10000 - allowedAmountsSlippage)),
 				JSBI.BigInt(10000)
-			)
-			const minTokenAmount1 = JSBI.divide(
+			) : JSBI.BigInt(0)
+			
+			const minTokenAmount1 = amountToken1 > 0 ? JSBI.divide(
 				JSBI.multiply(tokenAmountToken1.raw, JSBI.BigInt(10000 - allowedAmountsSlippage)),
 				JSBI.BigInt(10000)
-			)
+			) : JSBI.BigInt(0)
 
 			// 获取LBPair信息
 			const pairVersion = 'v22'
@@ -291,6 +301,62 @@ export const useDexOperations = () => {
 			const amountXMin = isTokenXToken0 ? minTokenAmount0.toString() : minTokenAmount1.toString()
 			const amountYMin = isTokenYToken1 ? minTokenAmount1.toString() : minTokenAmount0.toString()
 
+			console.log("🔍 Amount calculation debug:", {
+				originalAmounts: { tokenAAmount, tokenBAmount },
+				orderedAmounts: { amountToken0, amountToken1 },
+				parsedAmounts: {
+					token0Raw: tokenAmountToken0.raw.toString(),
+					token1Raw: tokenAmountToken1.raw.toString(),
+					token0Decimals: pair.token0.decimals,
+					token1Decimals: pair.token1.decimals
+				},
+				finalAmounts: { amountX, amountY },
+				minAmounts: { amountXMin, amountYMin },
+				slippageConfig: {
+					userSlippagePercentage: userSlippagePercentage + "%",
+					allowedAmountsSlippage: allowedAmountsSlippage + " bips",
+					calculation: `${10000 - allowedAmountsSlippage}/10000 = ${(10000 - allowedAmountsSlippage)/10000}`
+				},
+				tokenMapping: {
+					isTokenXToken0,
+					isTokenYToken1,
+					actualTokenX,
+					actualTokenY
+				}
+			})
+
+			// 验证金额合理性
+			if (BigInt(amountX) === BigInt(0) && BigInt(amountY) === BigInt(0)) {
+				throw new Error("Both amounts cannot be zero")
+			}
+
+			// 验证最小金额不会超过实际金额（这可能是导致slippage错误的原因）
+			// 如果检测到这种情况，自动调整最小金额为更安全的值
+			let finalAmountXMin = amountXMin
+			let finalAmountYMin = amountYMin
+
+			if (BigInt(amountX) > 0 && BigInt(amountXMin) > BigInt(amountX)) {
+				console.warn("⚠️ AmountXMin exceeds amountX, adjusting to safer value:", { 
+					original: amountXMin, 
+					actual: amountX,
+					ratio: Number(BigInt(amountXMin)) / Number(BigInt(amountX))
+				})
+				// 使用实际金额的 90% 作为最小值，而不是基于错误计算的值
+				finalAmountXMin = (BigInt(amountX) * BigInt(90) / BigInt(100)).toString()
+				console.log("🔧 Adjusted amountXMin from", amountXMin, "to", finalAmountXMin)
+			}
+
+			if (BigInt(amountY) > 0 && BigInt(amountYMin) > BigInt(amountY)) {
+				console.warn("⚠️ AmountYMin exceeds amountY, adjusting to safer value:", { 
+					original: amountYMin, 
+					actual: amountY,
+					ratio: Number(BigInt(amountYMin)) / Number(BigInt(amountY))
+				})
+				// 使用实际金额的 90% 作为最小值
+				finalAmountYMin = (BigInt(amountY) * BigInt(90) / BigInt(100)).toString()
+				console.log("🔧 Adjusted amountYMin from", amountYMin, "to", finalAmountYMin)
+			}
+
 			// 构建addLiquidity参数
 			const currentTimeInSec = Math.floor(Date.now() / 1000)
 			const deadline = currentTimeInSec + 1200 // 20分钟后过期
@@ -301,10 +367,10 @@ export const useDexOperations = () => {
 				binStep: Number(binStep || 25),
 				amountX,
 				amountY,
-				amountXMin,
-				amountYMin,
+				amountXMin: finalAmountXMin,
+				amountYMin: finalAmountYMin,
 				activeIdDesired: Number(activeBin),
-				idSlippage: 5,
+				idSlippage: Math.max(5, Math.min(50, Math.round(userSlippagePercentage * 2))), // ID slippage: 2x amount slippage, capped between 5-50
 				deltaIds: finalDeltaIds,
 				distributionX: finalDistributionX,
 				distributionY: finalDistributionY,
@@ -480,6 +546,29 @@ export const useDexOperations = () => {
 						'用户取消了添加流动性交易。请确认交易以完成操作。'
 					throw new Error(errorMessage)
 				}
+				
+				// 专门处理滑点捕获错误
+				if (addLiquidityError.message?.includes('LBRouter__AmountSlippageCaught')) {
+					console.error("🎯 Amount slippage caught - detailed analysis:", {
+						errorMessage: addLiquidityError.message,
+						inputParams: {
+							amountX,
+							amountY,
+							amountXMin: finalAmountXMin,
+							amountYMin: finalAmountYMin,
+							userSlippage: userSlippagePercentage + "%"
+						},
+						suggestions: [
+							"1. Increase slippage tolerance to 10-15%",
+							"2. Try smaller amounts",
+							"3. Wait for less volatile market conditions",
+							"4. Check if pool has sufficient liquidity"
+						]
+					})
+					
+					throw new Error(`Price slippage too high! The transaction was rejected because the expected minimum amounts were not met. Current slippage: ${userSlippagePercentage}%. Try increasing slippage tolerance to 10-15% or wait for more stable market conditions.`)
+				}
+				
 				console.error("AddLiquidity transaction error:", addLiquidityError)
 				const errorMessage = isSingleSided ? 
 					`添加单边流动性失败: ${addLiquidityError.message}` : 
