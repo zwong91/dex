@@ -43,7 +43,7 @@ const PortfolioPage = () => {
   const { positions: userPositions, loading: positionsLoading } = useUserLiquidityPositions(address);
   
   // Get dex operations for liquidity withdrawal
-  const { collectFeesAndWithdrawAll } = useDexOperations();
+  const { removeLiquidity } = useDexOperations();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -59,8 +59,24 @@ const PortfolioPage = () => {
 
   // Handle collecting fees and withdrawing all liquidity (close position)
   const handleWithdrawAndClose = async (position: UserPosition) => {
+    console.log('🔍 Debug: handleWithdrawAndClose called with position:', position);
+    
     if (!address || !position.binData || position.binData.length === 0) {
-      setOperationError('Invalid position data or wallet not connected');
+      const errorMsg = !address 
+        ? 'Wallet not connected' 
+        : !position.binData 
+          ? 'Position binData is missing'
+          : 'Position binData is empty';
+      
+      console.error('❌ Validation failed:', errorMsg);
+      console.log('Debug info:', {
+        address,
+        hasBinData: !!position.binData,
+        binDataLength: position.binData?.length || 0,
+        position
+      });
+      
+      setOperationError(`Invalid position data: ${errorMsg}`);
       return;
     }
 
@@ -68,29 +84,60 @@ const PortfolioPage = () => {
       setIsWithdrawingAndClosing(true);
       setOperationError(null);
 
+      console.log('🔍 Position binData:', position.binData);
+      console.log('🔍 Position details:', {
+        token0: position.token0,
+        token1: position.token1,
+        token0Address: position.token0Address,
+        token1Address: position.token1Address,
+        pairAddress: position.pairAddress,
+        binStep: position.binStep
+      });
+
       // Prepare bin data for withdrawal
       const binIds: number[] = [];
       const amounts: bigint[] = [];
 
       position.binData.forEach(bin => {
+        console.log('🔍 Processing bin:', bin);
         if (bin.shares > 0) {
           binIds.push(bin.binId);
           amounts.push(bin.shares); // Use full shares amount for complete withdrawal
+          console.log(`✅ Added bin ${bin.binId} with ${bin.shares.toString()} shares`);
+        } else {
+          console.log(`⚠️ Skipped bin ${bin.binId} - zero shares`);
         }
       });
 
       if (binIds.length === 0 || amounts.length === 0) {
-        throw new Error('No liquidity available to withdraw from this position');
+        const errorMsg = 'No liquidity available to withdraw from this position';
+        console.error('❌ No valid bins found:', { binIds, amounts });
+        throw new Error(errorMsg);
       }
 
       console.log('🔍 Withdrawing all liquidity and collecting fees for position:', {
         pair: `${position.token0}/${position.token1}`,
         binIds,
         amounts: amounts.map(a => a.toString()),
-        pairAddress: position.pairAddress
+        pairAddress: position.pairAddress,
+        token0Address: position.token0Address,
+        token1Address: position.token1Address,
+        binStep: position.binStep
       });
 
-      await collectFeesAndWithdrawAll(
+      // Validate all required parameters
+      if (!position.pairAddress) {
+        throw new Error('Missing pair address');
+      }
+      if (!position.token0Address || !position.token1Address) {
+        throw new Error('Missing token addresses');
+      }
+      if (!position.binStep) {
+        throw new Error('Missing bin step');
+      }
+
+      console.log('🚀 Calling removeLiquidity...');
+      await removeLiquidity(
         position.pairAddress,
         position.token0Address,
         position.token1Address,
@@ -99,11 +146,16 @@ const PortfolioPage = () => {
         position.binStep
       );
 
-      console.log('✅ Position closed successfully (fees collected + liquidity withdrawn)');
+      console.log('✅ Liquidity withdrawal successful');
       // Refresh data after successful operation
       await refetch();
     } catch (error: any) {
       console.error('❌ Position closure failed:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      });
       setOperationError(`Position closure failed: ${error.message}`);
     } finally {
       setIsWithdrawingAndClosing(false);
@@ -630,7 +682,6 @@ const PortfolioPage = () => {
         {/* Performance Alert for slow loading */}
         {(loading || positionsLoading) && (
           <Alert 
-            icon={<SpeedIcon />}
             severity="info" 
             sx={{ 
               mb: 3, 

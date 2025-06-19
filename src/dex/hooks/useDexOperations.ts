@@ -495,89 +495,115 @@ export const useDexOperations = () => {
 			if (!tokenA || !tokenB) {
 				throw new Error(`Token not found in SDK configuration`)
 			}
+		console.log("🏊‍♀️ 开始移除 LB 流动性:", {
+			pairAddress,
+			tokenA: { symbol: tokenA.symbol, address: tokenA.address },
+			tokenB: { symbol: tokenB.symbol, address: tokenB.address },
+			binIds,
+			amounts: amounts.map(a => a.toString()),
+			binStep
+		})
 
-			console.log("🏊‍♀️ 开始移除 LB 流动性:", {
-				pairAddress,
-				tokenA: { symbol: tokenA.symbol, address: tokenA.address },
-				tokenB: { symbol: tokenB.symbol, address: tokenB.address },
-				binIds,
-				amounts: amounts.map(a => a.toString()),
-				binStep
+		// 验证参数
+		if (!binStep || binStep <= 0) {
+			throw new Error(`Invalid binStep: ${binStep}`)
+		}
+
+		if (binIds.length === 0 || amounts.length === 0) {
+			throw new Error("No bins or amounts specified")
+		}
+
+		if (binIds.length !== amounts.length) {
+			throw new Error("Bin IDs and amounts arrays must have the same length")
+		}
+
+		// 直接使用提供的pairAddress，不要重新获取
+		console.log(`✅ 使用提供的LBPair地址: ${pairAddress}`)
+
+		// 检查是否已授权LBPair操作 (ERC1155接口)
+		console.log("🔍 检查LBPair授权状态...")
+		
+		// 创建公共客户端
+		const publicClient = createViemClient(chainId)
+					// 使用正确的ERC1155 ABI进行授权检查
+		const erc1155ApprovalABI = [{
+			"inputs": [
+				{"internalType": "address", "name": "account", "type": "address"},
+				{"internalType": "address", "name": "operator", "type": "address"}
+			],
+			"name": "isApprovedForAll",
+			"outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+			"stateMutability": "view",
+			"type": "function"
+		}]
+		
+		const approved = await publicClient.readContract({
+			address: pairAddress as `0x${string}`,
+			abi: erc1155ApprovalABI,
+			functionName: 'isApprovedForAll',
+			args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
+		}) as boolean
+
+		if (!approved) {
+			console.log("🔑 需要授权LBPair操作（ERC1155 setApprovalForAll）...")
+			
+			const erc1155SetApprovalABI = [{
+				"inputs": [
+					{"internalType": "address", "name": "operator", "type": "address"},
+					{"internalType": "bool", "name": "approved", "type": "bool"}
+				],
+				"name": "setApprovalForAll",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}]
+			
+			const approvalResult = await writeContractAsync({
+				address: pairAddress as `0x${string}`,
+				abi: erc1155SetApprovalABI,
+				functionName: 'setApprovalForAll',
+				args: [lbRouterAddress as `0x${string}`, true],
+				chainId: chainId,
 			})
-
-			// 验证参数
-			if (!binStep || binStep <= 0) {
-				throw new Error(`Invalid binStep: ${binStep}`)
-			}
-
-			if (binIds.length === 0 || amounts.length === 0) {
-				throw new Error("No bins or amounts specified")
-			}
-
-			if (binIds.length !== amounts.length) {
-				throw new Error("Bin IDs and amounts arrays must have the same length")
-			}
-
-			// 创建PairV2实例 - SDK会自动按地址排序
-			const pair = new PairV2(tokenA, tokenB)
+			console.log(`✅ LBPair授权交易已发送: ${approvalResult}`)
 			
-			// 获取LBPair信息
-			const pairVersion = 'v22'
-			const publicClient = createViemClient(chainId)
-			const lbPair = await pair.fetchLBPair(binStep, pairVersion, publicClient, CHAIN_ID)
-			
-			if (lbPair.LBPair === '0x0000000000000000000000000000000000000000') {
-				throw new Error(`LB pair not found for ${pair.token0.symbol}/${pair.token1.symbol}`)
-			}
-
-			console.log(`✅ Found LBPair: ${lbPair.LBPair}`)
-
-			// 检查是否已授权LBPair操作
-			console.log("🔍 检查LBPair授权状态...")
-			const approved = await publicClient.readContract({
-				address: lbPair.LBPair as `0x${string}`,
-				abi: jsonAbis.LBPairABI,
-				functionName: 'isApprovedForAll',
-				args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
-			}) as boolean
-
-			if (!approved) {
-				console.log("🔑 需要授权LBPair操作...")
-				const approvalResult = await writeContractAsync({
-					address: lbPair.LBPair as `0x${string}`,
-					abi: jsonAbis.LBPairABI,
-					functionName: 'setApprovalForAll',
-					args: [lbRouterAddress as `0x${string}`, true],
-					chainId: chainId,
-				})
-				console.log(`✅ LBPair授权交易已发送: ${approvalResult}`)
-				
-				// 等待授权交易确认
-				await publicClient.waitForTransactionReceipt({ 
-					hash: approvalResult as `0x${string}`,
-					timeout: 60000
-				})
-				console.log("✅ LBPair授权成功!")
-			} else {
-				console.log("✅ LBPair已授权，无需重新授权")
-			}
+			// 等待授权交易确认
+			await publicClient.waitForTransactionReceipt({ 
+				hash: approvalResult as `0x${string}`,
+				timeout: 60000
+			})
+			console.log("✅ LBPair授权成功!")
+		} else {
+			console.log("✅ LBPair已授权，无需重新授权")
+		}
 
 			// 验证用户在指定bins中是否有足够的流动性
 			console.log("🔍 验证用户流动性...")
+			
+			// ERC1155 balanceOf ABI
+			const erc1155BalanceABI = [{
+				"inputs": [
+					{"internalType": "address", "name": "account", "type": "address"},
+					{"internalType": "uint256", "name": "id", "type": "uint256"}
+				],
+				"name": "balanceOf",
+				"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+				"stateMutability": "view",
+				"type": "function"
+			}]
 			
 			// 检查用户在这些bins中的余额
 			for (let i = 0; i < binIds.length; i++) {
 				const binId = binIds[i]
 				const requestedAmount = amounts[i]
-				
-				try {
-					// 获取用户在此bin中的余额
-					const userBalance = await publicClient.readContract({
-						address: lbPair.LBPair as `0x${string}`,
-						abi: jsonAbis.LBPairABI,
-						functionName: 'balanceOf',
-						args: [userAddress as `0x${string}`, BigInt(binId)]
-					}) as bigint
+						try {
+				// 获取用户在此bin中的余额 (ERC1155)
+				const userBalance = await publicClient.readContract({
+					address: pairAddress as `0x${string}`,
+					abi: erc1155BalanceABI,
+					functionName: 'balanceOf',
+					args: [userAddress as `0x${string}`, BigInt(binId)]
+				}) as bigint
 
 					console.log(`📊 Bin ${binId}: 用户余额=${userBalance.toString()}, 请求移除=${requestedAmount.toString()}`)
 
@@ -596,16 +622,34 @@ export const useDexOperations = () => {
 			const currentTimeInSec = Math.floor(Date.now() / 1000)
 			const deadline = currentTimeInSec + 1200 // 20分钟后过期
 
+			// LBPair 基本信息获取 ABI
+			const lbPairInfoABI = [
+				{
+					"inputs": [],
+					"name": "getTokenX",
+					"outputs": [{"internalType": "contract IERC20", "name": "tokenX", "type": "address"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [],
+					"name": "getTokenY",
+					"outputs": [{"internalType": "contract IERC20", "name": "tokenY", "type": "address"}],
+					"stateMutability": "view",
+					"type": "function"
+				}
+			]
+
 			// 获取合约的实际token顺序，而不是简单排序
 			const actualTokenX = await publicClient.readContract({
-				address: lbPair.LBPair as `0x${string}`,
-				abi: jsonAbis.LBPairV21ABI,
+				address: pairAddress as `0x${string}`,
+				abi: lbPairInfoABI,
 				functionName: 'getTokenX'
 			}) as string
 			
 			const actualTokenY = await publicClient.readContract({
-				address: lbPair.LBPair as `0x${string}`,
-				abi: jsonAbis.LBPairV21ABI,
+				address: pairAddress as `0x${string}`,
+				abi: lbPairInfoABI,
 				functionName: 'getTokenY'
 			}) as string
 
@@ -664,47 +708,7 @@ export const useDexOperations = () => {
 		}
 	}
 
-	// Combined operation: explain auto-compounding first, then withdraw all liquidity (principal + fees)
-	const collectFeesAndWithdrawAll = async (
-		pairAddress: string,
-		tokenXAddress: string,
-		tokenYAddress: string,
-		binIds: number[],
-		amounts: bigint[],
-		binStep: number
-	) => {
-		try {
-			if (!userAddress) {
-				throw new Error("Wallet not connected")
-			}
 
-			console.log("💎 开始完整流动性提取操作（本金 + 复利费用）...")
-
-			// Step 1: Explain auto-compounding mechanism
-			console.log("📈 第一步：确认自动复利状态...")
-
-			// Step 2: Remove all liquidity (which includes compounded fees)
-			console.log("🏊‍♀️ 第二步：提取全部流动性（包含复利费用）...")
-			const withdrawResult = await removeLiquidity(
-				pairAddress,
-				tokenXAddress,
-				tokenYAddress,
-				binIds,
-				amounts,
-				binStep
-			)
-
-			console.log("🎉 完整提取操作完成：")
-			console.log("  ✅ 已提取原始投入的本金")
-			console.log("  ✅ 已提取所有复利后的交易费用收益")
-			console.log("  🔒 流动性仓位已完全关闭")
-			
-			return withdrawResult
-		} catch (error) {
-			console.error("❌ 完整提取操作失败:", error)
-			throw error
-		}
-	}
 
 	// Check if an LB pool already exists
 	const checkPoolExists = useCallback(async (
@@ -836,7 +840,6 @@ export const useDexOperations = () => {
 		addLiquidity,
 		removeLiquidity,
 		createPool,
-		checkPoolExists,
-		collectFeesAndWithdrawAll
+		checkPoolExists
 	}
 }
