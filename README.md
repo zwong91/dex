@@ -1,93 +1,98 @@
-# EntySquare - Modern Decentralized Exchange Platform
+# EntySquare - Advanced Decentralized Exchange Platform
 
-A sophisticated, multi-chain DEX platform built with React 19, Material-UI v7, and cutting-edge Web3 technologies. EntySquare combines the best practices from leading DeFi protocols with an intuitive, Uniswap V3-inspired user experience.
+A sophisticated, multi-chain DEX platform featuring concentrated liquidity management, built with React 19, Material-UI v7, and cutting-edge Web3 technologies. EntySquare integrates the Dynamic Liquidity Market Maker (DLMM) protocol for efficient trading and liquidity provision.
 
 ## 🚀 Key Features
 
 ### Core Trading Functionality
-- **Multi-chain Wallet Integration**: Support for MetaMask, WalletConnect, Coinbase Wallet, Trust Wallet, and Rabby Wallet
-- **Advanced Token Swapping**: Real-time price calculations with slippage protection and price impact analysis
-- **Concentrated Liquidity**: Uniswap V3-style liquidity positions with customizable price ranges
-- **Portfolio Management**: Comprehensive dashboard for tracking assets, positions, and performance
+- **Dynamic Liquidity Market Maker Integration**: Advanced concentrated liquidity using @lb-xyz/sdk v5 with binned liquidity distribution
+- **Multi-chain Wallet Support**: MetaMask, WalletConnect, Coinbase Wallet, Trust Wallet, and Rabby Wallet integration
+- **Advanced Token Swapping**: Real-time price calculations with slippage protection and sophisticated price impact analysis
+- **Concentrated Liquidity Management**: Full-featured liquidity position management with custom price ranges
+- **Portfolio Dashboard**: Comprehensive tracking of assets, positions, and performance metrics
 
 ### 🎨 Modern Design System
-- **Material-UI v7**: Latest Material Design components with enhanced theming
-- **Professional Interface**: Clean, responsive design optimized for DeFi trading
-- **Intuitive UX**: Familiar patterns inspired by leading DEX platforms
-- **Mobile-First**: Fully responsive design for seamless mobile trading
+- **Material-UI v7**: Latest Material Design components with enhanced theming capabilities
+- **Professional Interface**: Clean, responsive design specifically optimized for DeFi trading
+- **Intuitive UX**: Familiar patterns inspired by leading DEX platforms like Uniswap
+- **Mobile-First**: Fully responsive design ensuring seamless mobile trading experience
 
 ## 🏗️ Technical Architecture
 
 ### Frontend Stack
-- **React 19**: Latest React with concurrent features and enhanced performance
-- **TypeScript**: Full type safety throughout the application
-- **Material-UI v7**: Modern component library with advanced theming
-- **Vite**: Lightning-fast build tool and development server
-- **React Router v7**: Latest routing capabilities
+- **React 19**: Latest React with concurrent features and enhanced rendering performance
+- **TypeScript**: Full type safety throughout the entire application
+- **Material-UI v7**: Modern component library with advanced theming and customization
+- **Vite**: Lightning-fast build tool and development server with HMR
+- **React Router v7**: Latest routing capabilities with enhanced data loading
 
 ### Web3 Integration
-- **wagmi v2**: React hooks for Ethereum with enhanced TypeScript support
-- **viem v2**: High-performance TypeScript interface for Ethereum
-- **RainbowKit**: Beautiful wallet connection UI with extensive wallet support
+- **wagmi v2.12**: React hooks for Ethereum with enhanced TypeScript support
+- **viem v2.21**: High-performance TypeScript interface for Ethereum interactions
+- **RainbowKit v2.2**: Beautiful wallet connection UI with extensive wallet support
 - **ethers.js v6**: Ethereum JavaScript library for smart contract interactions
 
 ### DeFi Protocols
-- **@lb-xyz/sdk**: Integration with Liquidity Book (Joe V2) for concentrated liquidity
-- **Multi-chain Support**: BSC, Ethereum, Polygon, Arbitrum compatibility
+- **@lb-xyz/sdk v5**: Complete integration with Dynamic Liquidity Market Maker (DLMM) protocol for concentrated liquidity
+- **@lb-xyz/sdk-v2 v3**: Advanced features for DLMM pair management and trading
+- **Multi-chain Support**: BSC Testnet (active), BSC Mainnet, Ethereum Mainnet compatibility
 
-## 📱 Application Pages
+## 📱 Application Features
 
-### 🔄 Swap (Trading Interface)
-- **Advanced Order Management**: Market orders with slippage protection
-- **Real-time Price Feeds**: Live market data and price impact calculations
-- **Multi-token Support**: Extensive token list with search and filtering
-- **Transaction History**: Complete trading history with performance analytics
+### 🔄 Swap Page (`/swap`)
+- **Advanced Trading Interface**: Sophisticated token swapping with real-time price feeds
+- **Multi-token Support**: Extensive token list with search and filtering capabilities
+- **Slippage Protection**: Configurable slippage tolerance and price impact warnings
+- **Transaction Preview**: Detailed breakdown of fees, routes, and expected output
 
-### 🏊‍♂️ Pool (Liquidity Management)
-- **Concentrated Liquidity**: Uniswap V3-style position management
-- **Multiple Strategies**: Spot, Curve, and Bid-Ask liquidity strategies
-- **Position Analytics**: Real-time P&L tracking and yield calculations
-- **Advanced Controls**: Custom price ranges and fee tier selection
+### 🏊‍♂️ Pool Page (`/pool`)
+- **Dynamic Liquidity Market Maker Integration**: Advanced concentrated liquidity using binned distribution
+- **Multiple Bin Strategies**: Spot, Curve, and Bid-Ask liquidity distribution strategies
+- **Pool Analytics**: Real-time TVL, volume, and APR calculations
+- **Custom Price Ranges**: Precise control over liquidity position ranges
 
-### 📊 Portfolio (Asset Dashboard)
+### ➕ Add Liquidity Page (`/add-liquidity`)
+- **Advanced Position Creation**: Multi-strategy liquidity provision interface
+- **Real-time Calculations**: Live preview of position value and expected returns
+- **Risk Management**: Impermanent loss estimation and mitigation strategies
+- **Flexible Distribution**: Choose from uniform, curve, or custom bin distributions
+
+### 📊 Portfolio Page (`/portfolio`)
 - **Multi-chain Overview**: Unified view of assets across all supported networks
-- **Performance Metrics**: Real-time portfolio valuation and historical performance
-- **Position Management**: Detailed view of all liquidity positions and trading pairs
-- **Analytics**: Advanced charts and performance indicators
+- **Position Management**: Complete overview of all liquidity positions
+- **Performance Analytics**: Real-time P&L tracking and historical performance
+- **Yield Tracking**: Detailed fee earnings and yield calculations
 
-### 💼 Position (Individual Position Management)
-- **Detailed Analytics**: In-depth position performance and metrics
-- **Management Tools**: Add/remove liquidity with precision controls
-- **Yield Tracking**: Real-time yield calculations and projections
-- **Risk Metrics**: Impermanent loss tracking and risk assessment
-
-### 💳 Wallet (Connection & Overview)
-- **Multi-wallet Support**: Connect various wallet types seamlessly
-- **Asset Overview**: Quick glance at token balances and values
-- **Network Management**: Easy network switching and configuration
-- **Transaction History**: Complete history of all wallet interactions
+### 💳 Wallet Page (`/wallet`)
+- **Multi-wallet Support**: Seamless connection with popular wallet providers
+- **Network Management**: Easy switching between supported blockchain networks
+- **Asset Overview**: Real-time token balances and portfolio valuation
+- **Transaction History**: Complete record of all wallet interactions
 
 ## 🌐 Supported Networks
 
-| Network | Chain ID | Status | Features |
-|---------|----------|--------|----------|
-| BSC Testnet | 97 | ✅ Active | Full DEX functionality |
-| BSC Mainnet | 56 | 🔄 Planned | Production deployment |
-| Ethereum | 1 | 🔄 Planned | Full Uniswap V3 compatibility |
-| Polygon | 137 | 🔄 Planned | Low-fee trading |
-| Arbitrum | 42161 | 🔄 Planned | L2 scalability |
+| Network | Chain ID | Status | Features | DLMM Protocol |
+|---------|----------|--------|----------|---------------|
+| BSC Testnet | 97 | ✅ **Active** | Full DEX functionality, Faucet available | ✅ DLMM V2.2 |
+| BSC Mainnet | 56 | 🔄 Ready | Production deployment ready | ✅ DLMM V2.2 |
+| Ethereum Mainnet | 1 | 🔄 Configured | Multi-chain wallet support | 🔄 Planned |
+
+### Network Features
+- **BSC Testnet**: Fully operational with test tokens and faucet integration
+- **Multi-chain Wallet**: Seamless switching between networks
+- **Real-time RPC**: Multiple RPC endpoints for reliability and performance
 
 ## 🛠️ Development Setup
 
 ### Prerequisites
-- Node.js 18+ and npm/yarn
-- Git
-- MetaMask or compatible Web3 wallet
+- **Node.js 18+** and npm
+- **Git** version control
+- **MetaMask** or compatible Web3 wallet for testing
 
-### Installation
+### Quick Start
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/entysquare.git
+git clone https://github.com/your-username/entysquare.git
 cd entysquare
 
 # Install dependencies
@@ -95,10 +100,12 @@ npm install
 
 # Start development server
 npm run dev
+
+# Open browser to http://localhost:5173
 ```
 
 ### Environment Configuration
-Create a `.env` file:
+Create a `.env.local` file for custom configurations:
 ```env
 # Optional: Custom RPC endpoints
 VITE_ALCHEMY_API_KEY=your_alchemy_key
@@ -106,25 +113,58 @@ VITE_INFURA_PROJECT_ID=your_infura_project_id
 
 # Development settings
 VITE_NETWORK_ENV=testnet
+VITE_DEBUG_MODE=true
+```
+
+### Backend Services (Optional)
+```bash
+# Navigate to backend directory
+cd backend
+
+# Install backend dependencies
+npm install
+
+# Configure environment
+cp wrangler.example.toml wrangler.toml
+
+# Deploy to Cloudflare Workers
+npm run deploy
 ```
 
 ## 🔧 Build & Deployment
 
-### Development Build
+### Development Commands
 ```bash
+# Start development server with hot reload
 npm run dev
-```
 
-### Production Build
-```bash
+# Build for production
 npm run build
-npm run preview
-```
 
-### Linting & Code Quality
-```bash
+# Preview production build locally
+npm run preview
+
+# Run linting and code quality checks
 npm run lint
 ```
+
+### Production Deployment
+```bash
+# Build optimized production bundle
+npm run build
+
+# The dist/ folder contains the production build
+# Deploy to your preferred hosting service:
+# - Vercel: vercel deploy
+# - Netlify: netlify deploy --prod --dir=dist
+# - AWS S3: aws s3 sync dist/ s3://your-bucket
+```
+
+### Build Optimization Features
+- **Tree Shaking**: Automatic dead code elimination
+- **Code Splitting**: Dynamic imports for optimal bundle sizes
+- **Asset Optimization**: Automatic image and asset compression
+- **Modern JS**: ES2020+ target for modern browsers
 
 ## 🏗️ Project Structure
 
@@ -132,185 +172,164 @@ npm run lint
 entysquare/
 ├── src/
 │   ├── components/           # Reusable UI components
-│   │   ├── Navigation.tsx    # Main navigation with wallet integration
-│   │   └── ...
+│   │   ├── MainNavigation.tsx    # Main navigation with wallet integration
+│   │   ├── WalletConnector.tsx   # Wallet connection component
+│   │   ├── pool/                 # Pool-specific components
+│   │   └── examples/             # Example implementations
 │   ├── pages/               # Main application pages
 │   │   ├── Swap.tsx         # Token swapping interface
 │   │   ├── Pool.tsx         # Liquidity pool management
+│   │   ├── AddLiquidity.tsx # Add liquidity interface
 │   │   ├── Portfolio.tsx    # Portfolio dashboard
-│   │   ├── Position.tsx     # Individual position management
 │   │   └── Wallet.tsx       # Wallet connection and overview
-│   ├── utils/               # Utility functions and configurations
-│   │   ├── dexConfig.ts     # DEX and network configurations
-│   │   ├── dexUtils.ts      # DEX utility functions and hooks
-│   │   └── wagmiConfig.ts   # Web3 wallet configuration
+│   ├── dex/                 # DEX core functionality
+│   │   ├── hooks/           # Custom React hooks for DEX operations
+│   │   ├── services/        # API services and price feeds
+│   │   ├── utils/           # Utility functions
+│   │   ├── types/           # TypeScript type definitions
+│   │   ├── abis/            # Smart contract ABIs
+│   │   └── config files     # Network and token configurations
 │   └── assets/              # Static assets and images
-├── backend/                 # Optional backend services
+├── backend/                 # Cloudflare Workers backend
+│   ├── src/                 # Backend source code
+│   ├── test/                # Backend tests
+│   └── config files         # Worker configurations
 └── public/                  # Public static files
 ```
 
-## 🔐 Security Features
+### Key Directories
+- **`src/dex/hooks/`**: Custom hooks for DEX operations (swapping, liquidity, etc.)
+- **`src/dex/services/`**: Price feeds, API integrations, and external services
+- **`src/components/pool/`**: Specialized components for liquidity management
+- **`backend/`**: Optional serverless backend for enhanced features
 
-- ✅ **Wallet Security**: Secure connection protocols with industry standards
-- ✅ **Slippage Protection**: Configurable tolerance levels
-- ✅ **Price Impact Analysis**: Real-time impact calculations
+## 🔐 Security & Performance Features
+
+### Security Implementation
+- ✅ **Wallet Security**: Industry-standard secure connection protocols
+- ✅ **Slippage Protection**: Configurable tolerance levels with smart defaults
+- ✅ **Price Impact Analysis**: Real-time impact calculations and warnings
 - ✅ **Transaction Monitoring**: Complete transaction lifecycle tracking
 - ✅ **Input Validation**: Comprehensive sanitization and validation
 - ✅ **Error Handling**: Graceful error recovery and user feedback
+- ✅ **Smart Contract Safety**: Extensive testing and validation of contract interactions
 
-## 🚀 Performance Optimizations
+### Performance Optimizations
+- **React 19**: Concurrent rendering and automatic batching for smooth UX
+- **Dynamic Liquidity Market Maker Protocol**: Efficient concentrated liquidity with gas optimizations
+- **Advanced Caching**: Intelligent caching for Web3 calls and price data
+- **Bundle Optimization**: Tree shaking, code splitting, and modern JS features
+- **Real-time Updates**: WebSocket connections for live price feeds
+- **Responsive Design**: Optimized for all device sizes and screen resolutions
 
-- **React 19**: Concurrent rendering and automatic batching
-- **Code Splitting**: Dynamic imports for optimal bundle sizes
-- **Caching**: Aggressive caching for Web3 calls and static assets
-- **Optimistic Updates**: Immediate UI feedback for better UX
-- **Bundle Optimization**: Tree shaking and dead code elimination
+### Technology Stack Summary
+```json
+{
+  "frontend": {
+    "framework": "React 19.1.0",
+    "ui": "Material-UI 7.1.1", 
+    "web3": "wagmi 2.12.29 + viem 2.21.54",
+    "routing": "React Router 7.6.2",
+    "build": "Vite 6.3.5"
+  },
+  "defi": {
+    "protocol": "@lb-xyz/sdk 5.0.13",
+    "wallet": "RainbowKit 2.2.7",
+    "contracts": "ethers.js 6.14.4"
+  }
+}
+```
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions from the DeFi community! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information.
 
 ### Development Workflow
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes and test thoroughly
-4. Commit with clear messages: `git commit -m 'Add amazing feature'`
-5. Push to your branch: `git push origin feature/amazing-feature`
-6. Open a Pull Request
+1. **Fork** the repository on GitHub
+2. **Clone** your fork: `git clone https://github.com/your-username/entysquare.git`
+3. **Create** a feature branch: `git checkout -b feature/amazing-feature`
+4. **Develop** your feature with proper testing
+5. **Test** thoroughly on BSC Testnet
+6. **Commit** with clear messages: `git commit -m 'feat: add amazing feature'`
+7. **Push** to your branch: `git push origin feature/amazing-feature`
+8. **Open** a Pull Request with detailed description
+
+### Contribution Guidelines
+- Follow TypeScript best practices and maintain type safety
+- Write comprehensive tests for new features
+- Ensure all existing tests pass
+- Update documentation for any API changes
+- Test on multiple wallet providers and networks
+
+### Areas for Contribution
+- 🔧 **Protocol Integration**: Additional DEX protocol support
+- 🎨 **UI/UX Improvements**: Enhanced user interface components
+- 📊 **Analytics**: Advanced portfolio and trading analytics
+- 🌐 **Multi-chain**: Additional blockchain network support
+- 🧪 **Testing**: Improved test coverage and testing utilities
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## ⚠️ Disclaimer
+## ⚠️ Important Disclaimers
 
-**Important Notice**:
+**Financial Risk Warning**:
 - This is experimental DeFi software under active development
-- Use at your own risk, especially on mainnet
-- Always test thoroughly on testnets first
-- DeFi involves financial risk - only invest what you can afford to lose
-- No warranty or guarantee is provided
+- **Use at your own risk**, especially on mainnet networks
+- **Always test thoroughly** on testnets before mainnet usage
+- DeFi trading involves significant financial risk - **only invest what you can afford to lose**
+- **No warranty or guarantee** is provided for any financial outcomes
+
+**Development Status**:
+- Currently optimized for BSC Testnet with active development
+- BSC Mainnet and Ethereum support are configured but require additional testing
+- Smart contract interactions should be thoroughly tested before production use
+
+---
+
+## 🙏 Acknowledgments
+
+- **[Dynamic Liquidity Market Maker](https://docs.meteora.ag/product-overview/dlmm-overview/what-is-dlmm)** - Advanced concentrated liquidity protocol
+- **[Material-UI](https://mui.com/)** - Comprehensive React component library
+- **[RainbowKit](https://rainbowkit.com/)** - Beautiful wallet connection interface
+- **[Wagmi](https://wagmi.sh/)** - React hooks for Ethereum development
+- **[Viem](https://viem.sh/)** - TypeScript interface for Ethereum
 
 ---
 
 **Built with ❤️ for the DeFi community**
 
-*EntySquare - Advanced decentralized trading for everyone*
+*EntySquare - Advanced decentralized trading with concentrated liquidity*
 
-### 1. Swap (`/swap`)
-- Token selection with search functionality
-- Real-time price calculation and slippage settings
-- Transaction preview with detailed breakdown
-- Gas fee estimation
+## 🚀 Getting Started Quickly
 
-### 2. Pool (`/pool`)
-- Browse all available liquidity pools
-- View pool statistics (TVL, APR, 24h volume)
-- Add/remove liquidity positions
-- Filter and search pools
+1. **Connect Wallet**: Use the wallet connector to connect your Web3 wallet
+2. **Switch to BSC Testnet**: Ensure you're on the correct network (Chain ID: 97)
+3. **Get Test Tokens**: Use the integrated faucet for testing
+4. **Start Trading**: Try swapping tokens or providing liquidity
+5. **Monitor Portfolio**: Track your positions and performance
 
-### 3. Position (`/position`)
-- Manage your liquidity positions
-- View position performance and fee earnings
-- Add/remove liquidity from existing positions
-- Collect accumulated fees
+For detailed documentation and API references, visit our [Documentation](docs/) directory.
 
-### 4. Portfolio (`/dashboard`)
-- Overview of total portfolio value
-- Token holdings with current prices and 24h changes
-- Liquidity position summary
-- Transaction history and statistics
+## 📊 Current Development Status
 
-### 5. Wallet (`/wallet`)
-- Wallet connection and management
-- Account overview with address and network info
-- Quick actions for common operations
-- Recent activity feed
+### ✅ Completed Features
+- Multi-wallet integration (MetaMask, WalletConnect, Trust Wallet, etc.)
+- Dynamic Liquidity Market Maker protocol integration
+- Token swapping with real-time pricing
+- Concentrated liquidity provision
+- Portfolio dashboard and analytics
+- Multi-network support (BSC Testnet, BSC Mainnet, Ethereum)
 
-## 🛠 Tech Stack
+### 🔄 In Progress
+- Advanced analytics and charting
+- Additional DEX protocol integrations  
+- Enhanced mobile experience
+- Comprehensive testing suite
 
-- **Frontend**: React 19, TypeScript, Vite
-- **UI Library**: Material-UI (MUI) v5
-- **Blockchain**: Wagmi, Viem, Ethers.js
-- **Wallet Connection**: RainbowKit
-- **State Management**: TanStack Query
-- **Routing**: React Router v7
-- **Notifications**: Sonner
-
-## 🚀 Getting Started
-
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Start development server**:
-   ```bash
-   npm run dev
-   ```
-
-3. **Build for production**:
-   ```bash
-   npm run build
-   ```
-
-## 🔧 Configuration
-
-### Supported Networks
-- Ethereum Mainnet
-- Polygon
-- BSC (Binance Smart Chain)
-- Avalanche
-- Local development networks
-
-### Environment Variables
-Create a `.env.local` file with:
-```
-VITE_WALLET_CONNECT_PROJECT_ID=your_project_id
-VITE_ALCHEMY_API_KEY=your_alchemy_key
-```
-
-## 🎯 Design Philosophy
-
-### Simplicity First
-- Removed unnecessary complexity and features
-- Focus on core DEX functionality
-- Clean, intuitive user interface
-
-### Uniswap V3 Inspired
-- Familiar color scheme (pink primary, clean whites/grays)
-- Consistent spacing and typography
-- Card-based layout with subtle shadows
-- Rounded corners and smooth transitions
-
-### Material Design
-- Google's proven design system
-- Accessibility built-in
-- Consistent interaction patterns
-- Professional appearance
-
-## 📈 Performance
-
-- **Bundle Size**: Significantly reduced by removing unused dependencies
-- **Load Time**: Faster initial page load with optimized imports
-- **UX**: Smooth interactions with Material-UI's optimized components
-- **Mobile**: Responsive design that works on all devices
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🙏 Acknowledgments
-
-- [Uniswap](https://uniswap.org/) for design inspiration
-- [Material-UI](https://mui.com/) for the component library
-- [RainbowKit](https://rainbowkit.com/) for wallet connection
-- [Wagmi](https://wagmi.sh/) for Web3 React hooks
+### 🎯 Roadmap
+- Layer 2 network support (Arbitrum, Polygon)
+- Cross-chain bridge integrations
+- Advanced trading features (limit orders, etc.)
+- Governance token and DAO implementation
