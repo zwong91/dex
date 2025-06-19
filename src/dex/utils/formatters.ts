@@ -2,6 +2,38 @@
  * Utility functions for formatting numbers, prices, and percentages
  */
 
+// Format token balances with appropriate decimal places
+export const formatTokenBalance = (value: number, symbol: string): string => {
+  if (value === 0) return `0 ${symbol}`
+  
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(2)}M ${symbol}`
+  } else if (value >= 1000) {
+    return `${(value / 1000).toFixed(2)}K ${symbol}`
+  } else if (value >= 1) {
+    return `${value.toFixed(2)} ${symbol}`
+  } else if (value >= 0.01) {
+    return `${value.toFixed(4)} ${symbol}`
+  } else {
+    return `${value.toFixed(6)} ${symbol}`
+  }
+}
+
+// Format USD values
+export const formatUSDValue = (value: number): string => {
+  if (value === 0) return '$0.00'
+  
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(2)}M`
+  } else if (value >= 1000) {
+    return `$${(value / 1000).toFixed(2)}K`
+  } else if (value >= 1) {
+    return `$${value.toFixed(2)}`
+  } else {
+    return `$${value.toFixed(4)}`
+  }
+}
+
 // Format large numbers with K, M, B suffixes
 export const formatLargeNumber = (value: number): string => {
   if (value >= 1000000000) {

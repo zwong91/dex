@@ -6,6 +6,7 @@ import {
   TrendingDown as TrendingDownIcon,
   TrendingUp as TrendingUpIcon,
   AccountBalanceWallet as WalletIcon,
+  Speed as SpeedIcon,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -15,12 +16,12 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Container,
   Grid,
   IconButton,
   LinearProgress,
   Typography,
+  Skeleton,
 } from '@mui/material';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState } from 'react';
@@ -52,6 +53,77 @@ const PortfolioPage = () => {
     setRefreshing(false);
   };
 
+  // Render loading skeleton for token balances
+  const renderTokenLoadingSkeleton = () => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {[1, 2, 3].map((i) => (
+        <Card key={i} elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Skeleton variant="circular" width={48} height={48} />
+              <Box>
+                <Skeleton variant="text" width={80} height={24} />
+                <Skeleton variant="text" width={120} height={20} />
+              </Box>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <Box sx={{ textAlign: 'right' }}>
+                <Skeleton variant="text" width={80} height={20} />
+                <Skeleton variant="text" width={100} height={24} />
+              </Box>
+              <Box sx={{ textAlign: 'right' }}>
+                <Skeleton variant="text" width={60} height={20} />
+                <Skeleton variant="text" width={80} height={24} />
+              </Box>
+              <Box sx={{ textAlign: 'right' }}>
+                <Skeleton variant="text" width={60} height={20} />
+                <Skeleton variant="text" width={80} height={24} />
+              </Box>
+              <Box sx={{ textAlign: 'right' }}>
+                <Skeleton variant="text" width={80} height={20} />
+                <Skeleton variant="text" width={60} height={24} />
+              </Box>
+            </Box>
+          </Box>
+        </Card>
+      ))}
+    </Box>
+  );
+
+  // Render loading skeleton for positions
+  const renderPositionsLoadingSkeleton = () => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {[1, 2].map((i) => (
+        <Card key={i} elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Skeleton variant="circular" width={48} height={48} />
+                <Skeleton variant="circular" width={48} height={48} sx={{ ml: -2 }} />
+              </Box>
+              <Box>
+                <Skeleton variant="text" width={120} height={32} />
+                <Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 2, mt: 1 }} />
+              </Box>
+            </Box>
+            <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 2 }} />
+          </Box>
+          <Grid container spacing={4} sx={{ mb: 4 }}>
+            {[1, 2, 3, 4].map((j) => (
+              <Grid key={j} size={{ xs: 6, sm: 3 }}>
+                <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Skeleton variant="text" width={60} height={20} sx={{ mx: 'auto', mb: 1 }} />
+                  <Skeleton variant="text" width={80} height={24} sx={{ mx: 'auto' }} />
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          <Skeleton variant="rectangular" height={80} sx={{ borderRadius: 2 }} />
+        </Card>
+      ))}
+    </Box>
+  );
+
   const handleRemovePosition = (position: UserPosition) => {
     setSelectedPosition(position);
     setShowRemovePosition(true);
@@ -77,23 +149,24 @@ const PortfolioPage = () => {
         background: 'white',
         transition: 'all 0.3s ease',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.12)'
+          transform: 'translateY(-2px)',
+          boxShadow: '0 8px 25px rgba(0,0,0,0.1)'
         }
       }}
     >
       <CardContent sx={{ p: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        {/* Header with token pair and status */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-              <Avatar sx={{ width: 48, height: 48, border: '3px solid white', boxShadow: 3 }}>
+              <Avatar sx={{ width: 40, height: 40, border: '2px solid white', boxShadow: 2 }}>
                 <img
                   src={position.icon0}
                   alt={position.token0}
                   style={{ width: '100%', height: '100%', borderRadius: '50%' }}
                 />
               </Avatar>
-              <Avatar sx={{ width: 48, height: 48, ml: -2, zIndex: 1, border: '3px solid white', boxShadow: 3 }}>
+              <Avatar sx={{ width: 40, height: 40, ml: -1.5, zIndex: 1, border: '2px solid white', boxShadow: 2 }}>
                 <img
                   src={position.icon1}
                   alt={position.token1}
@@ -102,116 +175,207 @@ const PortfolioPage = () => {
               </Avatar>
             </Box>
             <Box>
-              <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>
+              <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
                 {position.token0}/{position.token1}
               </Typography>
               <Chip
                 label={position.inRange ? 'In Range' : 'Out of Range'}
                 color={position.inRange ? 'success' : 'warning'}
-                size="medium"
+                size="small"
                 variant="filled"
-                sx={{ fontWeight: 600, borderRadius: 2 }}
+                sx={{ fontWeight: 600, borderRadius: 1 }}
               />
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-            <Button
-              variant="contained"
-              size="medium"
-              startIcon={<RemoveIcon />}
-              onClick={() => handleRemovePosition(position)}
-              sx={{ 
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-                px: 3
-              }}
-            >
-              Withdraw Liquidity
-            </Button>
-          </Box>
         </Box>
 
-        <Grid container spacing={4} sx={{ mb: 4 }}>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-                Liquidity
-              </Typography>
-              <Typography variant="h6" fontWeight={700}>
-                {position.liquidity}
-              </Typography>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'primary.50', borderRadius: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-                Value
-              </Typography>
-              <Typography variant="h6" fontWeight={700} color="primary">
-                {position.value}
-              </Typography>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'info.50', borderRadius: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-                APR
-              </Typography>
-              <Typography variant="h6" fontWeight={700} color="info.main">
-                {position.apr || 'N/A'}
-              </Typography>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-                Performance
-              </Typography>
-              <Typography
-                variant="h6"
-                fontWeight={700}
-                color={position.performance.startsWith('+') ? 'success.main' : 'error.main'}
-              >
-                {position.performance}
-              </Typography>
-            </Card>
-          </Grid>
-        </Grid>
-
-        <Card elevation={0} sx={{ 
-          p: 3,
-          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-          borderRadius: 2
-        }}>
+        {/* Price Range Section */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+            Price Range
+          </Typography>
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
-            alignItems: 'center'
+            alignItems: 'center',
+            p: 2,
+            bgcolor: 'grey.50',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'grey.200'
           }}>
-            <Typography variant="body1" fontWeight={600} color="text.primary">
-              Price Range: <strong>{position.range.min}</strong> - <strong>{position.range.max}</strong> 
-              <br />
-              <Typography component="span" variant="body2" color="text.secondary">
-                Current: <strong>{position.range.current}</strong>
+            <Box>
+              <Typography variant="h6" fontWeight={700} color="text.primary">
+                {position.range.min} - {position.range.max}
               </Typography>
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={75}
-              sx={{ 
-                width: 140, 
-                height: 10, 
-                borderRadius: 5,
-                bgcolor: 'grey.300',
-                '& .MuiLinearProgress-bar': {
-                  borderRadius: 5,
-                  background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
-                }
-              }}
-            />
+              <Typography variant="body2" color="text.secondary">
+                {position.token1} per {position.token0}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: 'right' }}>
+              <Typography variant="body2" color="text.secondary">
+                Current Price
+              </Typography>
+              <Typography variant="body1" fontWeight={600}>
+                {position.range.current}
+              </Typography>
+            </Box>
           </Box>
-        </Card>
+        </Box>
+
+        {/* Position Liquidity Section */}
+        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+          Position Liquidity
+        </Typography>
+        
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          {/* Current Balance */}
+          <Grid size={6}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+                Current Balance
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 24, height: 24 }}>
+                    <img src={position.icon0} alt={position.token0} style={{ width: '100%', height: '100%' }} />
+                  </Avatar>
+                  <Typography variant="body1" fontWeight={600}>
+                    {position.amountX} {position.token0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    ({position.value})
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 24, height: 24 }}>
+                    <img src={position.icon1} alt={position.token1} style={{ width: '100%', height: '100%' }} />
+                  </Avatar>
+                  <Typography variant="body1" fontWeight={600}>
+                    {position.amountY} {position.token1}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Grid>
+
+          {/* Unclaimed Swap Fee */}
+          <Grid size={6}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+                Your Unclaimed Swap Fee
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 24, height: 24 }}>
+                    <img src={position.icon0} alt={position.token0} style={{ width: '100%', height: '100%' }} />
+                  </Avatar>
+                  <Typography variant="body1" fontWeight={600}>
+                    {position.feeX} {position.token0}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 24, height: 24 }}>
+                    <img src={position.icon1} alt={position.token1} style={{ width: '100%', height: '100%' }} />
+                  </Avatar>
+                  <Typography variant="body1" fontWeight={600}>
+                    {position.feeY} {position.token1}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+          <Button
+            variant="contained"
+            fullWidth
+            startIcon={<RemoveIcon />}
+            onClick={() => handleRemovePosition(position)}
+            sx={{ 
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+              }
+            }}
+          >
+            Withdraw Liquidity
+          </Button>
+          <Button
+            variant="outlined"
+            fullWidth
+            startIcon={<RemoveIcon />}
+            onClick={() => handleRemovePosition(position)}
+            sx={{ 
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              color: 'text.primary',
+              borderColor: 'grey.300',
+              '&:hover': {
+                bgcolor: 'grey.50',
+                borderColor: 'grey.400'
+              }
+            }}
+          >
+            Withdraw & Close Position
+          </Button>
+        </Box>
+
+        {/* Performance Stats - Collapsed version */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mt: 3,
+          p: 2,
+          bgcolor: 'grey.50',
+          borderRadius: 2
+        }}>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              24h Fee
+            </Typography>
+            <Typography variant="body1" fontWeight={600}>
+              {position.fees24h}
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Total Value
+            </Typography>
+            <Typography variant="body1" fontWeight={600} color="primary">
+              {position.value}
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              APR
+            </Typography>
+            <Typography variant="body1" fontWeight={600} color="info.main">
+              {position.apr}
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Performance
+            </Typography>
+            <Typography
+              variant="body1"
+              fontWeight={600}
+              color={position.performance.startsWith('+') ? 'success.main' : 'error.main'}
+            >
+              {position.performance}
+            </Typography>
+          </Box>
+        </Box>
       </CardContent>
     </Card>
   );
@@ -380,6 +544,33 @@ const PortfolioPage = () => {
     <>
       <Navigation />
       <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* Performance Alert for slow loading */}
+        {(loading || positionsLoading) && (
+          <Alert 
+            icon={<SpeedIcon />}
+            severity="info" 
+            sx={{ 
+              mb: 3, 
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+              border: '1px solid #2196f3'
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              正在优化链上数据获取... 我们已实施了批处理和缓存来提升速度
+            </Typography>
+            <LinearProgress 
+              sx={{ 
+                mt: 1, 
+                borderRadius: 1,
+                '& .MuiLinearProgress-bar': {
+                  background: 'linear-gradient(90deg, #2196f3 0%, #21cbf3 100%)'
+                }
+              }} 
+            />
+          </Alert>
+        )}
+
         {/* Portfolio Header */}
         <Box sx={{ 
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -449,9 +640,7 @@ const PortfolioPage = () => {
                   </Typography>
                 </Box>
                 {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                    <CircularProgress size={48} />
-                  </Box>
+                  renderTokenLoadingSkeleton()
                 ) : error ? (
                   <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
                     {error}
@@ -569,9 +758,7 @@ const PortfolioPage = () => {
                 </Box>
                 
                 {positionsLoading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                    <CircularProgress size={48} />
-                  </Box>
+                  renderPositionsLoadingSkeleton()
                 ) : userPositions.length > 0 ? (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {userPositions.map(position => renderDetailedPositionCard(position))}

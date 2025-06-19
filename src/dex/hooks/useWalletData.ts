@@ -7,6 +7,15 @@ import { priceService, formatPriceChange, formatPrice } from '../services/priceS
 import { createViemClient } from '../viemClient'
 import { useUserLiquidityPositions } from './useUserPositions'
 
+// Cache for token data to avoid repeated calls
+const tokenDataCache = new Map<string, {
+	data: TokenBalance[]
+	timestamp: number
+	walletStats: WalletStats
+}>()
+
+const CACHE_DURATION = 30000 // 30 seconds cache
+
 export interface TokenBalance {
 	symbol: string
 	name: string
@@ -53,6 +62,16 @@ export const useWalletData = () => {
 			return
 		}
 
+		// Check cache first
+		const cacheKey = `${address}-${chainId}`
+		const cached = tokenDataCache.get(cacheKey)
+		if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+			console.log('💾 Using cached token balances')
+			setTokenBalances(cached.data)
+			setWalletStats(cached.walletStats)
+			return
+		}
+
 		try {
 			setLoading(true)
 			setError(null)
@@ -60,28 +79,63 @@ export const useWalletData = () => {
 			const tokens = getTokensForChain(chainId)
 			const client = createViemClient(chainId)
 
-			// First, fetch real prices for all tokens
+			// First, fetch prices for all tokens in parallel
 			const tokenSymbols = tokens.map(token => token.symbol)
 			console.log('🔄 Fetching prices for tokens:', tokenSymbols)
-			const priceData = await priceService.fetchPrices(tokenSymbols)
+			
+			// Start price fetch early - don't wait
+			const pricePromise = priceService.fetchPrices(tokenSymbols)
 
-			const balancePromises = tokens.map(async (token) => {
+			// Batch balance and decimals calls using multicall
+			const balanceCalls = tokens.map(token => ({
+				address: token.address as `0x${string}`,
+				abi: erc20Abi,
+				functionName: 'balanceOf',
+				args: [address],
+			}))
+
+			const decimalsCalls = tokens.map(token => ({
+				address: token.address as `0x${string}`,
+				abi: erc20Abi,
+				functionName: 'decimals',
+				args: [],
+			}))
+
+			console.log('🚀 Starting batch balance/decimals fetch for', tokens.length, 'tokens')
+
+			// Execute batched calls
+			const [balanceResults, decimalsResults, priceData] = await Promise.all([
+				client.multicall({ contracts: balanceCalls }),
+				client.multicall({ contracts: decimalsCalls }),
+				pricePromise
+			])
+
+			console.log('✅ Batch calls completed')
+
+			// Process results
+			const balances: TokenBalance[] = tokens.map((token, index) => {
 				try {
-					const balance = await client.readContract({
-						address: token.address as `0x${string}`,
-						abi: erc20Abi,
-						functionName: 'balanceOf',
-						args: [address],
-					}) as bigint
+					const balanceResult = balanceResults[index]
+					const decimalsResult = decimalsResults[index]
 
-					// Get token decimals
-					const decimals = await client.readContract({
-						address: token.address as `0x${string}`,
-						abi: erc20Abi,
-						functionName: 'decimals',
-						args: [],
-					}) as number
+					if (balanceResult.status !== 'success' || decimalsResult.status !== 'success') {
+						console.warn(`Failed batch call for ${token.symbol}`)
+						return {
+							symbol: token.symbol,
+							name: token.name,
+							icon: token.icon,
+							address: token.address,
+							balance: '0',
+							balanceFormatted: '0.000000',
+							decimals: 18,
+							value: '0.00',
+							price: '$0.00',
+							change24h: '0.00%',
+						}
+					}
 
+					const balance = balanceResult.result as bigint
+					const decimals = decimalsResult.result as number
 					const balanceFormatted = formatUnits(balance, decimals)
 
 					// Get real price data
@@ -90,7 +144,7 @@ export const useWalletData = () => {
 					const value = (parseFloat(balanceFormatted) * (tokenPriceData?.price || 0)).toFixed(2)
 					const change24h = formatPriceChange(tokenPriceData?.change24h || 0)
 
-					const tokenBalance: TokenBalance = {
+					return {
 						symbol: token.symbol,
 						name: token.name,
 						icon: token.icon,
@@ -102,10 +156,8 @@ export const useWalletData = () => {
 						price,
 						change24h,
 					}
-
-					return tokenBalance
 				} catch (error) {
-					console.warn(`Failed to fetch balance for ${token.symbol}:`, error)
+					console.warn(`Failed to process ${token.symbol}:`, error)
 					return {
 						symbol: token.symbol,
 						name: token.name,
@@ -121,8 +173,6 @@ export const useWalletData = () => {
 				}
 			})
 
-			const balances = await Promise.all(balancePromises)
-
 			// Filter out zero balances for cleaner display
 			const nonZeroBalances = balances.filter(
 				balance => parseFloat(balance.balanceFormatted) > 0.000001
@@ -130,6 +180,7 @@ export const useWalletData = () => {
 
 			console.log('💰 Final token balances with real prices:', nonZeroBalances)
 			setTokenBalances(nonZeroBalances)
+
 		} catch (error) {
 			console.error('Error fetching token balances:', error)
 			setError('Failed to fetch token balances')
@@ -197,15 +248,27 @@ export const useWalletData = () => {
 			lpPositionCount: lpPositions.length
 		})
 
-		setWalletStats({
+		const newWalletStats = {
 			totalTokensValue,
 			totalLPValue,
 			totalUnclaimedFees,
 			totalPortfolioValue: totalTokensValue + totalLPValue,
 			tokenCount: tokenBalances.length,
 			lpPositionCount: lpPositions.length,
-		})
-	}, [tokenBalances, lpPositions])
+		}
+
+		setWalletStats(newWalletStats)
+
+		// Cache the results
+		if (address && tokenBalances.length > 0) {
+			const cacheKey = `${address}-${chainId}`
+			tokenDataCache.set(cacheKey, {
+				data: tokenBalances,
+				timestamp: Date.now(),
+				walletStats: newWalletStats
+			})
+		}
+	}, [tokenBalances, lpPositions, address, chainId])
 
 	useEffect(() => {
 		fetchTokenBalances()
