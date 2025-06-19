@@ -37,12 +37,12 @@ export function validateLiquidityParams(params: ValidateParams): ValidationError
 		selectedPool
 	} = params
 
-	// 只保留最基本的验证
+	// 只保留最基本的验证，改为警告级别
 	if (!userWalletAddress) {
 		errors.push({
 			field: 'wallet',
-			message: '请连接钱包',
-			severity: 'error'
+			message: 'Please connect your wallet',
+			severity: 'warning'
 		})
 		return errors
 	}
@@ -50,8 +50,8 @@ export function validateLiquidityParams(params: ValidateParams): ValidationError
 	if (!selectedPool) {
 		errors.push({
 			field: 'pool',
-			message: '请选择一个流动性池',
-			severity: 'error'
+			message: 'Please select a liquidity pool',
+			severity: 'warning'
 		})
 		return errors
 	}
@@ -62,8 +62,8 @@ export function validateLiquidityParams(params: ValidateParams): ValidationError
 	if (amt0 <= 0 && amt1 <= 0) {
 		errors.push({
 			field: 'amounts',
-			message: '请至少输入一种代币的数量',
-			severity: 'error'
+			message: 'Please enter at least one token amount',
+			severity: 'warning'
 		})
 	}
 
@@ -72,9 +72,11 @@ export function validateLiquidityParams(params: ValidateParams): ValidationError
 
 /**
  * 检查是否有阻止交易的错误
+ * 由于改为警告模式，不再阻止任何操作
  */
-export function hasBlockingErrors(errors: ValidationError[]): boolean {
-	return errors.some(error => error.severity === 'error')
+export function hasBlockingErrors(_errors: ValidationError[]): boolean {
+	// 改为警告模式，不阻止任何操作
+	return false
 }
 
 /**

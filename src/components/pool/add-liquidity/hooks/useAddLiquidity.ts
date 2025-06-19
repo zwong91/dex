@@ -1,3 +1,4 @@
+import { ethers } from 'ethers'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAccount, useChainId } from 'wagmi'
@@ -146,8 +147,8 @@ export const useAddLiquidity = (
 			}
 
 			// Enhanced pre-transaction validation
-			const tokenXBal = parseFloat(tokenXBalance?.toString() || '0')
-			const tokenYBal = parseFloat(tokenYBalance?.toString() || '0')
+			const tokenXBal = tokenXBalance ? parseFloat(ethers.formatUnits(tokenXBalance, 18)) : 0
+			const tokenYBal = tokenYBalance ? parseFloat(ethers.formatUnits(tokenYBalance, 18)) : 0
 			
 			if (amt0 > 0 && tokenXBal < amt0) {
 				console.error('❌ Insufficient Token X balance:', { required: amt0, available: tokenXBal })

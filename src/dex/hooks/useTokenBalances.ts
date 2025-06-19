@@ -139,8 +139,6 @@ export const useTokenBalance = (address: `0x${string}` | undefined) => {
 
 // Hook to get any token balance by address
 export const useTokenBalanceByAddress = (userAddress: `0x${string}` | undefined, tokenAddress: `0x${string}` | undefined) => {
-	const [balance, setBalance] = useState<string>("0")
-
 	const { data: balanceToken, refetch } = useReadContract({
 		abi: erc20Abi,
 		address: tokenAddress,
@@ -148,15 +146,6 @@ export const useTokenBalanceByAddress = (userAddress: `0x${string}` | undefined,
 		args: userAddress && tokenAddress ? [userAddress] : undefined,
 		account: userAddress,
 	})
-
-	useEffect(() => {
-		if (balanceToken) {
-			const formattedBalance = ethers.formatUnits(balanceToken, 18)
-			setBalance(formattedBalance)
-		} else if (userAddress && tokenAddress) {
-			setBalance("0")
-		}
-	}, [balanceToken, userAddress, tokenAddress])
 
 	useWatchContractEvent({
 		address: tokenAddress,
@@ -169,7 +158,7 @@ export const useTokenBalanceByAddress = (userAddress: `0x${string}` | undefined,
 		enabled: !!tokenAddress,
 	})
 
-	return balance
+	return balanceToken || BigInt(0)
 }
 
 // Hook for token approvals

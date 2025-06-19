@@ -664,70 +664,6 @@ export const useDexOperations = () => {
 		}
 	}
 
-	// In Liquidity Book, trading fees are automatically compounded into user's liquidity shares
-	// This function explains the auto-compounding mechanism instead of attempting fee collection
-	const collectFees = async (
-		pairAddress: string,
-		tokenXAddress: string,
-		tokenYAddress: string,
-		binIds: number[],
-		binStep: number
-	) => {
-		try {
-			console.log("✨ LB 协议自动复利机制说明:", {
-				message: "Liquidity Book 协议的费用自动复利机制",
-				details: {
-					pairAddress,
-					tokenCount: 2,
-					binIds,
-					binStep,
-					autoCompounding: true,
-					explanation: "交易费用已自动复利到您的流动性份额中，移除流动性时将获得本金+复利收益"
-				}
-			})
-
-			// Get SDK Token objects for better reporting
-			const tokenA = getSDKTokenByAddress(tokenXAddress, chainId)
-			const tokenB = getSDKTokenByAddress(tokenYAddress, chainId)
-
-			const tokenPair = `${tokenA?.symbol || 'TokenX'}/${tokenB?.symbol || 'TokenY'}`
-
-			console.log(`💎 ${tokenPair} 流动性位置费用状态:`)
-			console.log("📈 自动复利机制:")
-			console.log("  • 每次交易产生的费用自动添加到您的流动性份额中")
-			console.log("  • 无需手动收集费用，费用会不断增加您的流动性")
-			console.log("  • 当您移除流动性时，将获得：原始投入 + 所有复利后的费用收益")
-			console.log(`  • 涉及的 bins: ${binIds.join(', ')}`)
-			console.log(`  • Bin step: ${binStep} bps`)
-			
-			console.log("🎯 下次操作建议:")
-			console.log("  • 继续持有以享受更多费用复利")
-			console.log("  • 移除部分流动性来实现收益")
-			console.log("  • 移除全部流动性以关闭仓位并获得所有收益")
-			
-			// Return a comprehensive success response
-			return {
-				success: true,
-				message: "LB 协议费用自动复利机制已激活",
-				autoCompounded: true,
-				pairInfo: {
-					pair: tokenPair,
-					pairAddress,
-					binCount: binIds.length,
-					binStep
-				},
-				explanation: {
-					mechanism: "费用自动复利到流动性份额",
-					benefit: "无需手动操作，收益最大化",
-					nextAction: "移除流动性时将获得本金+复利收益"
-				}
-			}
-		} catch (error) {
-			console.error("❌ 费用信息获取错误:", error)
-			throw new Error(`无法获取费用信息: ${error}`)
-		}
-	}
-
 	// Combined operation: explain auto-compounding first, then withdraw all liquidity (principal + fees)
 	const collectFeesAndWithdrawAll = async (
 		pairAddress: string,
@@ -746,13 +682,6 @@ export const useDexOperations = () => {
 
 			// Step 1: Explain auto-compounding mechanism
 			console.log("📈 第一步：确认自动复利状态...")
-			try {
-				const feeInfo = await collectFees(pairAddress, tokenXAddress, tokenYAddress, binIds, binStep)
-				console.log("✅ 自动复利机制确认:", feeInfo.explanation)
-			} catch (feeError: any) {
-				console.warn("⚠️ 费用信息获取失败，继续进行流动性提取:", feeError.message)
-				// Continue with liquidity removal even if fee explanation fails
-			}
 
 			// Step 2: Remove all liquidity (which includes compounded fees)
 			console.log("🏊‍♀️ 第二步：提取全部流动性（包含复利费用）...")
@@ -906,7 +835,6 @@ export const useDexOperations = () => {
 	return {
 		addLiquidity,
 		removeLiquidity,
-		collectFees, // Add the new function to exports
 		createPool,
 		checkPoolExists,
 		collectFeesAndWithdrawAll

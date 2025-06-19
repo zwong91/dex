@@ -91,21 +91,20 @@ const AddLiquidityButton = ({
 						onClick={() => setShowValidation(!showValidation)}
 						startIcon={<WarningIcon />}
 						sx={{
-							borderColor: hasErrors ? 'error.main' : 'warning.main',
-							color: hasErrors ? 'error.main' : 'warning.main',
+							borderColor: 'warning.main',
+							color: 'warning.main',
 							mb: 1
 						}}
 					>
-						{hasErrors ? `${validationErrors.length} 错误` : ''}
-						{validationWarnings.length > 0 ? ` ${validationWarnings.length} 警告` : ''}
-						{showValidation ? ' (隐藏)' : ' (显示详情)'}
+						{validationWarnings.length + validationErrors.length} Issues
+						{showValidation ? ' (Hide)' : ' (Show Details)'}
 					</Button>
 
 					<Collapse in={showValidation}>
 						{validationErrors.length > 0 && (
-							<Alert severity="error" sx={{ mb: 1 }}>
+							<Alert severity="warning" sx={{ mb: 1 }}>
 								<Typography variant="subtitle2" sx={{ mb: 1 }}>
-									⚠️ 以下错误需要解决：
+									⚠️ The following issues should be addressed:
 								</Typography>
 								<List dense>
 									{validationErrors.map((error, index) => (
@@ -126,7 +125,7 @@ const AddLiquidityButton = ({
 						{validationWarnings.length > 0 && (
 							<Alert severity="warning" sx={{ mb: 1 }}>
 								<Typography variant="subtitle2" sx={{ mb: 1 }}>
-									💡 建议注意：
+									💡 Suggestions:
 								</Typography>
 								<List dense>
 									{validationWarnings.map((warning, index) => (
@@ -189,11 +188,9 @@ const AddLiquidityButton = ({
 			>
 				{!userWalletAddress
 					? '🔗 Connect Wallet'
-					: hasErrors
-						? '⚠️ 请解决验证错误'
-						: isPending
-							? 'Adding Liquidity...'
-							: '💎 Add Liquidity'}
+					: isPending
+						? 'Adding Liquidity...'
+						: '💎 Add Liquidity'}
 			</Button>
 
 			{/* Slippage Helper */}

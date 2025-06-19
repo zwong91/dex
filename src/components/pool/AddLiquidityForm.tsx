@@ -1,4 +1,5 @@
 import { Box, Button, Card, Grid, Typography } from '@mui/material'
+import { ethers } from 'ethers'
 import { useState } from 'react'
 import {
 	TokenAmountInput,
@@ -124,13 +125,15 @@ const AddLiquidityForm = ({
 
 	// Handle percentage buttons for token0
 	const handleAmount0Button = (percentage: number) => {
-		const amount = calculatePercentageAmount(tokenXBalance?.toString() || '0', percentage)
+		const balanceStr = tokenXBalance ? ethers.formatUnits(tokenXBalance, 18) : '0'
+		const amount = calculatePercentageAmount(balanceStr, percentage)
 		handleAmount0Change(amount)
 	}
 
 	// Handle percentage buttons for token1
 	const handleAmount1Button = (percentage: number) => {
-		const amount = calculatePercentageAmount(tokenYBalance?.toString() || '0', percentage)
+		const balanceStr = tokenYBalance ? ethers.formatUnits(tokenYBalance, 18) : '0'
+		const amount = calculatePercentageAmount(balanceStr, percentage)
 		handleAmount1Change(amount)
 	}
 
@@ -223,7 +226,7 @@ const AddLiquidityForm = ({
 									}}
 									amount={amount0}
 									onAmountChange={handleAmount0Change}
-									balance={tokenXBalance?.toString() || '0'}
+									balance={tokenXBalance ? ethers.formatUnits(tokenXBalance, 18) : '0'}
 									onPercentageClick={handleAmount0Button}
 								/>
 							</Grid>
@@ -235,7 +238,7 @@ const AddLiquidityForm = ({
 									}}
 									amount={amount1}
 									onAmountChange={handleAmount1Change}
-									balance={tokenYBalance?.toString() || '0'}
+									balance={tokenYBalance ? ethers.formatUnits(tokenYBalance, 18) : '0'}
 									onPercentageClick={handleAmount1Button}
 								/>
 							</Grid>

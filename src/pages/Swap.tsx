@@ -98,9 +98,9 @@ const SwapPage = () => {
   const getEffectiveBalance = (tokenSymbol: string) => {
     const isFromToken = tokenSymbol === fromToken.symbol;
     const tokenBalance = isFromToken ? fromTokenBalance : toTokenBalance;
-    const realBalanceNum = parseFloat(tokenBalance || '0');
+    const realBalanceNum = tokenBalance ? parseFloat(ethers.formatUnits(tokenBalance, 18)) : 0;
     // Use real balance if available, otherwise default test balance for development
-    return realBalanceNum > 0.001 ? tokenBalance : '0.0';
+    return realBalanceNum > 0.001 ? ethers.formatUnits(tokenBalance || BigInt(0), 18) : '0.0';
   };
 
   // Get LB Router address for approvals

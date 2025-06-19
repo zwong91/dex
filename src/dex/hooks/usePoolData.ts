@@ -117,6 +117,8 @@ const fetchPairBasicInfoBatch = async (
 }
 
 // Fetch real 24h volume and fees from LBPair events
+// TODO: 暂时屏蔽以提高性能，后续可重新启用
+/*
 const fetch24hVolumeAndFees = async (
 	publicClient: any,
 	pairAddress: string,
@@ -235,6 +237,24 @@ const fetch24hVolumeAndFees = async (
 		return { volume24h: '$0.00', fees24h: '$0.00' }
 	}
 }
+*/
+
+// 临时的简化版本，返回模拟数据
+// TODO: 暂时完全屏蔽，不调用此函数
+/*
+const fetch24hVolumeAndFees = async (
+	publicClient: any,
+	pairAddress: string,
+	tokenXDecimals: number,
+	tokenYDecimals: number
+): Promise<{ volume24h: string; fees24h: string }> => {
+	// 暂时返回估算数据，避免大量的事件查询
+	return { 
+		volume24h: '$1,000+', 
+		fees24h: '$10+' 
+	}
+}
+*/
 
 // Optimized pool data processing
 const processPoolData = (
@@ -474,10 +494,13 @@ export const useRealPoolData = () => {
 						}) as [bigint, bigint]
 
 						// Get token info for decimals
-						const sdkTokenX = getSDKTokenByAddress(pairInfo.tokenX, chainId)
-						const sdkTokenY = getSDKTokenByAddress(pairInfo.tokenY, chainId)
+						// TODO: 暂时不需要获取token信息，因为已经屏蔽了实时数据获取
+						// const sdkTokenX = getSDKTokenByAddress(pairInfo.tokenX, chainId)
+						// const sdkTokenY = getSDKTokenByAddress(pairInfo.tokenY, chainId)
 
 						// Fetch real 24h volume and fees data
+						// TODO: 暂时屏蔽掉实时数据获取以提高性能
+						/*
 						let volumeAndFees: { volume24h: string; fees24h: string } | undefined
 						if (sdkTokenX && sdkTokenY) {
 							volumeAndFees = await fetch24hVolumeAndFees(
@@ -487,8 +510,10 @@ export const useRealPoolData = () => {
 								sdkTokenY.decimals
 							)
 						}
+						*/
 
-						return processPoolData(pairInfo, chainId, reserves, volumeAndFees)
+						// 直接使用基础数据，不获取实时的交易量和费用数据
+						return processPoolData(pairInfo, chainId, reserves, undefined)
 					} catch (error) {
 						console.log(`Could not get complete data for ${pairInfo.address}:`, error)
 						// Fallback to basic data without volume/fees
