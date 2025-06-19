@@ -1,5 +1,5 @@
 import { http, createConfig } from "wagmi";
-import { bsc, bscTestnet, mainnet } from "wagmi/chains";
+import { bsc, bscTestnet } from "wagmi/chains";
 
 import {
   coinbaseWallet,
@@ -37,12 +37,11 @@ const connectors = connectorsForWallets(
 
 // Multi-chain Configuration
 export const config = createConfig({
-  chains: [bscTestnet, bsc, mainnet],
+  chains: [bscTestnet, bsc],
   connectors,
   transports: {
     [bscTestnet.id]: http("https://data-seed-prebsc-1-s1.binance.org:8545/"),
     [bsc.id]: http("https://bsc-dataseed1.binance.org/"),
-    [mainnet.id]: http("https://eth-mainnet.g.alchemy.com/v2/your-api-key"),
   },
   ssr: true,
 });
