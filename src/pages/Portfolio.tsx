@@ -46,11 +46,24 @@ const PortfolioPage = () => {
   // Position management states
   const [showRemovePosition, setShowRemovePosition] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<UserPosition | null>(null);
+  const [defaultOperationType, setDefaultOperationType] = useState<'partial' | 'full'>('partial');
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
+  };
+
+  const handleWithdrawLiquidity = (position: UserPosition) => {
+    setSelectedPosition(position);
+    setDefaultOperationType('partial');
+    setShowRemovePosition(true);
+  };
+
+  const handleWithdrawAndClose = (position: UserPosition) => {
+    setSelectedPosition(position);
+    setDefaultOperationType('full');
+    setShowRemovePosition(true);
   };
 
   // Render loading skeleton for token balances
@@ -123,11 +136,6 @@ const PortfolioPage = () => {
       ))}
     </Box>
   );
-
-  const handleRemovePosition = (position: UserPosition) => {
-    setSelectedPosition(position);
-    setShowRemovePosition(true);
-  };
 
   const getChangeColor = (change: string) => {
     return change.startsWith('+') ? 'success.main' : 'warning.main';
@@ -293,7 +301,7 @@ const PortfolioPage = () => {
             variant="contained"
             fullWidth
             startIcon={<RemoveIcon />}
-            onClick={() => handleRemovePosition(position)}
+            onClick={() => handleWithdrawLiquidity(position)}
             sx={{ 
               py: 1.5,
               borderRadius: 2,
@@ -311,17 +319,17 @@ const PortfolioPage = () => {
             variant="outlined"
             fullWidth
             startIcon={<RemoveIcon />}
-            onClick={() => handleRemovePosition(position)}
+            onClick={() => handleWithdrawAndClose(position)}
             sx={{ 
               py: 1.5,
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 600,
-              color: 'text.primary',
-              borderColor: 'grey.300',
+              color: 'warning.main',
+              borderColor: 'warning.main',
               '&:hover': {
-                bgcolor: 'grey.50',
-                borderColor: 'grey.400'
+                bgcolor: 'warning.50',
+                borderColor: 'warning.dark'
               }
             }}
           >
@@ -900,6 +908,7 @@ const PortfolioPage = () => {
           open={showRemovePosition}
           onClose={() => setShowRemovePosition(false)}
           selectedPosition={selectedPosition}
+          defaultOperationType={defaultOperationType}
         />
       </Container>
     </>
