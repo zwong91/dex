@@ -82,7 +82,6 @@ const AddLiquidityForm = ({
 	// Add liquidity hook
 	const {
 		isPending,
-		isSuccess,
 		error,
 		slippageTolerance,
 		tokenXBalance,
@@ -363,10 +362,18 @@ const AddLiquidityForm = ({
 							amount1={amount1}
 							isPending={isPending}
 							userWalletAddress={userWalletAddress}
-							isSuccess={isSuccess}
 							error={error}
 							slippageTolerance={slippageTolerance}
 							onAddLiquidity={handleAddLiquiditySubmit}
+							// 验证相关参数
+							tokenXBalance={tokenXBalance}
+							tokenYBalance={tokenYBalance}
+							activeBinPrice={activeBinPrice}
+							minPrice={minPrice}
+							maxPrice={maxPrice}
+							strategy={liquidityStrategy}
+							binStep={selectedPool?.binStep}
+							selectedPool={selectedPool}
 						/>
 					</Box>
 				</Box>

@@ -4,7 +4,6 @@ import { useCallback } from "react"
 import { useAccount, useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { createViemClient } from "../viemClient"
-import { calculateSingleSidedBinRange, getRecommendedBinCount, createConcentratedDistribution, createUniformDistribution, createWeightedDistribution } from "../utils/calculations"
 
 // ERC20 ABI for allowance and approve functions
 const ERC20_ABI = [
@@ -70,13 +69,9 @@ export const useDexOperations = () => {
 
 			// Detect single-sided mode
 			const isSingleSided = singleSidedMode || (tokenAAmount > 0 && tokenBAmount === 0) || (tokenAAmount === 0 && tokenBAmount > 0)
-			const isTokenXOnly = tokenAAmount > 0 && tokenBAmount === 0
-			const isTokenYOnly = tokenAAmount === 0 && tokenBAmount > 0
 
 			if (isSingleSided) {
 				console.log("🎯 Single-sided liquidity detected:", {
-					isTokenXOnly,
-					isTokenYOnly,
 					strategy: singleSidedStrategy || 'balanced'
 				})
 			}
@@ -209,52 +204,40 @@ export const useDexOperations = () => {
 			let finalDistributionY: bigint[]
 
 			if (isSingleSided) {
-				// Single-sided liquidity mode
-				const strategy = singleSidedStrategy || 'balanced'
-				const recommendedBinCount = getRecommendedBinCount(
-					Math.max(tokenAAmount, tokenBAmount), 
-					strategy === 'conservative' ? 0.05 : strategy === 'aggressive' ? 0.2 : 0.1
-				)
-				
-				const concentration = strategy === 'conservative' ? 5 : strategy === 'aggressive' ? 2 : 3
+				// Single-sided liquidity mode - use simple bin range around active bin
+				const binCount = 5 // Default to 5 bins for single-sided liquidity
 				
 				// Determine if providing tokenX or tokenY
 				const isProvidingTokenX = BigInt(amountX) > 0
 				
-				const { deltaIds: calculatedDeltaIds } = calculateSingleSidedBinRange(
-					activeBin, 
-					isProvidingTokenX, 
-					recommendedBinCount, 
-					concentration
-				)
+				// Create appropriate bin range for single-sided liquidity
+				let binRange: [number, number]
+				if (isProvidingTokenX) {
+					// TokenX goes to higher price bins (right side)
+					binRange = [activeBin, activeBin + binCount - 1]
+				} else {
+					// TokenY goes to lower price bins (left side)
+					binRange = [activeBin - binCount + 1, activeBin]
+				}
+				
+				// Use official LB SDK distribution function
+				const { deltaIds: calculatedDeltaIds, distributionX: sdkDistributionX, distributionY: sdkDistributionY } = 
+					getUniformDistributionFromBinRange(activeBin, binRange)
 
 				finalDeltaIds = deltaIds || calculatedDeltaIds
 				
-				// Create custom distribution
-				let customDistribution: bigint[]
-				switch (strategy) {
-					case 'conservative':
-						customDistribution = createConcentratedDistribution(finalDeltaIds.length)
-						break
-					case 'aggressive':
-						customDistribution = createWeightedDistribution(finalDeltaIds.length, isProvidingTokenX)
-						break
-					default: // balanced
-						customDistribution = createUniformDistribution(finalDeltaIds.length)
-				}
-
 				// For single-sided liquidity, only provide in the appropriate direction
 				if (isProvidingTokenX) {
-					finalDistributionX = distributionX || customDistribution
+					finalDistributionX = distributionX || sdkDistributionX
 					finalDistributionY = new Array(finalDistributionX.length).fill(BigInt(0))
 				} else {
-					finalDistributionY = distributionY || customDistribution
+					finalDistributionY = distributionY || sdkDistributionY
 					finalDistributionX = new Array(finalDistributionY.length).fill(BigInt(0))
 				}
 
-				console.log("🔍 Single-sided liquidity distribution:", {
-					strategy,
+				console.log("🔍 Single-sided liquidity distribution (using LB SDK):", {
 					activeBin,
+					binRange,
 					deltaIds: finalDeltaIds,
 					isProvidingTokenX,
 					distributionXSum: finalDistributionX.reduce((sum, val) => sum + val, BigInt(0)).toString(),
@@ -273,7 +256,7 @@ export const useDexOperations = () => {
 				finalDistributionX = distributionX || calculatedDistributionX
 				finalDistributionY = distributionY || calculatedDistributionY
 
-				console.log("🔍 Dual-sided liquidity distribution:", {
+				console.log("🔍 Dual-sided liquidity distribution (using LB SDK):", {
 					activeBin,
 					binRange,
 					deltaIds: finalDeltaIds,

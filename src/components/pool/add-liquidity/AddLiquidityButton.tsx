@@ -1,15 +1,31 @@
-import { Add as AddIcon } from '@mui/icons-material'
-import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material'
+import { Add as AddIcon, Warning as WarningIcon } from '@mui/icons-material'
+import { Alert, Box, Button, CircularProgress, Collapse, List, ListItem, ListItemIcon, ListItemText, Typography } from '@mui/material'
+import { useState } from 'react'
+import { LiquidityStrategy } from './StrategySelection'
+import { validateLiquidityParams, hasBlockingErrors, groupErrorsBySeverity, type ValidateParams } from './utils/validation'
 
 interface AddLiquidityButtonProps {
 	amount0: string
 	amount1: string
 	isPending: boolean
 	userWalletAddress?: string
-	isSuccess: boolean
 	error: Error | null
 	slippageTolerance: number
 	onAddLiquidity: () => void
+	// 新增验证相关属性
+	tokenXBalance?: bigint
+	tokenYBalance?: bigint
+	activeBinPrice: number
+	minPrice: string
+	maxPrice: string
+	strategy: LiquidityStrategy
+	binStep?: number
+	selectedPool?: {
+		token0: string
+		token1: string
+		pairAddress?: string
+		binStep?: number
+	} | null
 }
 
 const AddLiquidityButton = ({
@@ -17,22 +33,127 @@ const AddLiquidityButton = ({
 	amount1,
 	isPending,
 	userWalletAddress,
-	isSuccess,
 	error,
 	slippageTolerance,
 	onAddLiquidity,
+	tokenXBalance,
+	tokenYBalance,
+	activeBinPrice,
+	minPrice,
+	maxPrice,
+	strategy,
+	binStep,
+	selectedPool,
 }: AddLiquidityButtonProps) => {
-	const isDisabled = (!amount0 && !amount1) || isPending || !userWalletAddress
+	const [showValidation, setShowValidation] = useState(false)
+
+	// 执行验证
+	const validationParams: ValidateParams = {
+		amount0,
+		amount1,
+		tokenXBalance,
+		tokenYBalance,
+		activeBinPrice,
+		minPrice,
+		maxPrice,
+		strategy,
+		binStep,
+		userWalletAddress,
+		selectedPool
+	}
+
+	const validationResults = validateLiquidityParams(validationParams)
+	const { errors: validationErrors, warnings: validationWarnings } = groupErrorsBySeverity(validationResults)
+	const hasErrors = hasBlockingErrors(validationResults)
+
+	// 原有的禁用逻辑 + 验证错误
+	const isDisabled = (!amount0 && !amount1) || isPending || !userWalletAddress || hasErrors
+
+	// 处理添加流动性点击
+	const handleClick = () => {
+		if (validationResults.length > 0) {
+			setShowValidation(true)
+		}
+		
+		if (!hasErrors) {
+			onAddLiquidity()
+		}
+	}
 
 	return (
 		<Box>
+			{/* 验证结果显示 */}
+			{validationResults.length > 0 && (
+				<Box sx={{ mb: 2 }}>
+					<Button
+						size="small"
+						variant="outlined"
+						onClick={() => setShowValidation(!showValidation)}
+						startIcon={<WarningIcon />}
+						sx={{
+							borderColor: hasErrors ? 'error.main' : 'warning.main',
+							color: hasErrors ? 'error.main' : 'warning.main',
+							mb: 1
+						}}
+					>
+						{hasErrors ? `${validationErrors.length} 错误` : ''}
+						{validationWarnings.length > 0 ? ` ${validationWarnings.length} 警告` : ''}
+						{showValidation ? ' (隐藏)' : ' (显示详情)'}
+					</Button>
+
+					<Collapse in={showValidation}>
+						{validationErrors.length > 0 && (
+							<Alert severity="error" sx={{ mb: 1 }}>
+								<Typography variant="subtitle2" sx={{ mb: 1 }}>
+									⚠️ 以下错误需要解决：
+								</Typography>
+								<List dense>
+									{validationErrors.map((error, index) => (
+										<ListItem key={index} disablePadding>
+											<ListItemIcon sx={{ minWidth: 20 }}>
+												<Box sx={{ width: 4, height: 4, bgcolor: 'error.main', borderRadius: '50%' }} />
+											</ListItemIcon>
+											<ListItemText 
+												primary={error.message}
+												primaryTypographyProps={{ fontSize: '0.875rem' }}
+											/>
+										</ListItem>
+									))}
+								</List>
+							</Alert>
+						)}
+
+						{validationWarnings.length > 0 && (
+							<Alert severity="warning" sx={{ mb: 1 }}>
+								<Typography variant="subtitle2" sx={{ mb: 1 }}>
+									💡 建议注意：
+								</Typography>
+								<List dense>
+									{validationWarnings.map((warning, index) => (
+										<ListItem key={index} disablePadding>
+											<ListItemIcon sx={{ minWidth: 20 }}>
+												<Box sx={{ width: 4, height: 4, bgcolor: 'warning.main', borderRadius: '50%' }} />
+											</ListItemIcon>
+											<ListItemText 
+												primary={warning.message}
+												primaryTypographyProps={{ fontSize: '0.875rem' }}
+											/>
+										</ListItem>
+									))}
+								</List>
+							</Alert>
+						)}
+					</Collapse>
+				</Box>
+			)}
+
 			{/* Add Liquidity Button */}
 			<Button
 				fullWidth
 				variant="contained"
 				size="large"
 				disabled={isDisabled}
-				onClick={onAddLiquidity}
+				onClick={handleClick}
 				startIcon={
 					isPending ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <AddIcon />
 				}
@@ -68,9 +189,11 @@ const AddLiquidityButton = ({
 			>
 				{!userWalletAddress
 					? '🔗 Connect Wallet'
-					: isPending
-						? 'Adding Liquidity...'
-						: '💎 Add Liquidity'}
+					: hasErrors
+						? '⚠️ 请解决验证错误'
+						: isPending
+							? 'Adding Liquidity...'
+							: '💎 Add Liquidity'}
 			</Button>
 
 			{/* Slippage Helper */}
