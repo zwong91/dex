@@ -675,17 +675,14 @@ const PriceRangeVisualizer = ({
 			<Box sx={{
 				display: 'flex',
 				justifyContent: 'space-between',
-				fontSize: '7px', // 减小字体以适应更多刻度
-				color: 'rgba(255, 255, 255, 0.7)',
+				fontSize: '8px', // 稍微增大字体提高可读性
+				color: 'rgba(255, 255, 255, 0.8)', // 增加对比度
 				mb: 4,
 				px: 1,
-				py: 2,
-				backgroundColor: 'rgba(255, 255, 255, 0.02)',
-				borderRadius: 2,
-				border: '1px solid rgba(255, 255, 255, 0.05)',
+				py: 1, // 减少内边距
 				alignItems: 'flex-end',
-				height: '40px', // 增加高度以容纳倾斜的文字
-				overflow: 'hidden', // 防止溢出
+				height: '30px', // 减少高度，更像标准X轴
+				overflow: 'hidden',
 			}}>
 				{Array.from({ length: 69 }, (_, i) => {
 					const amt0 = parseFloat(amount0 || '0')
