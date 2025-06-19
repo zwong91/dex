@@ -27,6 +27,7 @@ interface PriceRangeVisualizerProps {
 	amount1: string
 	strategy: LiquidityStrategy
 	binStep?: number // 添加 binStep prop，以基点为单位（例如25表示0.25%）
+	onPriceRangeChange?: (minPrice: number, maxPrice: number, numBins: number) => void // 添加价格范围变化回调
 }
 
 const PriceRangeVisualizer = ({
@@ -34,7 +35,8 @@ const PriceRangeVisualizer = ({
 	amount0,
 	amount1,
 	strategy,
-	binStep = 25, // 默认值25基点（0.25%）
+	binStep = 1, // 默认值1基点（0.01%）
+	onPriceRangeChange, // 添加价格范围变化回调
 }: PriceRangeVisualizerProps) => {
 	// 拖动状态
 	const [isDragging, setIsDragging] = useState(false)
@@ -44,7 +46,21 @@ const PriceRangeVisualizer = ({
 	// 价格锚点：永远显示 activeBinPrice
 	const anchorPrice = activeBinPrice
 	const getCurrentPrice = () => {
+		// 指示棒上的价格始终显示锚点价格，不随拖动变化
 		return anchorPrice.toFixed(8)
+	}
+	
+	// 计算基于拖动位置的价格（用于价格范围计算，不影响显示）
+	const getDraggedPrice = () => {
+		if (dragPosition !== null) {
+			const positionValue = parseFloat(dragPosition.replace('%', ''))
+			const binStepDecimal = binStep / 10000
+			const totalBinsDisplayed = 100
+			const binsFromCenter = Math.round((positionValue - 50) * totalBinsDisplayed / 100)
+			const draggedPrice = anchorPrice * Math.pow(1 + binStepDecimal, binsFromCenter)
+			return draggedPrice
+		}
+		return anchorPrice
 	}
 	
 	// 计算位置基于鼠标坐标的拖动处理
@@ -69,13 +85,75 @@ const PriceRangeVisualizer = ({
 		setDragPosition(newPosition)
 	}, [isDragging, calculatePositionFromMouse])
 	
+	// 计算基于拖动位置的价格范围
+	const calculatePriceRangeFromPosition = useCallback((position: string) => {
+		const positionValue = parseFloat(position.replace('%', ''))
+		const binStepDecimal = binStep / 10000
+		
+		// 根据拖动位置计算价格范围
+		// 这里我们假设可视化器显示的是 ±50 个 bin 的范围
+		const totalBinsDisplayed = 100 // 左右各50个bin
+		const binsFromCenter = Math.round((positionValue - 50) * totalBinsDisplayed / 100)
+		
+		// 计算当前位置对应的价格（基于anchor price）
+		const currentPositionPrice = anchorPrice * Math.pow(1 + binStepDecimal, binsFromCenter)
+		
+		// 基于当前位置和策略计算价格范围
+		const amt0 = parseFloat(amount0 || '0')
+		const amt1 = parseFloat(amount1 || '0')
+		
+		let rangeBins = 20 // 默认范围：左右各20个bin
+		
+		// 根据流动性策略调整范围
+		if (strategy === 'curve') {
+			rangeBins = 10 // 更紧密的范围
+		} else if (strategy === 'bid-ask') {
+			rangeBins = 30 // 更宽的范围
+		}
+		
+		// 根据token分布调整范围
+		if (amt0 > 0 && amt1 === 0) {
+			// 只有Token X：范围向右扩展
+			const minPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, -5)
+			const maxPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, rangeBins)
+			return { minPrice, maxPrice, numBins: rangeBins + 5 }
+		} else if (amt1 > 0 && amt0 === 0) {
+			// 只有Token Y：范围向左扩展
+			const minPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, -rangeBins)
+			const maxPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, 5)
+			return { minPrice, maxPrice, numBins: rangeBins + 5 }
+		} else {
+			// AutoFill模式：以当前位置为中心对称扩展
+			const minPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, -rangeBins)
+			const maxPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, rangeBins)
+			return { minPrice, maxPrice, numBins: rangeBins * 2 }
+		}
+	}, [anchorPrice, binStep, amount0, amount1, strategy])
+
 	// 拖动结束
 	const handleDragEnd = useCallback(() => {
 		if (isDragging) {
 			setIsDragging(false)
-			// 保持在最后拖动的位置，不需要回调
+			
+			// 如果有拖动位置且有回调函数，计算并更新价格范围
+			if (dragPosition !== null && onPriceRangeChange) {
+				const { minPrice, maxPrice, numBins } = calculatePriceRangeFromPosition(dragPosition)
+				onPriceRangeChange(minPrice, maxPrice, numBins)
+				
+				// 添加开发模式日志
+				if (process.env.NODE_ENV === 'development') {
+					console.log('🎯 Drag ended, updating price range:', {
+						dragPosition,
+						minPrice: minPrice.toFixed(6),
+						maxPrice: maxPrice.toFixed(6),
+						numBins,
+						strategy,
+						anchorPrice: anchorPrice.toFixed(6)
+					})
+				}
+			}
 		}
-	}, [isDragging])
+	}, [isDragging, dragPosition, onPriceRangeChange, calculatePriceRangeFromPosition])
 	
 	// 绑定全局鼠标事件
 	React.useEffect(() => {
@@ -102,10 +180,10 @@ const PriceRangeVisualizer = ({
 		// 默认位置
 		if (amt0 > 0 && amt1 === 0) {
 			// Token X模式：指示线固定在左边作为锚点
-			return '0.5%'
+			return '0.0%'
 		} else if (amt1 > 0 && amt0 === 0) {
 			// Token Y模式：指示线固定在右边作为锚点
-			return '99.5%'
+			return '100%'
 		}
 		// AutoFill模式：指示线在中间
 		return '50%'
@@ -334,7 +412,9 @@ const PriceRangeVisualizer = ({
 					position: 'relative',
 					height: 200,
 					background: 'linear-gradient(135deg, #1A1B2E 0%, #252749 50%, #1A1B2E 100%)',
-					borderRadius: 3,
+					borderRadius: 0,
+					borderLeft: '2px solid rgba(255, 255, 255, 0.6)',
+					borderBottom: '2px solid rgba(255, 255, 255, 0.6)',
 					p: 1,
 					mb: 2,
 					mt: 2,
@@ -559,23 +639,28 @@ const PriceRangeVisualizer = ({
 					const binStepDecimal = binStep / 10000
 					
 					let price: number
+					let basePrice = anchorPrice // 默认使用锚点价格
+					
+					// 如果有拖动位置，使用拖动价格作为基准价格
+					if (dragPosition !== null) {
+						basePrice = getDraggedPrice()
+					}
 					
 					if (amt0 > 0 && amt1 === 0) {
 						// Token X模式：从当前价格向右显示价格区间
-						// 每个刻度代表几个bin的步长
 						const binsPerTick = 10 // 每个刻度跨越10个bin
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = anchorPrice * Math.pow(priceMultiplier, i)
+						price = basePrice * Math.pow(priceMultiplier, i)
 					} else if (amt1 > 0 && amt0 === 0) {
 						// Token Y模式：从当前价格开始，向左递减
 						const binsPerTick = 10 // 每个刻度跨越10个bin
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = anchorPrice * Math.pow(priceMultiplier, -(10 - i)) // 反转索引
+						price = basePrice * Math.pow(priceMultiplier, -(10 - i)) // 反转索引
 					} else {
 						// AutoFill模式：以当前价格为中心对称显示
 						const binsPerTick = 5 // 中心模式使用更小的步长
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = anchorPrice * Math.pow(priceMultiplier, (i - 5)) // i=5时为当前价格
+						price = basePrice * Math.pow(priceMultiplier, (i - 5)) // i=5时为当前价格
 					}
 					
 					// 添加日志以验证计算结果（仅在开发模式下）
@@ -584,17 +669,18 @@ const PriceRangeVisualizer = ({
 							binStep,
 							binStepDecimal,
 							binStepPercentage: `${binStep / 100}%`,
-							anchorPrice: anchorPrice,
+							basePrice: basePrice.toFixed(6),
+							dragPosition,
 							mode: amt0 > 0 && amt1 === 0 ? 'Token X' : 
 								  amt1 > 0 && amt0 === 0 ? 'Token Y' : 'AutoFill',
 							samplePrices: [
-								anchorPrice.toFixed(5),
+								basePrice.toFixed(5),
 								price.toFixed(5)
 							]
 						})
 					}
 					
-					const isActivePrice = Math.abs(price - anchorPrice) < (anchorPrice * 0.005)
+					const isActivePrice = Math.abs(price - basePrice) < (basePrice * 0.005)
 
 					return (
 						<Box
@@ -614,8 +700,8 @@ const PriceRangeVisualizer = ({
 									fontSize: '10px',
 									fontWeight: isActivePrice ? 700 : 400,
 									color: isActivePrice ? '#ffffff' : 
-										  price < anchorPrice ? '#00D9FF' : 
-										  price > anchorPrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.6)',
+										  price < basePrice ? '#00D9FF' : 
+										  price > basePrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.6)',
 									transition: 'color 0.3s ease',
 								}}
 							>

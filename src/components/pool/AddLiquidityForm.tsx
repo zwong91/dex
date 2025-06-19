@@ -54,12 +54,30 @@ const AddLiquidityForm = ({
 		activeBinPrice,
 		minPrice,
 		maxPrice,
+		setMinPrice,
+		setMaxPrice,
 		calculateDynamicRange,
 		getNumBins,
 		resetPriceRange,
 		getCurrentPrice,
 		getTokenPairDisplay,
 	} = usePriceRange(selectedPool)
+
+	// Handle price range changes from visualizer drag
+	const handlePriceRangeChange = (newMinPrice: number, newMaxPrice: number, numBins: number) => {
+		setMinPrice(newMinPrice.toString())
+		setMaxPrice(newMaxPrice.toString())
+		
+		// Log the changes for debugging
+		if (process.env.NODE_ENV === 'development') {
+			console.log('🎯 Price range updated from visualizer:', {
+				newMinPrice: newMinPrice.toFixed(6),
+				newMaxPrice: newMaxPrice.toFixed(6),
+				numBins,
+				strategy: liquidityStrategy
+			})
+		}
+	}
 
 	// Add liquidity hook
 	const {
@@ -319,6 +337,7 @@ const AddLiquidityForm = ({
 									amount1={amount1}
 									strategy={liquidityStrategy}
 									binStep={selectedPool?.binStep}
+									onPriceRangeChange={handlePriceRangeChange}
 								/>
 							</Box>
 
