@@ -50,19 +50,6 @@ const PriceRangeVisualizer = ({
 		return anchorPrice.toFixed(8)
 	}
 	
-	// 计算基于拖动位置的价格（用于价格范围计算，不影响显示）
-	const getDraggedPrice = () => {
-		if (dragPosition !== null) {
-			const positionValue = parseFloat(dragPosition.replace('%', ''))
-			const binStepDecimal = binStep / 10000
-			const totalBinsDisplayed = 100
-			const binsFromCenter = Math.round((positionValue - 50) * totalBinsDisplayed / 100)
-			const draggedPrice = anchorPrice * Math.pow(1 + binStepDecimal, binsFromCenter)
-			return draggedPrice
-		}
-		return anchorPrice
-	}
-	
 	// 计算位置基于鼠标坐标的拖动处理
 	const calculatePositionFromMouse = useCallback((x: number, containerWidth: number) => {
 		const percentage = Math.max(0, Math.min(1, x / containerWidth))
@@ -671,125 +658,128 @@ const PriceRangeVisualizer = ({
 				</Box>
 			</Box>
 
-			{/* Price scale */}
+			{/* Price scale - 只显示关键刻度 */}
 			<Box sx={{
 				display: 'flex',
 				justifyContent: 'space-between',
-				fontSize: '8px', // 稍微增大字体提高可读性
-				color: 'rgba(255, 255, 255, 0.8)', // 增加对比度
+				fontSize: '11px', // 增大字体提高可读性
+				color: 'rgba(255, 255, 255, 0.9)', // 增加对比度
 				mb: 4,
 				px: 1,
-				py: 1, // 减少内边距
+				py: 2,
 				alignItems: 'flex-end',
-				height: '30px', // 减少高度，更像标准X轴
-				overflow: 'hidden',
+				height: '40px', // 增加高度容纳更大的字体
+				overflow: 'visible', // 允许溢出以显示完整文字
 			}}>
-				{Array.from({ length: 69 }, (_, i) => {
+				{Array.from({ length: 7 }, (_, i) => { // 只显示7个刻度，更清晰
 					const amt0 = parseFloat(amount0 || '0')
 					const amt1 = parseFloat(amount1 || '0')
 					
 					// 使用bin step计算精确的价格刻度
 					const binStepDecimal = binStep / 10000
 					
-					let price: number
-					let basePrice = anchorPrice // 默认使用锚点价格
-					let indicatorIndex = 0 // 指示器对应的刻度索引
-					
-					// 如果有拖动位置，使用拖动位置作为新的锚点重新计算价格刻度
-					if (dragPosition !== null) {
-						basePrice = getDraggedPrice()
-					}
-					
-					// 计算指示器在刻度中的实际位置（基于拖动位置）
+					// 获取当前指示器位置和对应的价格
 					const currentIndicatorPosition = getCurrentPriceIndicatorPosition()
 					const indicatorPositionValue = parseFloat(currentIndicatorPosition.replace('%', ''))
 					
-					// 根据指示器的实际位置计算对应的刻度索引
-					const calculatedIndicatorIndex = Math.round((indicatorPositionValue / 100) * 68) // 0-68范围
+					// 计算指示器在69个柱子中的索引位置
+					const indicatorBinIndex = Math.round((indicatorPositionValue / 100) * 68) // 0-68范围
+					
+					// 当前刻度在69个柱子中的索引位置
+					const currentScaleIndex = Math.round((i / 6) * 68) // 将0-6映射到0-68
+					
+					// 计算当前刻度相对于指示器的bin偏移量
+					const binOffset = currentScaleIndex - indicatorBinIndex
+					
+					// 使用锚点价格作为基准，计算当前刻度的价格
+					let price: number
 					
 					if (amt0 > 0 && amt1 === 0) {
-						// Token X模式：指示器可以在任意位置，该位置对应的刻度显示基准价格
-						indicatorIndex = calculatedIndicatorIndex
-						const binsPerTick = 1 // 减小步长以适应更多刻度
-						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						// 以指示器位置为基准，计算其他刻度的价格
-						price = basePrice * Math.pow(priceMultiplier, (i - indicatorIndex))
+						// Token X模式：以指示器位置为锚点，向右扩展
+						const binsPerStep = 2 // 每个刻度间隔2个bin，让价格差异明显
+						price = anchorPrice * Math.pow(1 + binStepDecimal, binOffset * binsPerStep)
 					} else if (amt1 > 0 && amt0 === 0) {
-						// Token Y模式：指示器可以在任意位置，该位置对应的刻度显示基准价格
-						indicatorIndex = calculatedIndicatorIndex
-						const binsPerTick = 1
-						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						// 以指示器位置为基准，计算其他刻度的价格
-						price = basePrice * Math.pow(priceMultiplier, (i - indicatorIndex))
+						// Token Y模式：以指示器位置为锚点，向左扩展  
+						const binsPerStep = 2
+						price = anchorPrice * Math.pow(1 + binStepDecimal, binOffset * binsPerStep)
 					} else {
-						// AutoFill模式：指示器可以在任意位置，该位置对应的刻度显示基准价格
-						indicatorIndex = calculatedIndicatorIndex
-						const binsPerTick = 0.8 // 中心模式使用更小的步长
-						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						// 以指示器位置为基准，计算其他刻度的价格
-						price = basePrice * Math.pow(priceMultiplier, (i - indicatorIndex))
+						// AutoFill模式：以指示器位置为锚点，对称扩展
+						const binsPerStep = 1.5 // 中心模式使用较小的步长
+						price = anchorPrice * Math.pow(1 + binStepDecimal, binOffset * binsPerStep)
 					}
 					
-					// 判断当前刻度是否对应指示器位置
-					const isIndicatorPosition = i === indicatorIndex
+					// 判断当前刻度是否正好在指示器位置
+					const scalePositionValue = (i / 6) * 100
+					const isAtIndicator = Math.abs(indicatorPositionValue - scalePositionValue) < 8 // 减小范围，更精确
 					
-					// 添加日志以验证计算结果（仅在开发模式下）
-					if (process.env.NODE_ENV === 'development' && i === 0) {
-						console.log('🔢 Price Scale Calculation:', {
-							binStep,
-							binStepDecimal,
-							binStepPercentage: `${binStep / 100}%`,
-							basePrice: basePrice.toFixed(8),
-							indicatorPrice: getCurrentPrice(),
-							dragPosition,
-							indicatorIndex,
-							mode: amt0 > 0 && amt1 === 0 ? 'Token X' : 
-								  amt1 > 0 && amt0 === 0 ? 'Token Y' : 'AutoFill',
-						})
+					// 智能格式化价格显示
+					const formatPrice = (price: number) => {
+						if (price >= 1000) {
+							return price.toFixed(0)
+						} else if (price >= 100) {
+							return price.toFixed(1)
+						} else if (price >= 10) {
+							return price.toFixed(2)
+						} else if (price >= 1) {
+							return price.toFixed(3)
+						} else if (price >= 0.1) {
+							return price.toFixed(4)
+						} else if (price >= 0.01) {
+							return price.toFixed(5)
+						} else {
+							return price.toFixed(6)
+						}
 					}
-					
-					const isActivePrice = isIndicatorPosition
 
 					return (
 						<Box
 							key={i}
 							sx={{
 								display: 'flex',
-								alignItems: 'flex-end',
+								alignItems: 'center',
 								justifyContent: 'center',
 								height: '100%',
-								minWidth: '8px', // 减小宽度以适应69个刻度
+								flex: 1, // 均匀分布
 								position: 'relative',
-								flex: '0 0 auto', // 防止收缩
 							}}
 						>
+							{/* 刻度线 */}
+							<Box sx={{
+								position: 'absolute',
+								top: -10,
+								width: '1px',
+								height: '8px',
+								background: isAtIndicator ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.4)',
+								zIndex: 1,
+							}} />
+							
 							<Typography
 								variant="caption"
 								sx={{
-									fontSize: '6px', // 减小字体
-									fontWeight: isActivePrice ? 700 : 400,
-									color: isActivePrice ? '#ffffff' : 
-										  price < basePrice ? '#00D9FF' : 
-										  price > basePrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.6)',
+									fontSize: '10px',
+									fontWeight: isAtIndicator ? 700 : 500,
+									color: isAtIndicator ? '#ffffff' : 
+										  price < anchorPrice ? '#00D9FF' : 
+										  price > anchorPrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.8)',
 									transition: 'all 0.3s ease',
-									// 45度倾斜显示
-									transform: 'rotate(-45deg)',
-									transformOrigin: 'bottom center',
 									whiteSpace: 'nowrap',
-									// 指示器位置的刻度添加特殊样式
-									textShadow: isActivePrice ? '0 0 8px rgba(255, 255, 255, 0.8)' : 'none',
-									background: isActivePrice ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-									padding: isActivePrice ? '1px 2px' : '0',
-									borderRadius: isActivePrice ? '2px' : '0',
+									textAlign: 'center',
+									// 指示器位置附近的刻度添加特殊样式
+									textShadow: isAtIndicator ? '0 0 8px rgba(255, 255, 255, 0.8)' : 'none',
+									background: isAtIndicator ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+									padding: '2px 4px',
+									borderRadius: '4px',
+									border: isAtIndicator ? '1px solid rgba(255, 255, 255, 0.3)' : 'none',
 									// 添加hover效果
 									'&:hover': {
 										color: '#ffffff',
-										transform: 'rotate(-45deg) scale(1.1)',
+										transform: 'scale(1.1)',
 										textShadow: '0 0 6px rgba(255, 255, 255, 0.6)',
+										background: 'rgba(255, 255, 255, 0.15)',
 									},
 								}}
 							>
-								{price.toFixed(5)} {/* 减少到5位小数以节省空间 */}
+								{formatPrice(price)}
 							</Typography>
 						</Box>
 					)
