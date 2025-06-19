@@ -664,7 +664,8 @@ export const useDexOperations = () => {
 		}
 	}
 
-	// Collect fees from LB pair positions
+	// In Liquidity Book, trading fees are automatically compounded into user's liquidity shares
+	// This function explains the auto-compounding mechanism instead of attempting fee collection
 	const collectFees = async (
 		pairAddress: string,
 		tokenXAddress: string,
@@ -673,151 +674,61 @@ export const useDexOperations = () => {
 		binStep: number
 	) => {
 		try {
-			if (!userAddress) {
-				throw new Error("Wallet not connected")
-			}
+			console.log("✨ LB 协议自动复利机制说明:", {
+				message: "Liquidity Book 协议的费用自动复利机制",
+				details: {
+					pairAddress,
+					tokenCount: 2,
+					binIds,
+					binStep,
+					autoCompounding: true,
+					explanation: "交易费用已自动复利到您的流动性份额中，移除流动性时将获得本金+复利收益"
+				}
+			})
 
-			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
-			const lbRouterAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID]
-
-			if (!lbRouterAddress) {
-				throw new Error("LB Router not supported on this chain")
-			}
-
-			// Get SDK Token objects
+			// Get SDK Token objects for better reporting
 			const tokenA = getSDKTokenByAddress(tokenXAddress, chainId)
 			const tokenB = getSDKTokenByAddress(tokenYAddress, chainId)
 
-			if (!tokenA || !tokenB) {
-				throw new Error(`Token not found in SDK configuration`)
-			}
+			const tokenPair = `${tokenA?.symbol || 'TokenX'}/${tokenB?.symbol || 'TokenY'}`
 
-			console.log("💰 开始收集 LB 费用:", {
-				pairAddress,
-				tokenA: { symbol: tokenA.symbol, address: tokenA.address },
-				tokenB: { symbol: tokenB.symbol, address: tokenB.address },
-				binIds,
-				binStep
-			})
-
-			// Validate parameters
-			if (!binStep || binStep <= 0) {
-				throw new Error(`Invalid binStep: ${binStep}`)
-			}
-
-			if (binIds.length === 0) {
-				throw new Error("No bins specified for fee collection")
-			}
-
-			// Create PairV2 instance - SDK automatically sorts by address
-			const pair = new PairV2(tokenA, tokenB)
+			console.log(`💎 ${tokenPair} 流动性位置费用状态:`)
+			console.log("📈 自动复利机制:")
+			console.log("  • 每次交易产生的费用自动添加到您的流动性份额中")
+			console.log("  • 无需手动收集费用，费用会不断增加您的流动性")
+			console.log("  • 当您移除流动性时，将获得：原始投入 + 所有复利后的费用收益")
+			console.log(`  • 涉及的 bins: ${binIds.join(', ')}`)
+			console.log(`  • Bin step: ${binStep} bps`)
 			
-			// Get LBPair info
-			const pairVersion = 'v22'
-			const publicClient = createViemClient(chainId)
-			const lbPair = await pair.fetchLBPair(binStep, pairVersion, publicClient, CHAIN_ID)
+			console.log("🎯 下次操作建议:")
+			console.log("  • 继续持有以享受更多费用复利")
+			console.log("  • 移除部分流动性来实现收益")
+			console.log("  • 移除全部流动性以关闭仓位并获得所有收益")
 			
-			if (lbPair.LBPair === '0x0000000000000000000000000000000000000000') {
-				throw new Error(`LB pair not found for ${pair.token0.symbol}/${pair.token1.symbol}`)
+			// Return a comprehensive success response
+			return {
+				success: true,
+				message: "LB 协议费用自动复利机制已激活",
+				autoCompounded: true,
+				pairInfo: {
+					pair: tokenPair,
+					pairAddress,
+					binCount: binIds.length,
+					binStep
+				},
+				explanation: {
+					mechanism: "费用自动复利到流动性份额",
+					benefit: "无需手动操作，收益最大化",
+					nextAction: "移除流动性时将获得本金+复利收益"
+				}
 			}
-
-			console.log(`✅ Found LBPair for fee collection: ${lbPair.LBPair}`)
-
-			// Check if already authorized for LBPair operations
-			console.log("🔍 检查LBPair授权状态...")
-			const approved = await publicClient.readContract({
-				address: lbPair.LBPair as `0x${string}`,
-				abi: jsonAbis.LBPairABI,
-				functionName: 'isApprovedForAll',
-				args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
-			}) as boolean
-
-			if (!approved) {
-				console.log("🔑 需要授权LBPair操作进行费用收集...")
-				const approvalResult = await writeContractAsync({
-					address: lbPair.LBPair as `0x${string}`,
-					abi: jsonAbis.LBPairABI,
-					functionName: 'setApprovalForAll',
-					args: [lbRouterAddress as `0x${string}`, true],
-					chainId: chainId,
-				})
-				console.log(`✅ LBPair授权交易已发送: ${approvalResult}`)
-				
-				// Wait for approval transaction confirmation
-				await publicClient.waitForTransactionReceipt({ 
-					hash: approvalResult as `0x${string}`,
-					timeout: 60000
-				})
-				console.log("✅ LBPair授权成功!")
-			} else {
-				console.log("✅ LBPair已授权，可以进行费用收集")
-			}
-
-			// Get actual token ordering from the LBPair contract
-			const actualTokenX = await publicClient.readContract({
-				address: lbPair.LBPair as `0x${string}`,
-				abi: jsonAbis.LBPairV21ABI,
-				functionName: 'getTokenX'
-			}) as string
-			
-			const actualTokenY = await publicClient.readContract({
-				address: lbPair.LBPair as `0x${string}`,
-				abi: jsonAbis.LBPairV21ABI,
-				functionName: 'getTokenY'
-			}) as string
-
-			console.log("🔄 Contract token ordering for fee collection:", {
-				actualTokenX: actualTokenX.toLowerCase(),
-				actualTokenY: actualTokenY.toLowerCase(),
-				inputTokenX: tokenXAddress.toLowerCase(),
-				inputTokenY: tokenYAddress.toLowerCase()
-			})
-
-			// Build collectProtocolFees parameters
-			const currentTimeInSec = Math.floor(Date.now() / 1000)
-			const deadline = currentTimeInSec + 1200 // 20 minutes expiry
-
-			const collectFeesInput = {
-				tokenX: actualTokenX as `0x${string}`,
-				tokenY: actualTokenY as `0x${string}`,
-				binStep: Number(binStep),
-				ids: binIds.map(id => Number(id)),
-				to: userAddress as `0x${string}`,
-				deadline: Number(deadline)
-			}
-
-			console.log("🔍 collectFees parameters:", {
-				tokenX: collectFeesInput.tokenX,
-				tokenY: collectFeesInput.tokenY,
-				binStep: collectFeesInput.binStep,
-				binIds: collectFeesInput.ids,
-				to: collectFeesInput.to
-			})
-
-			console.log("✅ Token ordering automatically handled for collectFees")
-
-			// Use LBPair contract directly to collect fees instead of router
-			// In LB v2.2, fees are collected directly from the LBPair contract
-			const result = await writeContractAsync({
-				abi: jsonAbis.LBPairV21ABI,
-				address: lbPair.LBPair as `0x${string}`,
-				functionName: "collectFees",
-				args: [
-					userAddress as `0x${string}`,
-					binIds.map(id => Number(id))
-				],
-				chainId: chainId,
-			})
-
-			console.log(`✅ 费用收集交易已发送: ${result}`)
-			return result
 		} catch (error) {
-			console.error("❌ Collect LB fees error:", error)
-			throw error
+			console.error("❌ 费用信息获取错误:", error)
+			throw new Error(`无法获取费用信息: ${error}`)
 		}
 	}
 
-	// Combined operation: collect fees first, then withdraw all liquidity and close position
+	// Combined operation: explain auto-compounding first, then withdraw all liquidity (principal + fees)
 	const collectFeesAndWithdrawAll = async (
 		pairAddress: string,
 		tokenXAddress: string,
@@ -831,20 +742,20 @@ export const useDexOperations = () => {
 				throw new Error("Wallet not connected")
 			}
 
-			console.log("🔄 开始组合操作：先收集费用，然后提取所有流动性...")
+			console.log("💎 开始完整流动性提取操作（本金 + 复利费用）...")
 
-			// Step 1: Collect fees from all bins
-			console.log("💰 第一步：收集费用...")
+			// Step 1: Explain auto-compounding mechanism
+			console.log("📈 第一步：确认自动复利状态...")
 			try {
-				await collectFees(pairAddress, tokenXAddress, tokenYAddress, binIds, binStep)
-				console.log("✅ 费用收集完成")
+				const feeInfo = await collectFees(pairAddress, tokenXAddress, tokenYAddress, binIds, binStep)
+				console.log("✅ 自动复利机制确认:", feeInfo.explanation)
 			} catch (feeError: any) {
-				console.warn("⚠️ 费用收集失败，继续进行流动性提取:", feeError.message)
-				// Continue with liquidity removal even if fee collection fails
+				console.warn("⚠️ 费用信息获取失败，继续进行流动性提取:", feeError.message)
+				// Continue with liquidity removal even if fee explanation fails
 			}
 
-			// Step 2: Remove all liquidity
-			console.log("🏊‍♀️ 第二步：提取所有流动性...")
+			// Step 2: Remove all liquidity (which includes compounded fees)
+			console.log("🏊‍♀️ 第二步：提取全部流动性（包含复利费用）...")
 			const withdrawResult = await removeLiquidity(
 				pairAddress,
 				tokenXAddress,
@@ -854,10 +765,14 @@ export const useDexOperations = () => {
 				binStep
 			)
 
-			console.log("✅ 组合操作完成：费用已收集，流动性已提取")
+			console.log("🎉 完整提取操作完成：")
+			console.log("  ✅ 已提取原始投入的本金")
+			console.log("  ✅ 已提取所有复利后的交易费用收益")
+			console.log("  🔒 流动性仓位已完全关闭")
+			
 			return withdrawResult
 		} catch (error) {
-			console.error("❌ 组合操作失败:", error)
+			console.error("❌ 完整提取操作失败:", error)
 			throw error
 		}
 	}

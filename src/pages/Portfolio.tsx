@@ -6,7 +6,7 @@ import {
   TrendingDown as TrendingDownIcon,
   TrendingUp as TrendingUpIcon,
   AccountBalanceWallet as WalletIcon,
-  Speed as SpeedIcon,
+  AutoGraph as AutoGraphIcon,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -42,13 +42,12 @@ const PortfolioPage = () => {
   // Get detailed user positions for liquidity management
   const { positions: userPositions, loading: positionsLoading } = useUserLiquidityPositions(address);
   
-  // Get dex operations for fee collection and liquidity withdrawal
-  const { collectFees, collectFeesAndWithdrawAll } = useDexOperations();
+  // Get dex operations for liquidity withdrawal
+  const { collectFeesAndWithdrawAll } = useDexOperations();
 
   const [refreshing, setRefreshing] = useState(false);
 
   // Loading and error states for operations
-  const [isCollectingFees, setIsCollectingFees] = useState(false);
   const [isWithdrawingAndClosing, setIsWithdrawingAndClosing] = useState(false);
   const [operationError, setOperationError] = useState<string | null>(null);
 
@@ -56,45 +55,6 @@ const PortfolioPage = () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
-  };
-
-  // Handle collecting fees only
-  const handleCollectFees = async (position: UserPosition) => {
-    if (!address || !position.binData || position.binData.length === 0) {
-      setOperationError('Invalid position data or wallet not connected');
-      return;
-    }
-
-    try {
-      setIsCollectingFees(true);
-      setOperationError(null);
-
-      // Get bin IDs from position data
-      const binIds = position.binData.map(bin => bin.binId);
-
-      console.log('🔍 Collecting fees for position:', {
-        pair: `${position.token0}/${position.token1}`,
-        binIds,
-        pairAddress: position.pairAddress
-      });
-
-      await collectFees(
-        position.pairAddress,
-        position.token0Address,
-        position.token1Address,
-        binIds,
-        position.binStep
-      );
-
-      console.log('✅ Fees collected successfully');
-      // Refresh data after successful operation
-      await refetch();
-    } catch (error: any) {
-      console.error('❌ Fee collection failed:', error);
-      setOperationError(`Fee collection failed: ${error.message}`);
-    } finally {
-      setIsCollectingFees(false);
-    }
   };
 
   // Handle collecting fees and withdrawing all liquidity (close position)
@@ -351,67 +311,67 @@ const PortfolioPage = () => {
             </Box>
           </Grid>
 
-          {/* Unclaimed Swap Fee */}
+          {/* Auto-Compounded Fees Info */}
           <Grid size={6}>
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
-                Your Unclaimed Swap Fee
+                📈 Auto-Compounded Trading Fees
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ width: 24, height: 24 }}>
-                    <img src={position.icon0} alt={position.token0} style={{ width: '100%', height: '100%' }} />
-                  </Avatar>
-                  <Typography variant="body1" fontWeight={600}>
-                    {position.feeX} {position.token0}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ width: 24, height: 24 }}>
-                    <img src={position.icon1} alt={position.token1} style={{ width: '100%', height: '100%' }} />
-                  </Avatar>
-                  <Typography variant="body1" fontWeight={600}>
-                    {position.feeY} {position.token1}
-                  </Typography>
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'success.50', 
+                borderRadius: 2, 
+                border: '1px solid', 
+                borderColor: 'success.200' 
+              }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Avatar sx={{ width: 24, height: 24 }}>
+                      <img src={position.icon0} alt={position.token0} style={{ width: '100%', height: '100%' }} />
+                    </Avatar>
+                    <Typography variant="body2" fontWeight={600}>
+                      {position.feeX} {position.token0}
+                    </Typography>
+                    <Typography variant="caption" color="success.main" sx={{ ml: 'auto' }}>
+                      +{((parseFloat(position.feeX) / parseFloat(position.amountX)) * 100).toFixed(2)}%
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Avatar sx={{ width: 24, height: 24 }}>
+                      <img src={position.icon1} alt={position.token1} style={{ width: '100%', height: '100%' }} />
+                    </Avatar>
+                    <Typography variant="body2" fontWeight={600}>
+                      {position.feeY} {position.token1}
+                    </Typography>
+                    <Typography variant="caption" color="success.main" sx={{ ml: 'auto' }}>
+                      +{((parseFloat(position.feeY) / parseFloat(position.amountY)) * 100).toFixed(2)}%
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1, 
+                    mt: 1, 
+                    p: 1.5, 
+                    bgcolor: 'success.100', 
+                    borderRadius: 1 
+                  }}>
+                    <AutoGraphIcon sx={{ color: 'success.main', fontSize: 16 }} />
+                    <Typography variant="caption" color="success.dark" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+                      Fees automatically compound into your liquidity position. 
+                      They're included when you withdraw.
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
             </Box>
           </Grid>
         </Grid>
 
-        {/* Action Buttons */}
-        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+        {/* Action Button */}
+        <Box sx={{ mt: 3 }}>
           <Button
             variant="contained"
-            fullWidth
-            startIcon={<WalletIcon />}
-            onClick={() => handleCollectFees(position)}
-            disabled={isCollectingFees}
-            sx={{ 
-              py: 1.5,
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 600,
-              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #3e9bfe 0%, #00e1fe 100%)',
-              },
-              '&:disabled': {
-                background: 'linear-gradient(135deg, #94c5f7 0%, #7dc8f0 100%)',
-              }
-            }}
-          >
-            {isCollectingFees ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CircularProgress size={16} color="inherit" />
-                Collecting Fees...
-              </Box>
-            ) : (
-              'Collect Fees'
-            )}
-          </Button>
-          <Button
-            variant="outlined"
             fullWidth
             startIcon={<RemoveIcon />}
             onClick={() => handleWithdrawAndClose(position)}
@@ -421,26 +381,22 @@ const PortfolioPage = () => {
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 600,
-              color: 'warning.main',
-              borderColor: 'warning.main',
+              background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
               '&:hover': {
-                bgcolor: 'warning.50',
-                borderColor: 'warning.dark'
+                background: 'linear-gradient(135deg, #ff5252 0%, #e53e3e 100%)',
               },
               '&:disabled': {
-                bgcolor: 'warning.50',
-                borderColor: 'warning.light',
-                color: 'warning.light'
+                background: 'linear-gradient(135deg, #ffb3b3 0%, #ffcccc 100%)',
               }
             }}
           >
             {isWithdrawingAndClosing ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircularProgress size={16} color="inherit" />
-                Withdrawing...
+                Withdrawing Liquidity...
               </Box>
             ) : (
-              'Withdraw & Close Position'
+              'Withdraw Liquidity'
             )}
           </Button>
         </Box>
