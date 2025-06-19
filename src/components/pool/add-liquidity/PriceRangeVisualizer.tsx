@@ -91,8 +91,8 @@ const PriceRangeVisualizer = ({
 		const binStepDecimal = binStep / 10000
 		
 		// 根据拖动位置计算价格范围
-		// 这里我们假设可视化器显示的是 ±50 个 bin 的范围
-		const totalBinsDisplayed = 100 // 左右各50个bin
+		// 现在可视化器显示69个bin
+		const totalBinsDisplayed = 69 // 总共69个bin
 		const binsFromCenter = Math.round((positionValue - 50) * totalBinsDisplayed / 100)
 		
 		// 计算当前位置对应的价格（基于anchor price）
@@ -102,31 +102,22 @@ const PriceRangeVisualizer = ({
 		const amt0 = parseFloat(amount0 || '0')
 		const amt1 = parseFloat(amount1 || '0')
 		
-		let rangeBins = 20 // 默认范围：左右各20个bin
-		
-		// 根据流动性策略调整范围
-		if (strategy === 'curve') {
-			rangeBins = 10 // 更紧密的范围
-		} else if (strategy === 'bid-ask') {
-			rangeBins = 30 // 更宽的范围
-		}
-		
 		// 根据token分布调整范围
 		if (amt0 > 0 && amt1 === 0) {
-			// 只有Token X：范围向右扩展
+			// 只有Token X：范围向右扩展，使用全部69个bin
 			const minPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, -5)
-			const maxPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, rangeBins)
-			return { minPrice, maxPrice, numBins: rangeBins + 5 }
+			const maxPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, 64) // 69-5=64
+			return { minPrice, maxPrice, numBins: 69 }
 		} else if (amt1 > 0 && amt0 === 0) {
-			// 只有Token Y：范围向左扩展
-			const minPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, -rangeBins)
+			// 只有Token Y：范围向左扩展，使用全部69个bin
+			const minPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, -64) // 69-5=64
 			const maxPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, 5)
-			return { minPrice, maxPrice, numBins: rangeBins + 5 }
+			return { minPrice, maxPrice, numBins: 69 }
 		} else {
-			// AutoFill模式：以当前位置为中心对称扩展
-			const minPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, -rangeBins)
-			const maxPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, rangeBins)
-			return { minPrice, maxPrice, numBins: rangeBins * 2 }
+			// AutoFill模式：以当前位置为中心对称扩展，使用全部69个bin
+			const minPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, -34)
+			const maxPrice = currentPositionPrice * Math.pow(1 + binStepDecimal, 34)
+			return { minPrice, maxPrice, numBins: 69 }
 		}
 	}, [anchorPrice, binStep, amount0, amount1, strategy])
 
@@ -167,12 +158,18 @@ const PriceRangeVisualizer = ({
 		}
 	}, [isDragging, handleDragMove, handleDragEnd])
 
+	// 监听模式变化，重置拖动位置
+	React.useEffect(() => {
+		// 当amount0或amount1变化时（即模式切换时），重置拖动位置
+		setDragPosition(null)
+	}, [amount0, amount1])
+
 	// 计算当前价格指示线的位置 - 如果有拖动位置则使用拖动位置，否则使用默认位置
 	const getCurrentPriceIndicatorPosition = () => {
 		const amt0 = parseFloat(amount0 || '0')
 		const amt1 = parseFloat(amount1 || '0')
 		
-		// 如果有拖动位置（不管是否正在拖动），优先使用拖动位置
+		// 如果有拖动位置，使用拖动位置
 		if (dragPosition !== null) {
 			return dragPosition
 		}
@@ -216,6 +213,45 @@ const PriceRangeVisualizer = ({
 		}
 	}
 
+	// 计算哪些柱子应该变灰消失（被指示棒经过的柱子）
+	const getBarDissolveEffect = (barIndex: number, totalBars: number, isReversed: boolean = false) => {
+		if (dragPosition === null) {
+			return { opacity: 1, background: null } // 没有拖动位置时正常显示
+		}
+
+		const currentPosition = parseFloat(dragPosition.replace('%', ''))
+		
+		// 计算柱子在容器中的位置百分比
+		let barPosition: number
+		if (isReversed) {
+			// Token Y模式：柱子从右到左排列
+			barPosition = 100 - ((barIndex + 1) / totalBars) * 100
+		} else {
+			// Token X模式和AutoFill模式：柱子从左到右排列
+			barPosition = (barIndex / totalBars) * 100
+		}
+
+		// 判断指示棒是否经过了这个柱子
+		const isPassed = isReversed ? currentPosition <= barPosition : currentPosition >= barPosition
+		
+		if (isPassed) {
+			// 计算消失程度：越靠近指示棒消失得越明显
+			const distance = Math.abs(currentPosition - barPosition)
+			const maxDistance = 20 // 影响范围20%
+			const dissolveFactor = Math.max(0, 1 - distance / maxDistance)
+			
+			return {
+				opacity: 0.2 + (0.6 * (1 - dissolveFactor)), // 透明度从0.2到0.8
+				background: `linear-gradient(135deg,
+					rgba(128, 128, 128, ${0.3 + dissolveFactor * 0.4}) 0%,
+					rgba(100, 100, 100, ${0.4 + dissolveFactor * 0.4}) 50%,
+					rgba(80, 80, 80, ${0.3 + dissolveFactor * 0.3}) 100%)`, // 灰色渐变
+			}
+		}
+
+		return { opacity: 1, background: null } // 未经过的柱子正常显示
+	}
+
 	const renderLiquidityBars = () => {
 		const amt0 = parseFloat(amount0 || '0')
 		const amt1 = parseFloat(amount1 || '0')
@@ -240,8 +276,8 @@ const PriceRangeVisualizer = ({
 
 		// 根据token分布决定柱子数量和分布
 		let barsToRender = []
-		const baseHeight = 100
-		const numBars = 50 // 固定渲染50根柱子
+		const baseHeight = 200 // 增加Spot策略的基础高度，更好地利用480px容器空间
+		const numBars = 69 // 支持69根柱子，与价格刻度数量一致
 
 		if (amt0 > 0 && amt1 === 0) {
 			// 只有Token X：从指示棒(锚点)向右渲染
@@ -249,25 +285,29 @@ const PriceRangeVisualizer = ({
 				let height = baseHeight
 				if (strategy === 'curve') {
 					// 每根柱子一个台阶 - 固定台阶高度（下台阶）
-					height = 180 - (i * 3) // 每根柱子固定下降3个像素
+					height = 450 - (i * 6) // 增加起始高度到450px，确保69根柱子6px阶梯完整显示
 				} else if (strategy === 'bid-ask') {
 					// 每根柱子一个台阶 - 固定台阶高度（上台阶）
-					height = 30 + (i * 3) // 每根柱子固定上升3个像素
+					height = 30 + (i * 6) // 增加阶梯步长：每根柱子上升6个像素
 				}
 
+				// 获取柱子的消失效果
+				const dissolveEffect = getBarDissolveEffect(i, numBars, false)
+				
 				barsToRender.push(
 					<Box
 						key={i}
 						sx={{
-							width: 6,
+							width: 4, // 减小宽度以适应69根柱子
 							height: Math.max(30, height), // 移除最大高度限制，让台阶更明显
-							background: `linear-gradient(135deg,
+							background: dissolveEffect.background || `linear-gradient(135deg,
 								rgba(123, 104, 238, 0.8) 0%,
 								rgba(100, 80, 200, 0.9) 50%,
 								rgba(80, 60, 160, 0.7) 100%)`,
 							borderRadius: '3px 3px 0 0',
 							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
 							boxShadow: '0 0 10px rgba(123, 104, 238, 0.4), 0 2px 8px rgba(123, 104, 238, 0.3)',
+							opacity: dissolveEffect.opacity,
 						}}
 					/>
 				)
@@ -278,42 +318,46 @@ const PriceRangeVisualizer = ({
 				let height = baseHeight
 				if (strategy === 'curve') {
 					// 每根柱子一个台阶 - 从指示线开始下降
-					height = 180 - (i * 3) // 第一根最高，向左递减
+					height = 450 - (i * 6) // 增加起始高度到450px，确保69根柱子6px阶梯完整显示
 				} else if (strategy === 'bid-ask') {
 					// 每根柱子一个台阶 - 从指示线开始上升
-					height = 30 + (i * 3) // 第一根最低，向左递增
+					height = 30 + (i * 6) // 增加阶梯步长：每根柱子上升6个像素
 				}
 
+				// 获取柱子的消失效果
+				const dissolveEffect = getBarDissolveEffect(i, numBars, true)
+				
 				// 直接push，配合flexDirection: 'row-reverse'实现从右向左
 				barsToRender.push(
 					<Box
 						key={i}
 						sx={{
-							width: 6,
+							width: 4, // 减小宽度以适应69根柱子
 							height: Math.max(30, height),
-							background: `linear-gradient(135deg,
+							background: dissolveEffect.background || `linear-gradient(135deg,
 								rgba(0, 217, 255, 0.8) 0%,
 								rgba(0, 150, 200, 0.9) 50%,
 								rgba(0, 100, 150, 0.7) 100%)`,
 							borderRadius: '3px 3px 0 0',
 							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
 							boxShadow: '0 0 10px rgba(0, 217, 255, 0.4), 0 2px 8px rgba(0, 217, 255, 0.3)',
+							opacity: dissolveEffect.opacity,
 						}}
 					/>
 				)
 			}
 		} else if (amt0 > 0 && amt1 > 0) {
 			// AutoFill模式：以指示棒为中心，左右分布
-			for (let i = -25; i <= 25; i++) {
+			for (let i = -34; i <= 34; i++) { // 总共69根柱子 (-34到34)
 				let height = baseHeight
 				const distance = Math.abs(i)
 				
 				if (strategy === 'curve') {
 					// 每根柱子一个台阶 - 固定台阶高度（下台阶）
-					height = 180 - (distance * 3) // 每根柱子固定下降3个像素
+					height = 450 - (distance * 6) // 增加起始高度到450px，确保69根柱子6px阶梯完整显示
 				} else if (strategy === 'bid-ask') {
 					// 每根柱子一个台阶 - 固定台阶高度（上台阶）
-					height = 30 + (distance * 3) // 每根柱子固定上升3个像素
+					height = 30 + (distance * 6) // 增加阶梯步长：每根柱子上升6个像素
 				}
 
 				const isCenter = i === 0
@@ -332,13 +376,16 @@ const PriceRangeVisualizer = ({
 						rgba(80, 60, 160, 0.7) 100%)`
 				}
 
+				// 获取柱子的消失效果（AutoFill模式使用索引 i + 34 来映射到0-68范围）
+				const dissolveEffect = getBarDissolveEffect(i + 34, 69, false)
+
 				barsToRender.push(
 					<Box
 						key={i}
 						sx={{
-							width: 6,
+							width: 4, // 减小宽度以适应69根柱子
 							height: Math.max(30, height), // 移除最大高度限制，让台阶更明显
-							background: barColor,
+							background: dissolveEffect.background || barColor,
 							borderRadius: '3px 3px 0 0',
 							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
 							boxShadow: isCenter 
@@ -346,6 +393,7 @@ const PriceRangeVisualizer = ({
 								: i < 0 
 									? '0 0 10px rgba(0, 217, 255, 0.4), 0 2px 8px rgba(0, 217, 255, 0.3)'
 									: '0 0 10px rgba(123, 104, 238, 0.4), 0 2px 8px rgba(123, 104, 238, 0.3)',
+							opacity: dissolveEffect.opacity,
 						}}
 					/>
 				)
@@ -367,7 +415,14 @@ const PriceRangeVisualizer = ({
 					zIndex: 2,
 				}}
 			>
-				{barsToRender}
+				{barsToRender.map((bar, index) => (
+					<Box
+						key={index}
+						sx={getBarDissolveEffect(index, barsToRender.length, amt1 > 0 && amt0 === 0)}
+					>
+						{bar}
+					</Box>
+				))}
 			</Box>
 		)
 	}
@@ -405,20 +460,19 @@ const PriceRangeVisualizer = ({
 	}, [binStep, anchorPrice])
 
 	return (
-		<Box sx={{ mb: 3, position: 'relative', pt: 6 }}>
-			<Box
-				ref={containerRef}
-				sx={{
-					position: 'relative',
-					height: 200,
-					background: 'linear-gradient(135deg, #1A1B2E 0%, #252749 50%, #1A1B2E 100%)',
-					borderRadius: 0,
-					borderLeft: '2px solid rgba(255, 255, 255, 0.6)',
-					borderBottom: '2px solid rgba(255, 255, 255, 0.6)',
-					p: 1,
-					mb: 2,
-					mt: 2,
-					mx: 1,
+		<Box sx={{ mb: 3, position: 'relative', pt: 6 }}>		<Box
+			ref={containerRef}
+			sx={{
+				position: 'relative',
+				height: 480, // 进一步增加高度从320px到480px，支持6px阶梯的完整显示
+				background: 'linear-gradient(135deg, #1A1B2E 0%, #252749 50%, #1A1B2E 100%)',
+				borderRadius: 0,
+				borderLeft: '2px solid rgba(255, 255, 255, 0.6)',
+				borderBottom: '2px solid rgba(255, 255, 255, 0.6)',
+				p: 1,
+				mb: 2,
+				mt: 2,
+				mx: 1,
 					'&::before': {
 						content: '""',
 						position: 'absolute',
@@ -621,47 +675,66 @@ const PriceRangeVisualizer = ({
 			<Box sx={{
 				display: 'flex',
 				justifyContent: 'space-between',
-				fontSize: '11px',
+				fontSize: '7px', // 减小字体以适应更多刻度
 				color: 'rgba(255, 255, 255, 0.7)',
 				mb: 4,
-				px: 2,
-				py: 1,
+				px: 1,
+				py: 2,
 				backgroundColor: 'rgba(255, 255, 255, 0.02)',
 				borderRadius: 2,
 				border: '1px solid rgba(255, 255, 255, 0.05)',
+				alignItems: 'flex-end',
+				height: '40px', // 增加高度以容纳倾斜的文字
+				overflow: 'hidden', // 防止溢出
 			}}>
-				{Array.from({ length: 11 }, (_, i) => {
+				{Array.from({ length: 69 }, (_, i) => {
 					const amt0 = parseFloat(amount0 || '0')
 					const amt1 = parseFloat(amount1 || '0')
 					
 					// 使用bin step计算精确的价格刻度
-					// binStep是基点，例如1表示0.01%，25表示0.25%
 					const binStepDecimal = binStep / 10000
 					
 					let price: number
 					let basePrice = anchorPrice // 默认使用锚点价格
+					let indicatorIndex = 0 // 指示器对应的刻度索引
 					
-					// 如果有拖动位置，使用拖动价格作为基准价格
+					// 如果有拖动位置，使用拖动位置作为新的锚点重新计算价格刻度
 					if (dragPosition !== null) {
 						basePrice = getDraggedPrice()
 					}
 					
+					// 计算指示器在刻度中的实际位置（基于拖动位置）
+					const currentIndicatorPosition = getCurrentPriceIndicatorPosition()
+					const indicatorPositionValue = parseFloat(currentIndicatorPosition.replace('%', ''))
+					
+					// 根据指示器的实际位置计算对应的刻度索引
+					const calculatedIndicatorIndex = Math.round((indicatorPositionValue / 100) * 68) // 0-68范围
+					
 					if (amt0 > 0 && amt1 === 0) {
-						// Token X模式：从当前价格向右显示价格区间
-						const binsPerTick = 10 // 每个刻度跨越10个bin
+						// Token X模式：指示器可以在任意位置，该位置对应的刻度显示基准价格
+						indicatorIndex = calculatedIndicatorIndex
+						const binsPerTick = 1 // 减小步长以适应更多刻度
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = basePrice * Math.pow(priceMultiplier, i)
+						// 以指示器位置为基准，计算其他刻度的价格
+						price = basePrice * Math.pow(priceMultiplier, (i - indicatorIndex))
 					} else if (amt1 > 0 && amt0 === 0) {
-						// Token Y模式：从当前价格开始，向左递减
-						const binsPerTick = 10 // 每个刻度跨越10个bin
+						// Token Y模式：指示器可以在任意位置，该位置对应的刻度显示基准价格
+						indicatorIndex = calculatedIndicatorIndex
+						const binsPerTick = 1
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = basePrice * Math.pow(priceMultiplier, -(10 - i)) // 反转索引
+						// 以指示器位置为基准，计算其他刻度的价格
+						price = basePrice * Math.pow(priceMultiplier, (i - indicatorIndex))
 					} else {
-						// AutoFill模式：以当前价格为中心对称显示
-						const binsPerTick = 5 // 中心模式使用更小的步长
+						// AutoFill模式：指示器可以在任意位置，该位置对应的刻度显示基准价格
+						indicatorIndex = calculatedIndicatorIndex
+						const binsPerTick = 0.8 // 中心模式使用更小的步长
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = basePrice * Math.pow(priceMultiplier, (i - 5)) // i=5时为当前价格
+						// 以指示器位置为基准，计算其他刻度的价格
+						price = basePrice * Math.pow(priceMultiplier, (i - indicatorIndex))
 					}
+					
+					// 判断当前刻度是否对应指示器位置
+					const isIndicatorPosition = i === indicatorIndex
 					
 					// 添加日志以验证计算结果（仅在开发模式下）
 					if (process.env.NODE_ENV === 'development' && i === 0) {
@@ -669,43 +742,57 @@ const PriceRangeVisualizer = ({
 							binStep,
 							binStepDecimal,
 							binStepPercentage: `${binStep / 100}%`,
-							basePrice: basePrice.toFixed(6),
+							basePrice: basePrice.toFixed(8),
+							indicatorPrice: getCurrentPrice(),
 							dragPosition,
+							indicatorIndex,
 							mode: amt0 > 0 && amt1 === 0 ? 'Token X' : 
 								  amt1 > 0 && amt0 === 0 ? 'Token Y' : 'AutoFill',
-							samplePrices: [
-								basePrice.toFixed(5),
-								price.toFixed(5)
-							]
 						})
 					}
 					
-					const isActivePrice = Math.abs(price - basePrice) < (basePrice * 0.005)
+					const isActivePrice = isIndicatorPosition
 
 					return (
 						<Box
 							key={i}
 							sx={{
-								textAlign: 'center',
-								transition: 'all 0.3s ease',
-								'&:hover': {
-									transform: 'translateY(-2px)',
-									color: 'white',
-								},
+								display: 'flex',
+								alignItems: 'flex-end',
+								justifyContent: 'center',
+								height: '100%',
+								minWidth: '8px', // 减小宽度以适应69个刻度
+								position: 'relative',
+								flex: '0 0 auto', // 防止收缩
 							}}
 						>
 							<Typography
 								variant="caption"
 								sx={{
-									fontSize: '10px',
+									fontSize: '6px', // 减小字体
 									fontWeight: isActivePrice ? 700 : 400,
 									color: isActivePrice ? '#ffffff' : 
 										  price < basePrice ? '#00D9FF' : 
 										  price > basePrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.6)',
-									transition: 'color 0.3s ease',
+									transition: 'all 0.3s ease',
+									// 45度倾斜显示
+									transform: 'rotate(-45deg)',
+									transformOrigin: 'bottom center',
+									whiteSpace: 'nowrap',
+									// 指示器位置的刻度添加特殊样式
+									textShadow: isActivePrice ? '0 0 8px rgba(255, 255, 255, 0.8)' : 'none',
+									background: isActivePrice ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+									padding: isActivePrice ? '1px 2px' : '0',
+									borderRadius: isActivePrice ? '2px' : '0',
+									// 添加hover效果
+									'&:hover': {
+										color: '#ffffff',
+										transform: 'rotate(-45deg) scale(1.1)',
+										textShadow: '0 0 6px rgba(255, 255, 255, 0.6)',
+									},
 								}}
 							>
-								{price.toFixed(5)}
+								{price.toFixed(5)} {/* 减少到5位小数以节省空间 */}
 							</Typography>
 						</Box>
 					)
