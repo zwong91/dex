@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
 import { LiquidityStrategy } from './StrategySelection'
 
@@ -36,46 +36,103 @@ const PriceRangeVisualizer = ({
 	strategy,
 	binStep = 25, // 默认值25基点（0.25%）
 }: PriceRangeVisualizerProps) => {
+	// 拖动状态
+	const [isDragging, setIsDragging] = useState(false)
+	const [dragPosition, setDragPosition] = useState<string | null>(null) // 存储拖动位置，null表示使用默认位置
+	const containerRef = useRef<HTMLDivElement>(null)
+	
+	// 价格锚点：永远显示 activeBinPrice
+	const anchorPrice = activeBinPrice
 	const getCurrentPrice = () => {
-		return activeBinPrice.toFixed(8)
+		return anchorPrice.toFixed(8)
 	}
+	
+	// 计算位置基于鼠标坐标的拖动处理
+	const calculatePositionFromMouse = useCallback((x: number, containerWidth: number) => {
+		const percentage = Math.max(0, Math.min(1, x / containerWidth))
+		return `${percentage * 100}%`
+	}, [])
+	
+	// 拖动开始
+	const handleDragStart = useCallback((e: React.MouseEvent) => {
+		e.preventDefault()
+		setIsDragging(true)
+	}, [])
+	
+	// 拖动进行中
+	const handleDragMove = useCallback((e: MouseEvent) => {
+		if (!isDragging || !containerRef.current) return
+		
+		const rect = containerRef.current.getBoundingClientRect()
+		const x = e.clientX - rect.left
+		const newPosition = calculatePositionFromMouse(x, rect.width)
+		setDragPosition(newPosition)
+	}, [isDragging, calculatePositionFromMouse])
+	
+	// 拖动结束
+	const handleDragEnd = useCallback(() => {
+		if (isDragging) {
+			setIsDragging(false)
+			// 保持在最后拖动的位置，不需要回调
+		}
+	}, [isDragging])
+	
+	// 绑定全局鼠标事件
+	React.useEffect(() => {
+		if (isDragging) {
+			document.addEventListener('mousemove', handleDragMove)
+			document.addEventListener('mouseup', handleDragEnd)
+			return () => {
+				document.removeEventListener('mousemove', handleDragMove)
+				document.removeEventListener('mouseup', handleDragEnd)
+			}
+		}
+	}, [isDragging, handleDragMove, handleDragEnd])
 
-	// 计算当前价格指示线的位置 - 固定锚点
+	// 计算当前价格指示线的位置 - 如果有拖动位置则使用拖动位置，否则使用默认位置
 	const getCurrentPriceIndicatorPosition = () => {
 		const amt0 = parseFloat(amount0 || '0')
 		const amt1 = parseFloat(amount1 || '0')
 		
-		if (amt0 > 0 && amt1 === 0) {
-			// 只有Token X，指示线固定在左边作为锚点
-			return '1%'
-		} else if (amt1 > 0 && amt0 === 0) {
-			// 只有Token Y，指示线固定在右边作为锚点
-			return '99%'
+		// 如果有拖动位置（不管是否正在拖动），优先使用拖动位置
+		if (dragPosition !== null) {
+			return dragPosition
 		}
-		// AutoFill模式或混合，指示线在中间
+		
+		// 默认位置
+		if (amt0 > 0 && amt1 === 0) {
+			// Token X模式：指示线固定在左边作为锚点
+			return '0.5%'
+		} else if (amt1 > 0 && amt0 === 0) {
+			// Token Y模式：指示线固定在右边作为锚点
+			return '99.5%'
+		}
+		// AutoFill模式：指示线在中间
 		return '50%'
 	}
 
 	// 获取价格标签的定位样式
 	const getPriceLabelStyles = () => {
 		const position = getCurrentPriceIndicatorPosition()
+		const positionValue = parseFloat(position.replace('%', ''))
 		
-		if (position === '1%') {
+		// 判断指示器的位置范围来决定标签的定位策略
+		if (positionValue <= 5) {
 			// 指示器在最左边：标签显示在右侧，紧贴指示棒
 			return {
-				left: '1%',
+				left: position,
 				transform: 'translateX(4px)', // 减小偏移距离，更贴近指示棒
 			}
-		} else if (position === '99%') {
+		} else if (positionValue >= 95) {
 			// 指示器在最右边：标签显示在左侧，紧贴指示棒
 			return {
-				right: '1%',
-				transform: 'translateX(-4px)', // 减小偏移距离，更贴近指示棒
+				left: position,
+				transform: 'translateX(-100%) translateX(-4px)', // 完全向左偏移再减去间距
 			}
 		} else {
-			// 指示器在中间：标签居中对齐
+			// 指示器在中间：标签居中对齐到指示器位置
 			return {
-				left: '50%',
+				left: position,
 				transform: 'translateX(-50%)',
 			}
 		}
@@ -255,7 +312,7 @@ const PriceRangeVisualizer = ({
 				const prices = []
 				
 				for (let i = 0; i <= 10; i++) {
-					const price = activeBinPrice * Math.pow(1 + binStepDecimal, i * 10)
+					const price = anchorPrice * Math.pow(1 + binStepDecimal, i * 10)
 					prices.push(price.toFixed(5))
 				}
 				
@@ -267,11 +324,12 @@ const PriceRangeVisualizer = ({
 	// Run demonstration on component mount (development only)
 	React.useEffect(() => {
 		demonstrateBinStepCalculation()
-	}, [binStep, activeBinPrice])
+	}, [binStep, anchorPrice])
 
 	return (
 		<Box sx={{ mb: 3, position: 'relative', pt: 6 }}>
 			<Box
+				ref={containerRef}
 				sx={{
 					position: 'relative',
 					height: 200,
@@ -296,7 +354,7 @@ const PriceRangeVisualizer = ({
 				{/* 简单渲染柱子 */}
 				{renderLiquidityBars()}
 
-				{/* Current price indicator line */}
+				{/* Current price indicator line with draggable handle */}
 				<Box sx={{
 					position: 'absolute',
 					left: getCurrentPriceIndicatorPosition(),
@@ -307,13 +365,17 @@ const PriceRangeVisualizer = ({
 					transform: 'translateX(-50%)',
 					zIndex: 3,
 					borderRadius: '1px',
-					boxShadow: `
+					boxShadow: isDragging ? `
+						0 0 16px rgba(255, 255, 255, 0.9),
+						0 0 32px rgba(255, 255, 255, 0.5),
+						0 4px 8px rgba(0, 0, 0, 0.3)
+					` : `
 						0 0 8px rgba(255, 255, 255, 0.6),
 						0 0 16px rgba(255, 255, 255, 0.3),
 						0 2px 4px rgba(0, 0, 0, 0.2)
 					`,
 					// 添加脉冲动画增强视觉关联
-					animation: 'pulse 2s ease-in-out infinite',
+					animation: isDragging ? 'none' : 'pulse 2s ease-in-out infinite',
 					'@keyframes pulse': {
 						'0%, 100%': {
 							boxShadow: `
@@ -332,35 +394,67 @@ const PriceRangeVisualizer = ({
 					},
 				}} />
 
-				{/* Connecting line between indicator and label */}
-				<Box sx={{
-					position: 'absolute',
-					left: getCurrentPriceIndicatorPosition(),
-					top: getCurrentPriceIndicatorPosition() === '50%' ? 26 : 24, // 根据位置调整连接线起点
-					width: getCurrentPriceIndicatorPosition() === '50%' ? 2 : 
-						  getCurrentPriceIndicatorPosition() === '1%' ? 20 : 20, // 连接线长度
-					height: getCurrentPriceIndicatorPosition() === '50%' ? 4 : 2,
-					background: getCurrentPriceIndicatorPosition() === '50%' 
-						? 'linear-gradient(to bottom, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%)'
-						: getCurrentPriceIndicatorPosition() === '1%'
-							? 'linear-gradient(to right, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.2) 100%)'
-							: 'linear-gradient(to left, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.2) 100%)',
-					transform: getCurrentPriceIndicatorPosition() === '50%' 
-						? 'translateX(-50%)'
-						: getCurrentPriceIndicatorPosition() === '1%'
-							? 'translateX(-1px)'
-							: 'translateX(-19px)',
-					zIndex: 2,
-					borderRadius: '1px',
-					opacity: 0.7,
-				}} />
+				{/* Draggable handle at the bottom of the indicator */}
+				<Box
+					onMouseDown={handleDragStart}
+					sx={{
+						position: 'absolute',
+						left: getCurrentPriceIndicatorPosition(),
+						bottom: -8,
+						width: 20,
+						height: 16,
+						background: isDragging 
+							? 'linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%)'
+							: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 240, 0.9) 100%)',
+						transform: 'translateX(-50%)',
+						zIndex: 4,
+						borderRadius: '8px 8px 4px 4px',
+						cursor: isDragging ? 'grabbing' : 'grab',
+						border: isDragging ? '2px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.6)',
+						boxShadow: isDragging ? `
+							0 6px 20px rgba(0, 0, 0, 0.4),
+							0 3px 10px rgba(0, 0, 0, 0.25),
+							inset 0 1px 0 rgba(255, 255, 255, 0.95),
+							0 0 0 4px rgba(255, 255, 255, 0.3)
+						` : `
+							0 4px 12px rgba(0, 0, 0, 0.3),
+							0 2px 6px rgba(0, 0, 0, 0.15),
+							inset 0 1px 0 rgba(255, 255, 255, 0.8),
+							0 0 0 1px rgba(255, 255, 255, 0.2)
+						`,
+						transition: isDragging ? 'none' : 'all 0.2s ease',
+						'&:hover': {
+							transform: 'translateX(-50%) scale(1.1)',
+							boxShadow: `
+								0 6px 16px rgba(0, 0, 0, 0.4),
+								0 3px 8px rgba(0, 0, 0, 0.25),
+								inset 0 1px 0 rgba(255, 255, 255, 0.95),
+								0 0 0 3px rgba(255, 255, 255, 0.4)
+							`,
+						},
+						// 添加拖动图标
+						'&::before': {
+							content: '"⋮⋮"',
+							position: 'absolute',
+							top: '50%',
+							left: '50%',
+							transform: 'translate(-50%, -50%)',
+							fontSize: '8px',
+							color: isDragging ? '#333' : 'rgba(0, 0, 0, 0.6)',
+							fontWeight: 'bold',
+							letterSpacing: '-1px',
+						},
+					}}
+				/>
 
-				{/* Current price label */}
+				{/* Current price label - moves with indicator */}
 				<Box sx={{
 					position: 'absolute',
 					top: 8,
 					...getPriceLabelStyles(), // 使用动态定位样式
-					background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 240, 0.9) 100%)',
+					background: isDragging 
+						? 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(245, 245, 245, 0.95) 100%)'
+						: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 240, 0.9) 100%)',
 					color: '#1A1B2E',
 					px: 2,
 					py: 0.5,
@@ -368,16 +462,21 @@ const PriceRangeVisualizer = ({
 					fontSize: '11px',
 					fontWeight: 600,
 					zIndex: 4,
-					boxShadow: `
+					boxShadow: isDragging ? `
+						0 6px 20px rgba(0, 0, 0, 0.4),
+						0 3px 10px rgba(0, 0, 0, 0.25),
+						inset 0 1px 0 rgba(255, 255, 255, 1),
+						0 0 0 3px rgba(255, 255, 255, 0.5)
+					` : `
 						0 2px 8px rgba(0, 0, 0, 0.2),
 						0 1px 4px rgba(0, 0, 0, 0.1),
 						inset 0 1px 0 rgba(255, 255, 255, 0.8),
 						0 0 0 2px rgba(255, 255, 255, 0.3)
 					`,
-					border: '1px solid rgba(255, 255, 255, 0.6)',
+					border: isDragging ? '2px solid rgba(255, 255, 255, 0.8)' : '1px solid rgba(255, 255, 255, 0.6)',
 					backdropFilter: 'blur(4px)',
-					// 添加浮动动画 - 与指示棒同步
-					animation: 'labelFloat 2s ease-in-out infinite',
+					// 拖动时禁用动画
+					animation: isDragging ? 'none' : 'labelFloat 2s ease-in-out infinite',
 					'@keyframes labelFloat': {
 						'0%, 100%': {
 							transform: getPriceLabelStyles().transform + ' translateY(0px)',
@@ -408,7 +507,7 @@ const PriceRangeVisualizer = ({
 						`,
 						transition: 'all 0.2s ease',
 					},
-					transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+					transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
 					// 添加一个小箭头或指示符号来增强关联
 					'&::after': {
 						content: '""',
@@ -420,11 +519,21 @@ const PriceRangeVisualizer = ({
 						height: 0,
 						borderLeft: '4px solid transparent',
 						borderRight: '4px solid transparent',
-						borderTop: '4px solid rgba(255, 255, 255, 0.8)',
-						display: getCurrentPriceIndicatorPosition() === '50%' ? 'block' : 'none',
+						borderTop: `4px solid ${isDragging ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)'}`,
+						// 总是显示小箭头，增强视觉关联
+						display: 'block',
 					},
 				}}>
 					{getCurrentPrice()}
+					{isDragging && (
+						<Typography variant="caption" sx={{ 
+							ml: 1, 
+							color: 'rgba(26, 27, 46, 0.7)',
+							fontSize: '9px'
+						}}>
+							🔄
+						</Typography>
+					)}
 				</Box>
 			</Box>
 
@@ -456,17 +565,17 @@ const PriceRangeVisualizer = ({
 						// 每个刻度代表几个bin的步长
 						const binsPerTick = 10 // 每个刻度跨越10个bin
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = activeBinPrice * Math.pow(priceMultiplier, i)
+						price = anchorPrice * Math.pow(priceMultiplier, i)
 					} else if (amt1 > 0 && amt0 === 0) {
 						// Token Y模式：从当前价格开始，向左递减
 						const binsPerTick = 10 // 每个刻度跨越10个bin
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = activeBinPrice * Math.pow(priceMultiplier, -(10 - i)) // 反转索引
+						price = anchorPrice * Math.pow(priceMultiplier, -(10 - i)) // 反转索引
 					} else {
 						// AutoFill模式：以当前价格为中心对称显示
 						const binsPerTick = 5 // 中心模式使用更小的步长
 						const priceMultiplier = Math.pow(1 + binStepDecimal, binsPerTick)
-						price = activeBinPrice * Math.pow(priceMultiplier, (i - 5)) // i=5时为当前价格
+						price = anchorPrice * Math.pow(priceMultiplier, (i - 5)) // i=5时为当前价格
 					}
 					
 					// 添加日志以验证计算结果（仅在开发模式下）
@@ -475,17 +584,17 @@ const PriceRangeVisualizer = ({
 							binStep,
 							binStepDecimal,
 							binStepPercentage: `${binStep / 100}%`,
-							activeBinPrice,
+							anchorPrice: anchorPrice,
 							mode: amt0 > 0 && amt1 === 0 ? 'Token X' : 
 								  amt1 > 0 && amt0 === 0 ? 'Token Y' : 'AutoFill',
 							samplePrices: [
-								activeBinPrice.toFixed(5),
+								anchorPrice.toFixed(5),
 								price.toFixed(5)
 							]
 						})
 					}
 					
-					const isActivePrice = Math.abs(price - activeBinPrice) < (activeBinPrice * 0.005)
+					const isActivePrice = Math.abs(price - anchorPrice) < (anchorPrice * 0.005)
 
 					return (
 						<Box
@@ -505,8 +614,8 @@ const PriceRangeVisualizer = ({
 									fontSize: '10px',
 									fontWeight: isActivePrice ? 700 : 400,
 									color: isActivePrice ? '#ffffff' : 
-										  price < activeBinPrice ? '#00D9FF' : 
-										  price > activeBinPrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.6)',
+										  price < anchorPrice ? '#00D9FF' : 
+										  price > anchorPrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.6)',
 									transition: 'color 0.3s ease',
 								}}
 							>

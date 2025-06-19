@@ -4,7 +4,6 @@ import {
 	TokenAmountInput,
 	StrategySelection,
 	PriceRangeVisualizer,
-	PriceRangeSlider,
 	PriceInfoGrid,
 	AddLiquidityButton,
 	usePriceRange,
@@ -55,8 +54,6 @@ const AddLiquidityForm = ({
 		activeBinPrice,
 		minPrice,
 		maxPrice,
-		setMinPrice,
-		setMaxPrice,
 		calculateDynamicRange,
 		getNumBins,
 		resetPriceRange,
@@ -322,17 +319,6 @@ const AddLiquidityForm = ({
 									amount1={amount1}
 									strategy={liquidityStrategy}
 									binStep={selectedPool?.binStep}
-								/>
-							</Box>
-
-							{/* Price Range Slider */}
-							<Box sx={{ mb: 4 }}>
-								<PriceRangeSlider
-									minPrice={minPrice}
-									maxPrice={maxPrice}
-									activeBinPrice={activeBinPrice}
-									onMinPriceChange={setMinPrice}
-									onMaxPriceChange={setMaxPrice}
 								/>
 							</Box>
 
