@@ -545,14 +545,14 @@ export const useDexOperations = () => {
 		}) as boolean
 
 		if (!approved) {
-			console.log("🔑 需要授权LBPair操作（ERC1155 setApprovalForAll）...")
+			console.log("🔑 需要授权LBPair操作（使用approveForAll）...")
 			
-			const erc1155SetApprovalABI = [{
+			const lbPairApprovalABI = [{
 				"inputs": [
-					{"internalType": "address", "name": "operator", "type": "address"},
+					{"internalType": "address", "name": "spender", "type": "address"},
 					{"internalType": "bool", "name": "approved", "type": "bool"}
 				],
-				"name": "setApprovalForAll",
+				"name": "approveForAll",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -560,8 +560,8 @@ export const useDexOperations = () => {
 			
 			const approvalResult = await writeContractAsync({
 				address: pairAddress as `0x${string}`,
-				abi: erc1155SetApprovalABI,
-				functionName: 'setApprovalForAll',
+				abi: lbPairApprovalABI,
+				functionName: 'approveForAll',
 				args: [lbRouterAddress as `0x${string}`, true],
 				chainId: chainId,
 			})
