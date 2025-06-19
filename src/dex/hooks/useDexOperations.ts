@@ -1,12 +1,10 @@
 import { Bin, LB_FACTORY_V22_ADDRESS, LB_ROUTER_V22_ADDRESS, jsonAbis, PairV2, getUniformDistributionFromBinRange } from "@lb-xyz/sdk-v2"
-import { TokenAmount } from '@lb-xyz/sdk-core'
 import * as ethers from "ethers"
 import { useCallback } from "react"
 import { useAccount, useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { createViemClient } from "../viemClient"
 import { calculateSingleSidedBinRange, getRecommendedBinCount, createConcentratedDistribution, createUniformDistribution, createWeightedDistribution } from "../utils/calculations"
-import JSBI from 'jsbi'
 
 // ERC20 ABI for allowance and approve functions
 const ERC20_ABI = [
@@ -45,9 +43,9 @@ export const useDexOperations = () => {
 		deltaIds?: number[],
 		distributionX?: bigint[],
 		distributionY?: bigint[],
-		singleSidedMode?: boolean, // Enable single-sided liquidity
-		singleSidedStrategy?: 'conservative' | 'balanced' | 'aggressive', // Strategy for single-sided
-		customSlippageTolerance?: number, // Custom slippage tolerance percentage (e.g., 5 for 5%)
+		singleSidedMode?: boolean,
+		singleSidedStrategy?: 'conservative' | 'balanced' | 'aggressive',
+		customSlippageTolerance?: number,
 	) => {
 		try {
 			console.log("🔍 addLiquidity called with:", { 
@@ -70,7 +68,7 @@ export const useDexOperations = () => {
 				throw new Error("Wallet not connected")
 			}
 
-			// 检测是否为单边流动性模式
+			// Detect single-sided mode
 			const isSingleSided = singleSidedMode || (tokenAAmount > 0 && tokenBAmount === 0) || (tokenAAmount === 0 && tokenBAmount > 0)
 			const isTokenXOnly = tokenAAmount > 0 && tokenBAmount === 0
 			const isTokenYOnly = tokenAAmount === 0 && tokenBAmount > 0
@@ -90,7 +88,7 @@ export const useDexOperations = () => {
 				throw new Error("LB Router not supported on this chain")
 			}
 
-			// 获取SDK Token对象
+			// Get SDK Token objects
 			const tokenA = getSDKTokenByAddress(tokenXAddress, chainId)
 			const tokenB = getSDKTokenByAddress(tokenYAddress, chainId)
 
@@ -99,66 +97,19 @@ export const useDexOperations = () => {
 			}
 
 			console.log("🔍 SDK Tokens:", {
-				tokenA: { symbol: tokenA.symbol, address: tokenA.address },
-				tokenB: { symbol: tokenB.symbol, address: tokenB.address }
+				tokenA: { symbol: tokenA.symbol, address: tokenA.address, decimals: tokenA.decimals },
+				tokenB: { symbol: tokenB.symbol, address: tokenB.address, decimals: tokenB.decimals }
 			})
 
-			// 创建PairV2实例 - SDK会自动按地址排序 (token0 < token1)
+			// Create PairV2 instance - SDK automatically sorts by address (token0 < token1)
 			const pair = new PairV2(tokenA, tokenB)
 			
-			console.log("� PairV2 ordered tokens:", {
-				token0: { symbol: pair.token0.symbol, address: pair.token0.address },
-				token1: { symbol: pair.token1.symbol, address: pair.token1.address }
+			console.log("🔧 PairV2 ordered tokens:", {
+				token0: { symbol: pair.token0.symbol, address: pair.token0.address, decimals: pair.token0.decimals },
+				token1: { symbol: pair.token1.symbol, address: pair.token1.address, decimals: pair.token1.decimals }
 			})
 
-			// 确定金额对应关系
-			let amountToken0: number, amountToken1: number
-			if (tokenA.address.toLowerCase() === pair.token0.address.toLowerCase()) {
-				// tokenA -> token0, tokenB -> token1
-				amountToken0 = tokenAAmount || 0
-				amountToken1 = tokenBAmount || 0
-			} else {
-				// tokenA -> token1, tokenB -> token0 (交换了)
-				amountToken0 = tokenBAmount || 0
-				amountToken1 = tokenAAmount || 0
-			}
-
-			console.log("🔍 Amounts after ordering:", {
-				amountToken0,
-				amountToken1
-			})
-
-			// 解析代币数量
-			const typedValueToken0Parsed = ethers.parseUnits(amountToken0.toString(), pair.token0.decimals)
-			const typedValueToken1Parsed = ethers.parseUnits(amountToken1.toString(), pair.token1.decimals)
-
-			// 创建TokenAmount对象
-			const tokenAmountToken0 = new TokenAmount(pair.token0, typedValueToken0Parsed)
-			const tokenAmountToken1 = new TokenAmount(pair.token1, typedValueToken1Parsed)
-
-			// 使用用户设置的滑点容忍度，或根据模式使用默认值
-			// customSlippageTolerance 是百分比 (e.g., 5 for 5%)
-			const userSlippagePercentage = customSlippageTolerance || (isSingleSided ? 10 : 5)
-			const allowedAmountsSlippage = userSlippagePercentage * 100 // 转换为 bips (5% = 500 bips)
-
-			console.log("🎯 Slippage configuration:", {
-				userSlippagePercentage: userSlippagePercentage + "%",
-				allowedAmountsSlippage: allowedAmountsSlippage + " bips",
-				mode: isSingleSided ? 'single-sided' : 'dual-sided'
-			})
-
-			// 基于滑点计算最小数量 - 对于单边流动性，只有一个代币有值，另一个为0
-			const minTokenAmount0 = amountToken0 > 0 ? JSBI.divide(
-				JSBI.multiply(tokenAmountToken0.raw, JSBI.BigInt(10000 - allowedAmountsSlippage)),
-				JSBI.BigInt(10000)
-			) : JSBI.BigInt(0)
-			
-			const minTokenAmount1 = amountToken1 > 0 ? JSBI.divide(
-				JSBI.multiply(tokenAmountToken1.raw, JSBI.BigInt(10000 - allowedAmountsSlippage)),
-				JSBI.BigInt(10000)
-			) : JSBI.BigInt(0)
-
-			// 获取LBPair信息
+			// Get LBPair info first to determine actual token ordering
 			const pairVersion = 'v22'
 			const publicClient = createViemClient(chainId)
 			const lbPair = await pair.fetchLBPair(binStep, pairVersion, publicClient, CHAIN_ID)
@@ -169,19 +120,96 @@ export const useDexOperations = () => {
 
 			console.log(`✅ Found LBPair: ${lbPair.LBPair}`)
 
-			// 获取活跃bin ID
+			// Get actual token ordering from the LBPair contract
+			const actualTokenX = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairV21ABI,
+				functionName: 'getTokenX'
+			}) as string
+			
+			const actualTokenY = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairV21ABI,
+				functionName: 'getTokenY'
+			}) as string
+
+			console.log("🔍 Contract token order:", {
+				actualTokenX: actualTokenX.toLowerCase(),
+				actualTokenY: actualTokenY.toLowerCase()
+			})
+
+			// Map input tokens to contract tokens
+			let amountX: string = "0"
+			let amountY: string = "0"
+			let tokenXDecimals: number
+			let tokenYDecimals: number
+
+			// Determine which input token corresponds to tokenX and tokenY
+			if (tokenXAddress.toLowerCase() === actualTokenX.toLowerCase()) {
+				// tokenA -> tokenX, tokenB -> tokenY
+				amountX = tokenAAmount > 0 ? ethers.parseUnits(tokenAAmount.toString(), tokenA.decimals).toString() : "0"
+				amountY = tokenBAmount > 0 ? ethers.parseUnits(tokenBAmount.toString(), tokenB.decimals).toString() : "0"
+				tokenXDecimals = tokenA.decimals
+				tokenYDecimals = tokenB.decimals
+			} else if (tokenXAddress.toLowerCase() === actualTokenY.toLowerCase()) {
+				// tokenA -> tokenY, tokenB -> tokenX
+				amountX = tokenBAmount > 0 ? ethers.parseUnits(tokenBAmount.toString(), tokenB.decimals).toString() : "0"
+				amountY = tokenAAmount > 0 ? ethers.parseUnits(tokenAAmount.toString(), tokenA.decimals).toString() : "0"
+				tokenXDecimals = tokenB.decimals
+				tokenYDecimals = tokenA.decimals
+			} else {
+				throw new Error("Token mapping error: Input tokens don't match contract tokens")
+			}
+
+			console.log("🔍 Final amount mapping:", {
+				inputAmounts: { tokenAAmount, tokenBAmount },
+				contractAmounts: { amountX, amountY },
+				decimals: { tokenXDecimals, tokenYDecimals },
+				mapping: {
+					tokenAToContract: tokenXAddress.toLowerCase() === actualTokenX.toLowerCase() ? 'tokenX' : 'tokenY',
+					tokenBToContract: tokenYAddress.toLowerCase() === actualTokenX.toLowerCase() ? 'tokenX' : 'tokenY'
+				}
+			})
+
+			// Validate amounts
+			if (BigInt(amountX) === BigInt(0) && BigInt(amountY) === BigInt(0)) {
+				throw new Error("Both amounts cannot be zero")
+			}
+
+			// Calculate slippage tolerance
+			const userSlippagePercentage = customSlippageTolerance || (isSingleSided ? 10 : 5)
+			const slippageBips = userSlippagePercentage * 100 // Convert to bips
+
+			// Calculate minimum amounts with proper slippage
+			const amountXMin = BigInt(amountX) > 0 ? 
+				(BigInt(amountX) * BigInt(10000 - slippageBips) / BigInt(10000)).toString() : 
+				"0"
+			
+			const amountYMin = BigInt(amountY) > 0 ? 
+				(BigInt(amountY) * BigInt(10000 - slippageBips) / BigInt(10000)).toString() : 
+				"0"
+
+			console.log("🎯 Slippage calculation:", {
+				userSlippagePercentage: userSlippagePercentage + "%",
+				slippageBips: slippageBips + " bips",
+				amounts: { amountX, amountY },
+				minAmounts: { amountXMin, amountYMin },
+				calculation: `(amount * ${10000 - slippageBips}) / 10000`
+			})
+
+			// Get active bin ID
 			const lbPairData = await PairV2.getLBPairReservesAndId(lbPair.LBPair, pairVersion, publicClient)
 			const activeBin = activeBinId || lbPairData.activeId
 
 			console.log(`🎯 Active bin ID: ${activeBin}`)
 
-			// 生成流动性分布 - 支持单边和双边模式
+			// Generate liquidity distribution
 			let finalDeltaIds: number[]
 			let finalDistributionX: bigint[]
 			let finalDistributionY: bigint[]
 
 			if (isSingleSided) {
-				// 单边流动性模式
+				// Single-sided liquidity mode
 				const strategy = singleSidedStrategy || 'balanced'
 				const recommendedBinCount = getRecommendedBinCount(
 					Math.max(tokenAAmount, tokenBAmount), 
@@ -190,8 +218,8 @@ export const useDexOperations = () => {
 				
 				const concentration = strategy === 'conservative' ? 5 : strategy === 'aggressive' ? 2 : 3
 				
-				// 确定是tokenX还是tokenY
-				const isProvidingTokenX = isTokenXOnly
+				// Determine if providing tokenX or tokenY
+				const isProvidingTokenX = BigInt(amountX) > 0
 				
 				const { deltaIds: calculatedDeltaIds } = calculateSingleSidedBinRange(
 					activeBin, 
@@ -202,15 +230,7 @@ export const useDexOperations = () => {
 
 				finalDeltaIds = deltaIds || calculatedDeltaIds
 				
-				// 生成基础分布
-				const binRange: [number, number] = [
-					activeBin + Math.min(...finalDeltaIds), 
-					activeBin + Math.max(...finalDeltaIds)
-				]
-				
-				// 不需要SDK的分布，直接创建自定义分布
-
-				// 创建自定义分布
+				// Create custom distribution
 				let customDistribution: bigint[]
 				switch (strategy) {
 					case 'conservative':
@@ -223,7 +243,7 @@ export const useDexOperations = () => {
 						customDistribution = createUniformDistribution(finalDeltaIds.length)
 				}
 
-				// 对于单边流动性，只在相应方向提供流动性
+				// For single-sided liquidity, only provide in the appropriate direction
 				if (isProvidingTokenX) {
 					finalDistributionX = distributionX || customDistribution
 					finalDistributionY = new Array(finalDistributionX.length).fill(BigInt(0))
@@ -235,17 +255,16 @@ export const useDexOperations = () => {
 				console.log("🔍 Single-sided liquidity distribution:", {
 					strategy,
 					activeBin,
-					binRange,
 					deltaIds: finalDeltaIds,
 					isProvidingTokenX,
 					distributionXSum: finalDistributionX.reduce((sum, val) => sum + val, BigInt(0)).toString(),
 					distributionYSum: finalDistributionY.reduce((sum, val) => sum + val, BigInt(0)).toString()
 				})
 			} else {
-				// 双边流动性模式（原有逻辑）
+				// Dual-sided liquidity mode
 				const binRange: [number, number] = deltaIds ? 
 					[activeBin + Math.min(...deltaIds), activeBin + Math.max(...deltaIds)] :
-					[activeBin - 2, activeBin + 2] // 默认5个bin
+					[activeBin - 2, activeBin + 2] // Default 5 bins
 
 				const { deltaIds: calculatedDeltaIds, distributionX: calculatedDistributionX, distributionY: calculatedDistributionY } = 
 					getUniformDistributionFromBinRange(activeBin, binRange)
@@ -262,113 +281,18 @@ export const useDexOperations = () => {
 				})
 			}
 
-			// 验证LBPair的实际token顺序
-			const actualTokenX = await publicClient.readContract({
-				address: lbPair.LBPair as `0x${string}`,
-				abi: jsonAbis.LBPairV21ABI,
-				functionName: 'getTokenX'
-			}) as string
-			
-			const actualTokenY = await publicClient.readContract({
-				address: lbPair.LBPair as `0x${string}`,
-				abi: jsonAbis.LBPairV21ABI,
-				functionName: 'getTokenY'
-			}) as string
-
-			// 分析 token 顺序映射
-			const isTokenXToken0 = actualTokenX.toLowerCase() === pair.token0.address.toLowerCase()
-			const isTokenYToken1 = actualTokenY.toLowerCase() === pair.token1.address.toLowerCase()
-			
-			console.log("🔍 Token order analysis:", {
-				contractOrder: {
-					tokenX: actualTokenX.toLowerCase(),
-					tokenY: actualTokenY.toLowerCase()
-				},
-				sdkOrder: {
-					token0: pair.token0.address.toLowerCase(),
-					token1: pair.token1.address.toLowerCase()
-				},
-				mapping: {
-					tokenXIsToken0: isTokenXToken0,
-					tokenYIsToken1: isTokenYToken1,
-					orderMatches: isTokenXToken0 && isTokenYToken1
-				}
-			})
-
-			// 根据映射关系确定数量
-			const amountX = isTokenXToken0 ? tokenAmountToken0.raw.toString() : tokenAmountToken1.raw.toString()
-			const amountY = isTokenYToken1 ? tokenAmountToken1.raw.toString() : tokenAmountToken0.raw.toString()
-			const amountXMin = isTokenXToken0 ? minTokenAmount0.toString() : minTokenAmount1.toString()
-			const amountYMin = isTokenYToken1 ? minTokenAmount1.toString() : minTokenAmount0.toString()
-
-			console.log("🔍 Amount calculation debug:", {
-				originalAmounts: { tokenAAmount, tokenBAmount },
-				orderedAmounts: { amountToken0, amountToken1 },
-				parsedAmounts: {
-					token0Raw: tokenAmountToken0.raw.toString(),
-					token1Raw: tokenAmountToken1.raw.toString(),
-					token0Decimals: pair.token0.decimals,
-					token1Decimals: pair.token1.decimals
-				},
-				finalAmounts: { amountX, amountY },
-				minAmounts: { amountXMin, amountYMin },
-				slippageConfig: {
-					userSlippagePercentage: userSlippagePercentage + "%",
-					allowedAmountsSlippage: allowedAmountsSlippage + " bips",
-					calculation: `${10000 - allowedAmountsSlippage}/10000 = ${(10000 - allowedAmountsSlippage)/10000}`
-				},
-				tokenMapping: {
-					isTokenXToken0,
-					isTokenYToken1,
-					actualTokenX,
-					actualTokenY
-				}
-			})
-
-			// 验证金额合理性
-			if (BigInt(amountX) === BigInt(0) && BigInt(amountY) === BigInt(0)) {
-				throw new Error("Both amounts cannot be zero")
-			}
-
-			// 验证最小金额不会超过实际金额（这可能是导致slippage错误的原因）
-			// 如果检测到这种情况，自动调整最小金额为更安全的值
-			let finalAmountXMin = amountXMin
-			let finalAmountYMin = amountYMin
-
-			if (BigInt(amountX) > 0 && BigInt(amountXMin) > BigInt(amountX)) {
-				console.warn("⚠️ AmountXMin exceeds amountX, adjusting to safer value:", { 
-					original: amountXMin, 
-					actual: amountX,
-					ratio: Number(BigInt(amountXMin)) / Number(BigInt(amountX))
-				})
-				// 使用实际金额的 90% 作为最小值，而不是基于错误计算的值
-				finalAmountXMin = (BigInt(amountX) * BigInt(90) / BigInt(100)).toString()
-				console.log("🔧 Adjusted amountXMin from", amountXMin, "to", finalAmountXMin)
-			}
-
-			if (BigInt(amountY) > 0 && BigInt(amountYMin) > BigInt(amountY)) {
-				console.warn("⚠️ AmountYMin exceeds amountY, adjusting to safer value:", { 
-					original: amountYMin, 
-					actual: amountY,
-					ratio: Number(BigInt(amountYMin)) / Number(BigInt(amountY))
-				})
-				// 使用实际金额的 90% 作为最小值
-				finalAmountYMin = (BigInt(amountY) * BigInt(90) / BigInt(100)).toString()
-				console.log("🔧 Adjusted amountYMin from", amountYMin, "to", finalAmountYMin)
-			}
-
-			// 构建addLiquidity参数
+			// Build addLiquidity parameters
 			const currentTimeInSec = Math.floor(Date.now() / 1000)
-			const deadline = currentTimeInSec + 1200 // 20分钟后过期
+			const deadline = currentTimeInSec + 1200 // 20 minutes
 
 			const addLiquidityInput = {
 				tokenX: actualTokenX as `0x${string}`,
 				tokenY: actualTokenY as `0x${string}`,
-				binStep: Number(binStep || 25),
+				binStep: Number(binStep),
 				amountX,
 				amountY,
-				amountXMin: finalAmountXMin,
-				amountYMin: finalAmountYMin,
+				amountXMin,
+				amountYMin,
 				activeIdDesired: Number(activeBin),
 				idSlippage: Math.max(5, Math.min(50, Math.round(userSlippagePercentage * 2))), // ID slippage: 2x amount slippage, capped between 5-50
 				deltaIds: finalDeltaIds,
@@ -380,52 +304,31 @@ export const useDexOperations = () => {
 			}
 
 			console.log("🔍 Final addLiquidityInput:", {
-				tokenX: addLiquidityInput.tokenX,
-				tokenY: addLiquidityInput.tokenY,
-				amountX: addLiquidityInput.amountX,
-				amountY: addLiquidityInput.amountY,
-				binStep: addLiquidityInput.binStep,
-				activeBin: addLiquidityInput.activeIdDesired,
+				...addLiquidityInput,
 				mode: isSingleSided ? 'single-sided' : 'dual-sided',
-				strategy: isSingleSided ? (singleSidedStrategy || 'balanced') : 'standard',
-				actualTokenOrder: {
-					actualTokenX: actualTokenX.toLowerCase(),
-					actualTokenY: actualTokenY.toLowerCase()
-				}
+				strategy: isSingleSided ? (singleSidedStrategy || 'balanced') : 'standard'
 			})
 
-			// 验证token顺序 - 确保我们使用的tokenX匹配合约的tokenX
-			if (addLiquidityInput.tokenX.toLowerCase() !== actualTokenX.toLowerCase()) {
-				throw new Error(`Token ordering error: Expected tokenX ${actualTokenX}, got ${addLiquidityInput.tokenX}`)
-			}
-			
-			if (addLiquidityInput.tokenY.toLowerCase() !== actualTokenY.toLowerCase()) {
-				throw new Error(`Token ordering error: Expected tokenY ${actualTokenY}, got ${addLiquidityInput.tokenY}`)
-			}
-
-			console.log("✅ Token ordering validated for LBRouter")
-
-			// 检查和处理 token 授权 - 智能检测需要授权的token
+			// Check and handle token approvals
 			console.log("🔍 Checking token allowances...")
 			
-			// 额外的钱包连接验证
 			if (!userAddress) {
-				throw new Error("钱包未连接，请先连接钱包")
+				throw new Error("Wallet not connected")
 			}
 			
-			// 智能授权 - 只授权实际需要的token
-			const needTokenXApproval = BigInt(addLiquidityInput.amountX) > 0
-			const needTokenYApproval = BigInt(addLiquidityInput.amountY) > 0
+			// Smart approval - only approve tokens that are actually needed
+			const needTokenXApproval = BigInt(amountX) > 0
+			const needTokenYApproval = BigInt(amountY) > 0
 			
 			console.log("💡 Smart approval detection:", {
 				needTokenXApproval,
 				needTokenYApproval,
-				amountX: addLiquidityInput.amountX,
-				amountY: addLiquidityInput.amountY,
+				amountX,
+				amountY,
 				mode: isSingleSided ? 'single-sided' : 'dual-sided'
 			})
 
-			// 检查 tokenX 授权
+			// Check tokenX allowance
 			if (needTokenXApproval) {
 				const tokenXAllowance = await publicClient.readContract({
 					address: actualTokenX as `0x${string}`,
@@ -437,10 +340,10 @@ export const useDexOperations = () => {
 				console.log("💰 TokenX allowance:", {
 					address: actualTokenX,
 					allowance: tokenXAllowance.toString(),
-					required: addLiquidityInput.amountX
+					required: amountX
 				})
 
-				if (tokenXAllowance < BigInt(addLiquidityInput.amountX)) {
+				if (tokenXAllowance < BigInt(amountX)) {
 					console.log("🔑 TokenX allowance insufficient, requesting approval...")
 					
 					try {
@@ -448,13 +351,13 @@ export const useDexOperations = () => {
 							address: actualTokenX as `0x${string}`,
 							abi: ERC20_ABI,
 							functionName: 'approve',
-							args: [lbRouterAddress as `0x${string}`, BigInt(addLiquidityInput.amountX)],
+							args: [lbRouterAddress as `0x${string}`, BigInt(amountX)],
 							chainId: chainId,
 						})
 
 						console.log(`✅ TokenX approval sent: ${approvalTx}`)
 						
-						// 等待授权交易确认
+						// Wait for approval transaction confirmation
 						await publicClient.waitForTransactionReceipt({ 
 							hash: approvalTx as `0x${string}`,
 							timeout: 60000
@@ -464,15 +367,15 @@ export const useDexOperations = () => {
 						if (approvalError.message?.includes('User denied transaction') || 
 							approvalError.message?.includes('not been authorized by the user') ||
 							approvalError.code === 4001) {
-							throw new Error(`用户取消了授权交易。请批准授权 ${tokenA?.symbol || 'TokenX'} 才能继续添加流动性。`)
+							throw new Error(`User cancelled authorization transaction. Please approve ${tokenA?.symbol || 'TokenX'} to continue adding liquidity.`)
 						}
 						console.error("TokenX approval error:", approvalError)
-						throw new Error(`授权 ${tokenA?.symbol || 'TokenX'} 失败: ${approvalError.message}`)
+						throw new Error(`Failed to approve ${tokenA?.symbol || 'TokenX'}: ${approvalError.message}`)
 					}
 				}
 			}
 
-			// 检查 tokenY 授权
+			// Check tokenY allowance
 			if (needTokenYApproval) {
 				const tokenYAllowance = await publicClient.readContract({
 					address: actualTokenY as `0x${string}`,
@@ -484,10 +387,10 @@ export const useDexOperations = () => {
 				console.log("💰 TokenY allowance:", {
 					address: actualTokenY,
 					allowance: tokenYAllowance.toString(),
-					required: addLiquidityInput.amountY
+					required: amountY
 				})
 
-				if (tokenYAllowance < BigInt(addLiquidityInput.amountY)) {
+				if (tokenYAllowance < BigInt(amountY)) {
 					console.log("🔑 TokenY allowance insufficient, requesting approval...")
 					
 					try {
@@ -495,13 +398,13 @@ export const useDexOperations = () => {
 							address: actualTokenY as `0x${string}`,
 							abi: ERC20_ABI,
 							functionName: 'approve',
-							args: [lbRouterAddress as `0x${string}`, BigInt(addLiquidityInput.amountY)],
+							args: [lbRouterAddress as `0x${string}`, BigInt(amountY)],
 							chainId: chainId,
 						})
 
 						console.log(`✅ TokenY approval sent: ${approvalTx}`)
 						
-						// 等待授权交易确认
+						// Wait for approval transaction confirmation
 						await publicClient.waitForTransactionReceipt({ 
 							hash: approvalTx as `0x${string}`,
 							timeout: 60000
@@ -511,10 +414,10 @@ export const useDexOperations = () => {
 						if (approvalError.message?.includes('User denied transaction') || 
 							approvalError.message?.includes('not been authorized by the user') ||
 							approvalError.code === 4001) {
-							throw new Error(`用户取消了授权交易。请批准授权 ${tokenB?.symbol || 'TokenY'} 才能继续添加流动性。`)
+							throw new Error(`User cancelled authorization transaction. Please approve ${tokenB?.symbol || 'TokenY'} to continue adding liquidity.`)
 						}
 						console.error("TokenY approval error:", approvalError)
-						throw new Error(`授权 ${tokenB?.symbol || 'TokenY'} 失败: ${approvalError.message}`)
+						throw new Error(`Failed to approve ${tokenB?.symbol || 'TokenY'}: ${approvalError.message}`)
 					}
 				}
 			}
@@ -523,8 +426,8 @@ export const useDexOperations = () => {
 
 			try {
 				const actionDescription = isSingleSided ? 
-					`单边流动性 (${isTokenXOnly ? 'TokenX' : 'TokenY'} only, ${singleSidedStrategy || 'balanced'} strategy)` : 
-					'双边流动性'
+					`Single-sided liquidity (${BigInt(amountX) > 0 ? 'TokenX' : 'TokenY'} only, ${singleSidedStrategy || 'balanced'} strategy)` : 
+					'Dual-sided liquidity'
 				
 				console.log(`🚀 Executing ${actionDescription} transaction...`)
 				const result = await writeContractAsync({
@@ -542,20 +445,20 @@ export const useDexOperations = () => {
 					addLiquidityError.message?.includes('not been authorized by the user') ||
 					addLiquidityError.code === 4001) {
 					const errorMessage = isSingleSided ? 
-						'用户取消了添加单边流动性交易。请确认交易以完成操作。' : 
-						'用户取消了添加流动性交易。请确认交易以完成操作。'
+						'User cancelled single-sided liquidity transaction. Please confirm the transaction to complete the operation.' : 
+						'User cancelled liquidity addition transaction. Please confirm the transaction to complete the operation.'
 					throw new Error(errorMessage)
 				}
 				
-				// 专门处理滑点捕获错误
+				// Handle slippage error specifically
 				if (addLiquidityError.message?.includes('LBRouter__AmountSlippageCaught')) {
 					console.error("🎯 Amount slippage caught - detailed analysis:", {
 						errorMessage: addLiquidityError.message,
 						inputParams: {
 							amountX,
 							amountY,
-							amountXMin: finalAmountXMin,
-							amountYMin: finalAmountYMin,
+							amountXMin,
+							amountYMin,
 							userSlippage: userSlippagePercentage + "%"
 						},
 						suggestions: [
@@ -571,8 +474,8 @@ export const useDexOperations = () => {
 				
 				console.error("AddLiquidity transaction error:", addLiquidityError)
 				const errorMessage = isSingleSided ? 
-					`添加单边流动性失败: ${addLiquidityError.message}` : 
-					`添加流动性失败: ${addLiquidityError.message}`
+					`Failed to add single-sided liquidity: ${addLiquidityError.message}` : 
+					`Failed to add liquidity: ${addLiquidityError.message}`
 				throw new Error(errorMessage)
 			}
 		} catch (error) {

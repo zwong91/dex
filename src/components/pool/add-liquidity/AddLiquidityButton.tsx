@@ -85,12 +85,7 @@ const AddLiquidityButton = ({
 				</Alert>
 			)}
 
-			{/* Success/Error Messages */}
-			{isSuccess && (
-				<Alert severity="success" sx={{ mt: 2 }}>
-					Liquidity added successfully!
-				</Alert>
-			)}
+			{/* Error Message Only */}
 			{error && (
 				<Alert severity="warning" sx={{ mt: 2 }}>
 					Failed to add liquidity: {error.message}
