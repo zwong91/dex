@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { Box, Button, Typography, Card, CircularProgress } from '@mui/material'
 import { useLBPairPrice, useMultipleLBPairPrices } from '../../dex/hooks/useLBPairPrice'
 
@@ -117,7 +117,7 @@ export const LBPairPriceExample: React.FC = () => {
 					</Typography>
 				) : (
 					<Box sx={{ mb: 2 }}>
-						{multiplePairs.map((pair, index) => (
+						{multiplePairs.map((pair) => (
 							<Box key={pair.pairAddress} sx={{ 
 								mb: 1, 
 								p: 2, 

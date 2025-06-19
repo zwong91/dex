@@ -16,6 +16,7 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Container,
   Grid,
   IconButton,
@@ -27,9 +28,9 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import Navigation from '../components/Navigation';
-import RemoveLiquidityDialog from '../components/pool/RemoveLiquidityDialog';
 import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
 import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUserPositions';
+import { useDexOperations } from '../dex/hooks/useDexOperations';
 
 const PortfolioPage = () => {
   const { address } = useAccount();
@@ -40,13 +41,16 @@ const PortfolioPage = () => {
 
   // Get detailed user positions for liquidity management
   const { positions: userPositions, loading: positionsLoading } = useUserLiquidityPositions(address);
+  
+  // Get dex operations for fee collection and liquidity withdrawal
+  const { collectFees, collectFeesAndWithdrawAll } = useDexOperations();
 
   const [refreshing, setRefreshing] = useState(false);
 
-  // Position management states
-  const [showRemovePosition, setShowRemovePosition] = useState(false);
-  const [selectedPosition, setSelectedPosition] = useState<UserPosition | null>(null);
-  const [defaultOperationType, setDefaultOperationType] = useState<'partial' | 'full'>('partial');
+  // Loading and error states for operations
+  const [isCollectingFees, setIsCollectingFees] = useState(false);
+  const [isWithdrawingAndClosing, setIsWithdrawingAndClosing] = useState(false);
+  const [operationError, setOperationError] = useState<string | null>(null);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -54,16 +58,96 @@ const PortfolioPage = () => {
     setRefreshing(false);
   };
 
-  const handleWithdrawLiquidity = (position: UserPosition) => {
-    setSelectedPosition(position);
-    setDefaultOperationType('partial');
-    setShowRemovePosition(true);
+  // Handle collecting fees only
+  const handleCollectFees = async (position: UserPosition) => {
+    if (!address || !position.binData || position.binData.length === 0) {
+      setOperationError('Invalid position data or wallet not connected');
+      return;
+    }
+
+    try {
+      setIsCollectingFees(true);
+      setOperationError(null);
+
+      // Get bin IDs from position data
+      const binIds = position.binData.map(bin => bin.binId);
+
+      console.log('🔍 Collecting fees for position:', {
+        pair: `${position.token0}/${position.token1}`,
+        binIds,
+        pairAddress: position.pairAddress
+      });
+
+      await collectFees(
+        position.pairAddress,
+        position.token0Address,
+        position.token1Address,
+        binIds,
+        position.binStep
+      );
+
+      console.log('✅ Fees collected successfully');
+      // Refresh data after successful operation
+      await refetch();
+    } catch (error: any) {
+      console.error('❌ Fee collection failed:', error);
+      setOperationError(`Fee collection failed: ${error.message}`);
+    } finally {
+      setIsCollectingFees(false);
+    }
   };
 
-  const handleWithdrawAndClose = (position: UserPosition) => {
-    setSelectedPosition(position);
-    setDefaultOperationType('full');
-    setShowRemovePosition(true);
+  // Handle collecting fees and withdrawing all liquidity (close position)
+  const handleWithdrawAndClose = async (position: UserPosition) => {
+    if (!address || !position.binData || position.binData.length === 0) {
+      setOperationError('Invalid position data or wallet not connected');
+      return;
+    }
+
+    try {
+      setIsWithdrawingAndClosing(true);
+      setOperationError(null);
+
+      // Prepare bin data for withdrawal
+      const binIds: number[] = [];
+      const amounts: bigint[] = [];
+
+      position.binData.forEach(bin => {
+        if (bin.shares > 0) {
+          binIds.push(bin.binId);
+          amounts.push(bin.shares); // Use full shares amount for complete withdrawal
+        }
+      });
+
+      if (binIds.length === 0 || amounts.length === 0) {
+        throw new Error('No liquidity available to withdraw from this position');
+      }
+
+      console.log('🔍 Withdrawing all liquidity and collecting fees for position:', {
+        pair: `${position.token0}/${position.token1}`,
+        binIds,
+        amounts: amounts.map(a => a.toString()),
+        pairAddress: position.pairAddress
+      });
+
+      await collectFeesAndWithdrawAll(
+        position.pairAddress,
+        position.token0Address,
+        position.token1Address,
+        binIds,
+        amounts,
+        position.binStep
+      );
+
+      console.log('✅ Position closed successfully (fees collected + liquidity withdrawn)');
+      // Refresh data after successful operation
+      await refetch();
+    } catch (error: any) {
+      console.error('❌ Position closure failed:', error);
+      setOperationError(`Position closure failed: ${error.message}`);
+    } finally {
+      setIsWithdrawingAndClosing(false);
+    }
   };
 
   // Render loading skeleton for token balances
@@ -300,26 +384,38 @@ const PortfolioPage = () => {
           <Button
             variant="contained"
             fullWidth
-            startIcon={<RemoveIcon />}
-            onClick={() => handleWithdrawLiquidity(position)}
+            startIcon={<WalletIcon />}
+            onClick={() => handleCollectFees(position)}
+            disabled={isCollectingFees}
             sx={{ 
               py: 1.5,
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 600,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
               '&:hover': {
-                background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                background: 'linear-gradient(135deg, #3e9bfe 0%, #00e1fe 100%)',
+              },
+              '&:disabled': {
+                background: 'linear-gradient(135deg, #94c5f7 0%, #7dc8f0 100%)',
               }
             }}
           >
-            Withdraw Liquidity
+            {isCollectingFees ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={16} color="inherit" />
+                Collecting Fees...
+              </Box>
+            ) : (
+              'Collect Fees'
+            )}
           </Button>
           <Button
             variant="outlined"
             fullWidth
             startIcon={<RemoveIcon />}
             onClick={() => handleWithdrawAndClose(position)}
+            disabled={isWithdrawingAndClosing}
             sx={{ 
               py: 1.5,
               borderRadius: 2,
@@ -330,12 +426,35 @@ const PortfolioPage = () => {
               '&:hover': {
                 bgcolor: 'warning.50',
                 borderColor: 'warning.dark'
+              },
+              '&:disabled': {
+                bgcolor: 'warning.50',
+                borderColor: 'warning.light',
+                color: 'warning.light'
               }
             }}
           >
-            Withdraw & Close Position
+            {isWithdrawingAndClosing ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={16} color="inherit" />
+                Withdrawing...
+              </Box>
+            ) : (
+              'Withdraw & Close Position'
+            )}
           </Button>
         </Box>
+
+        {/* Error Display */}
+        {operationError && (
+          <Alert 
+            severity="error" 
+            sx={{ mt: 2 }}
+            onClose={() => setOperationError(null)}
+          >
+            {operationError}
+          </Alert>
+        )}
 
         {/* Performance Stats - Collapsed version */}
         <Box sx={{ 
@@ -902,14 +1021,6 @@ const PortfolioPage = () => {
             </Box>
           </Grid>
         </Grid>
-
-        {/* Remove Position Dialog */}
-        <RemoveLiquidityDialog
-          open={showRemovePosition}
-          onClose={() => setShowRemovePosition(false)}
-          selectedPosition={selectedPosition}
-          defaultOperationType={defaultOperationType}
-        />
       </Container>
     </>
   );

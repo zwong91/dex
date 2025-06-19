@@ -30,6 +30,14 @@ export interface UserPosition {
   feeX: string
   feeY: string
   shares: string
+  // Raw data for contract interactions
+  binData: Array<{
+    binId: number
+    shares: bigint
+    totalShares: bigint
+    reserveX: bigint
+    reserveY: bigint
+  }>
 }
 
 export interface LPBalance {

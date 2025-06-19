@@ -286,6 +286,14 @@ export const useUserLiquidityPositions = (userAddress: `0x${string}` | undefined
 							feeX: feeX,
 							feeY: feeY,
 							shares: formattedShares,
+							// Store raw bin data for contract interactions
+							binData: userBins.map(bin => ({
+								binId: bin.id,
+								shares: bin.shares,
+								totalShares: bin.totalShares,
+								reserveX: bin.reserveX,
+								reserveY: bin.reserveY
+							}))
 						}
 
 						console.log(`✅ Created position for ${pair.tokenX}/${pair.tokenY}:`, {

@@ -596,25 +596,29 @@ export const useDexOperations = () => {
 			const currentTimeInSec = Math.floor(Date.now() / 1000)
 			const deadline = currentTimeInSec + 1200 // 20分钟后过期
 
-			// 确保代币地址顺序正确 (tokenX < tokenY)
-			let finalTokenX: string, finalTokenY: string
-			if (tokenXAddress.toLowerCase() < tokenYAddress.toLowerCase()) {
-				finalTokenX = tokenXAddress
-				finalTokenY = tokenYAddress
-			} else {
-				finalTokenX = tokenYAddress
-				finalTokenY = tokenXAddress
-			}
+			// 获取合约的实际token顺序，而不是简单排序
+			const actualTokenX = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairV21ABI,
+				functionName: 'getTokenX'
+			}) as string
+			
+			const actualTokenY = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairV21ABI,
+				functionName: 'getTokenY'
+			}) as string
 
-			console.log("🔄 Token address ordering:", {
-				original: { tokenX: tokenXAddress, tokenY: tokenYAddress },
-				sorted: { tokenX: finalTokenX, tokenY: finalTokenY },
-				swapped: finalTokenX !== tokenXAddress
+			console.log("🔄 Contract token ordering:", {
+				actualTokenX: actualTokenX.toLowerCase(),
+				actualTokenY: actualTokenY.toLowerCase(),
+				inputTokenX: tokenXAddress.toLowerCase(),
+				inputTokenY: tokenYAddress.toLowerCase()
 			})
 
 			const removeLiquidityInput = {
-				tokenX: finalTokenX as `0x${string}`,  // 使用排序后的tokenX地址
-				tokenY: finalTokenY as `0x${string}`,  // 使用排序后的tokenY地址
+				tokenX: actualTokenX as `0x${string}`,  // 使用合约实际的tokenX地址
+				tokenY: actualTokenY as `0x${string}`,  // 使用合约实际的tokenY地址
 				binStep: Number(binStep),
 				amountXMin: 0, // 接受任何数量输出（可以添加滑点保护）
 				amountYMin: 0,
@@ -656,6 +660,204 @@ export const useDexOperations = () => {
 			return result
 		} catch (error) {
 			console.error("❌ Remove LB liquidity error:", error)
+			throw error
+		}
+	}
+
+	// Collect fees from LB pair positions
+	const collectFees = async (
+		pairAddress: string,
+		tokenXAddress: string,
+		tokenYAddress: string,
+		binIds: number[],
+		binStep: number
+	) => {
+		try {
+			if (!userAddress) {
+				throw new Error("Wallet not connected")
+			}
+
+			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
+			const lbRouterAddress = LB_ROUTER_V22_ADDRESS[CHAIN_ID]
+
+			if (!lbRouterAddress) {
+				throw new Error("LB Router not supported on this chain")
+			}
+
+			// Get SDK Token objects
+			const tokenA = getSDKTokenByAddress(tokenXAddress, chainId)
+			const tokenB = getSDKTokenByAddress(tokenYAddress, chainId)
+
+			if (!tokenA || !tokenB) {
+				throw new Error(`Token not found in SDK configuration`)
+			}
+
+			console.log("💰 开始收集 LB 费用:", {
+				pairAddress,
+				tokenA: { symbol: tokenA.symbol, address: tokenA.address },
+				tokenB: { symbol: tokenB.symbol, address: tokenB.address },
+				binIds,
+				binStep
+			})
+
+			// Validate parameters
+			if (!binStep || binStep <= 0) {
+				throw new Error(`Invalid binStep: ${binStep}`)
+			}
+
+			if (binIds.length === 0) {
+				throw new Error("No bins specified for fee collection")
+			}
+
+			// Create PairV2 instance - SDK automatically sorts by address
+			const pair = new PairV2(tokenA, tokenB)
+			
+			// Get LBPair info
+			const pairVersion = 'v22'
+			const publicClient = createViemClient(chainId)
+			const lbPair = await pair.fetchLBPair(binStep, pairVersion, publicClient, CHAIN_ID)
+			
+			if (lbPair.LBPair === '0x0000000000000000000000000000000000000000') {
+				throw new Error(`LB pair not found for ${pair.token0.symbol}/${pair.token1.symbol}`)
+			}
+
+			console.log(`✅ Found LBPair for fee collection: ${lbPair.LBPair}`)
+
+			// Check if already authorized for LBPair operations
+			console.log("🔍 检查LBPair授权状态...")
+			const approved = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairABI,
+				functionName: 'isApprovedForAll',
+				args: [userAddress as `0x${string}`, lbRouterAddress as `0x${string}`]
+			}) as boolean
+
+			if (!approved) {
+				console.log("🔑 需要授权LBPair操作进行费用收集...")
+				const approvalResult = await writeContractAsync({
+					address: lbPair.LBPair as `0x${string}`,
+					abi: jsonAbis.LBPairABI,
+					functionName: 'setApprovalForAll',
+					args: [lbRouterAddress as `0x${string}`, true],
+					chainId: chainId,
+				})
+				console.log(`✅ LBPair授权交易已发送: ${approvalResult}`)
+				
+				// Wait for approval transaction confirmation
+				await publicClient.waitForTransactionReceipt({ 
+					hash: approvalResult as `0x${string}`,
+					timeout: 60000
+				})
+				console.log("✅ LBPair授权成功!")
+			} else {
+				console.log("✅ LBPair已授权，可以进行费用收集")
+			}
+
+			// Get actual token ordering from the LBPair contract
+			const actualTokenX = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairV21ABI,
+				functionName: 'getTokenX'
+			}) as string
+			
+			const actualTokenY = await publicClient.readContract({
+				address: lbPair.LBPair as `0x${string}`,
+				abi: jsonAbis.LBPairV21ABI,
+				functionName: 'getTokenY'
+			}) as string
+
+			console.log("🔄 Contract token ordering for fee collection:", {
+				actualTokenX: actualTokenX.toLowerCase(),
+				actualTokenY: actualTokenY.toLowerCase(),
+				inputTokenX: tokenXAddress.toLowerCase(),
+				inputTokenY: tokenYAddress.toLowerCase()
+			})
+
+			// Build collectProtocolFees parameters
+			const currentTimeInSec = Math.floor(Date.now() / 1000)
+			const deadline = currentTimeInSec + 1200 // 20 minutes expiry
+
+			const collectFeesInput = {
+				tokenX: actualTokenX as `0x${string}`,
+				tokenY: actualTokenY as `0x${string}`,
+				binStep: Number(binStep),
+				ids: binIds.map(id => Number(id)),
+				to: userAddress as `0x${string}`,
+				deadline: Number(deadline)
+			}
+
+			console.log("🔍 collectFees parameters:", {
+				tokenX: collectFeesInput.tokenX,
+				tokenY: collectFeesInput.tokenY,
+				binStep: collectFeesInput.binStep,
+				binIds: collectFeesInput.ids,
+				to: collectFeesInput.to
+			})
+
+			console.log("✅ Token ordering automatically handled for collectFees")
+
+			// Use LBPair contract directly to collect fees instead of router
+			// In LB v2.2, fees are collected directly from the LBPair contract
+			const result = await writeContractAsync({
+				abi: jsonAbis.LBPairV21ABI,
+				address: lbPair.LBPair as `0x${string}`,
+				functionName: "collectFees",
+				args: [
+					userAddress as `0x${string}`,
+					binIds.map(id => Number(id))
+				],
+				chainId: chainId,
+			})
+
+			console.log(`✅ 费用收集交易已发送: ${result}`)
+			return result
+		} catch (error) {
+			console.error("❌ Collect LB fees error:", error)
+			throw error
+		}
+	}
+
+	// Combined operation: collect fees first, then withdraw all liquidity and close position
+	const collectFeesAndWithdrawAll = async (
+		pairAddress: string,
+		tokenXAddress: string,
+		tokenYAddress: string,
+		binIds: number[],
+		amounts: bigint[],
+		binStep: number
+	) => {
+		try {
+			if (!userAddress) {
+				throw new Error("Wallet not connected")
+			}
+
+			console.log("🔄 开始组合操作：先收集费用，然后提取所有流动性...")
+
+			// Step 1: Collect fees from all bins
+			console.log("💰 第一步：收集费用...")
+			try {
+				await collectFees(pairAddress, tokenXAddress, tokenYAddress, binIds, binStep)
+				console.log("✅ 费用收集完成")
+			} catch (feeError: any) {
+				console.warn("⚠️ 费用收集失败，继续进行流动性提取:", feeError.message)
+				// Continue with liquidity removal even if fee collection fails
+			}
+
+			// Step 2: Remove all liquidity
+			console.log("🏊‍♀️ 第二步：提取所有流动性...")
+			const withdrawResult = await removeLiquidity(
+				pairAddress,
+				tokenXAddress,
+				tokenYAddress,
+				binIds,
+				amounts,
+				binStep
+			)
+
+			console.log("✅ 组合操作完成：费用已收集，流动性已提取")
+			return withdrawResult
+		} catch (error) {
+			console.error("❌ 组合操作失败:", error)
 			throw error
 		}
 	}
@@ -789,7 +991,9 @@ export const useDexOperations = () => {
 	return {
 		addLiquidity,
 		removeLiquidity,
+		collectFees, // Add the new function to exports
 		createPool,
-		checkPoolExists
+		checkPoolExists,
+		collectFeesAndWithdrawAll
 	}
 }
