@@ -53,5 +53,10 @@ export {
 	useAllLBPairs, useUserActiveBins, useUserLPBalances
 } from './hooks/useLBPairData'
 
+// LB Pair price hooks
+export {
+	useLBPairPrice, useMultipleLBPairPrices
+} from './hooks/useLBPairPrice'
+
 // Export UserPosition type
 export type { UserPosition } from './hooks/types'

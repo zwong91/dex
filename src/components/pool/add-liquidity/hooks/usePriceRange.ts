@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { LiquidityStrategy } from '../StrategySelection'
+import { useLBPairPrice } from '../../../../dex/hooks/useLBPairPrice'
 
 interface PoolData {
 	id: string
@@ -16,12 +17,29 @@ interface PoolData {
 	binStep?: number
 	tokenXAddress?: string
 	tokenYAddress?: string
+	currentPrice?: number // Current active bin price for the pool
 }
 
 export const usePriceRange = (selectedPool: PoolData | null) => {
-	const activeBinPrice = 19.05560 // This should come from pool data
+	// Get current price from LB pair on-chain
+	const { currentPrice: chainPrice, loading: priceLoading } = useLBPairPrice(
+		selectedPool?.pairAddress,
+		selectedPool?.binStep
+	)
+	
+	// Use chain price if available, otherwise fallback to pool data or default
+	const activeBinPrice = chainPrice || selectedPool?.currentPrice || 1.0
+	
 	const [minPrice, setMinPrice] = useState(activeBinPrice.toString())
 	const [maxPrice, setMaxPrice] = useState((activeBinPrice * 1.05).toString())
+	
+	// Update price range when active price changes
+	useEffect(() => {
+		if (chainPrice) {
+			setMinPrice(chainPrice.toString())
+			setMaxPrice((chainPrice * 1.05).toString())
+		}
+	}, [chainPrice])
 	
 	// Calculate dynamic number of bins and price range based on token amounts and strategy
 	const calculateDynamicRange = (
@@ -116,13 +134,22 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 	}
 
 	const getCurrentPrice = () => {
-		// Format price with appropriate decimal places
-		if (activeBinPrice >= 1) {
-			return activeBinPrice.toFixed(4) // 4 decimal places for prices >= 1
-		} else if (activeBinPrice >= 0.01) {
-			return activeBinPrice.toFixed(6) // 6 decimal places for prices >= 0.01
+		// Use chain price if available, otherwise check pool data
+		const currentPrice = chainPrice || selectedPool?.currentPrice
+		
+		if (!currentPrice) {
+			return priceLoading ? 'Loading...' : '0.0000'
+		}
+		
+		// Format price with appropriate decimal places based on price magnitude
+		if (currentPrice >= 1) {
+			return currentPrice.toFixed(4) // 4 decimal places for prices >= 1
+		} else if (currentPrice >= 0.01) {
+			return currentPrice.toFixed(6) // 6 decimal places for prices >= 0.01
+		} else if (currentPrice >= 0.0001) {
+			return currentPrice.toFixed(8) // 8 decimal places for small prices
 		} else {
-			return activeBinPrice.toFixed(8) // 8 decimal places for very small prices
+			return currentPrice.toExponential(4) // Scientific notation for very small prices
 		}
 	}
 
@@ -142,5 +169,7 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 		resetPriceRange,
 		getCurrentPrice,
 		getTokenPairDisplay,
+		priceLoading, // Include loading state for price fetching
+		chainPrice, // Include raw chain price for debugging
 	}
 }
