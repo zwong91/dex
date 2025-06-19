@@ -13,7 +13,12 @@ const MainNavigation = () => {
   const location = useLocation();
   const chainId = useChainId();
   const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
-  const supportedNetworks = Object.values(SUPPORTED_NETWORKS);
+  
+  // Filter networks to only include those configured in wagmi
+  const configuredChainIds = config.chains.map(chain => chain.id);
+  const supportedNetworks = Object.values(SUPPORTED_NETWORKS).filter(
+    network => configuredChainIds.includes(network.id)
+  );
   const currentNetwork = supportedNetworks.find(n => n.id === chainId);
 
   const navItems = [
