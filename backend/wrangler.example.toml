@@ -39,14 +39,25 @@ PRIVATE_KEY = "your_private_key_here_for_faucet_functionality"
 TOKEN_A_ADDRESS = "0xafC9D020d0b67522337058f0fDea057769dd386A"
 TOKEN_B_ADDRESS = "0x8f6fDE1B60e0d74CA7B3fD496444Dac2f2C7d882"
 
-# RPC URLs
-BSC_RPC_URL = "https://bsc-dataseed.binance.org/"
-ETH_RPC_URL = "https://mainnet.infura.io/v3/YOUR_PROJECT_ID"
-POLYGON_RPC_URL = "https://polygon-rpc.com/"
+# RPC URLs - BSC Networks Only
+BSC_RPC_URL = "https://bsc-dataseed1.binance.org/"
+BSCTEST_RPC_URL = "https://data-seed-prebsc-1-s1.binance.org:8545/"
 
-# API Keys (optional)
-INFURA_PROJECT_ID = "your_infura_project_id"
-ALCHEMY_API_KEY = "your_alchemy_api_key"
+# LiquiBook Factory contract addresses
+LB_FACTORY_BSC = "0x8e42f2F4101563bF679975178e880FD87d3eFd4e"
+LB_FACTORY_BSCTEST = "0x8e42f2F4101563bF679975178e880FD87d3eFd4e"
+
+# Router contract addresses
+LB_ROUTER_BSC = "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"
+LB_ROUTER_BSCTEST = "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"
+
+# Quoter contract addresses
+LB_QUOTER_BSC = "0xfb76e9E7d88E308aB530330eD90e84a952570319"
+LB_QUOTER_BSCTEST = "0xfb76e9E7d88E308aB530330eD90e84a952570319"
+
+# Price API configuration
+PRICE_API_URL = "https://api.coingecko.com/api/v3"
+PRICE_API_KEY = "your-price-api-key-here"
 
 # CORS Settings (comma-separated origins)
 CORS_ORIGIN = "http://localhost:5173,http://localhost:3000"
