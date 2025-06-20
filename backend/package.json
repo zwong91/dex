@@ -4,6 +4,7 @@
   "description": "DEX Backend - Serverless Cloudflare Workers",
   "main": "src/index.ts",
   "scripts": {
+    "build": "echo 'No build needed for Cloudflare Workers'"
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev",
