@@ -1,9 +1,9 @@
 # ==================================================
-# Entysquare DEX API V2 - Example Configuration
+# DEX API V1 - Example Configuration
 # ==================================================
-# This is the template configuration for DEX API V2
+# This is the template configuration for DEX API V1
 # 
-# Major changes in V2:
+# Major changes in V1:
 # 1. New D1 database with 15 tables for authentication and analytics
 # 2. API key-based authentication system
 # 3. Scheduled cron jobs for data synchronization
@@ -26,7 +26,7 @@ compatibility_flags = ["nodejs_compat"]
 # Replace with your Cloudflare account ID
 account_id = "YOUR_ACCOUNT_ID_HERE"
 
-# Database configuration for DEX V2
+# Database configuration for DEX V1
 [[d1_databases]]
 binding = "D1_DATABASE"
 database_name = "d1-dex-database"
@@ -56,16 +56,16 @@ BSC_RPC_URL = "https://bsc-dataseed1.binance.org/"
 BSCTEST_RPC_URL = "https://data-seed-prebsc-1-s1.binance.org:8545/"
 
 # LiquiBook Factory contract addresses
-LB_FACTORY_BSC = "0x8e42f2F4101563bF679975178e880FD87d3eFd4e"
-LB_FACTORY_BSCTEST = "0x8e42f2F4101563bF679975178e880FD87d3eFd4e"
+LB_FACTORY_BSC = "0x7D73A6eFB91C89502331b2137c2803408838218b"
+LB_FACTORY_BSCTEST = "0x7D73A6eFB91C89502331b2137c2803408838218b"
 
 # Router contract addresses
-LB_ROUTER_BSC = "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"
-LB_ROUTER_BSCTEST = "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"
+LB_ROUTER_BSC = "0xe98efCE22A8Ec0dd5dDF6C1A81B6ADD740176E98"
+LB_ROUTER_BSCTEST = "0xe98efCE22A8Ec0dd5dDF6C1A81B6ADD740176E98"
 
 # Quoter contract addresses
-LB_QUOTER_BSC = "0xfb76e9E7d88E308aB530330eD90e84a952570319"
-LB_QUOTER_BSCTEST = "0xfb76e9E7d88E308aB530330eD90e84a952570319"
+LB_QUOTER_BSC = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
+LB_QUOTER_BSCTEST = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
 
 # Price API configuration
 PRICE_API_URL = "https://api.coingecko.com/api/v3"
