@@ -33,12 +33,6 @@ database_name = "d1-dex-database"
 database_id = "YOUR_NEW_DEX_DATABASE_ID_HERE"
 migrations_dir = "drizzle"
 
-# Legacy database for backward compatibility
-[[d1_databases]]
-binding = "DB"
-database_name = "d1-database"
-database_id = "YOUR_LEGACY_DATABASE_ID_HERE"
-
 # Scheduled jobs for data sync
 [[triggers.crons]]
 name = "sync-pools-frequent"

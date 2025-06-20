@@ -10,7 +10,7 @@ import * as schema from './database/schema';
 export interface Env {
 	AI?: any;
 	DB?: D1Database;
-	D1_DATABASE?: D1Database; // For new DEX database
+	D1_DATABASE?: D1Database; // For DEX database
 	R2?: R2Bucket;
 	KEY: string;
 	NODE_ENV?: string;
@@ -95,6 +95,18 @@ export default {
 			if (url.pathname.startsWith('/v1/api/admin/sync')) {
 				const { handleSync } = await import('./dex/sync/sync-handler');
 				return await handleSync(request, env);
+			}
+
+			// Cron management endpoints
+			if (url.pathname.startsWith('/v1/api/admin/cron')) {
+				const { handleSimpleCronManagement } = await import('./dex/sync/simple-cron-management');
+				return await handleSimpleCronManagement(request, env);
+			}
+
+			// Simple test endpoints for debugging
+			if (url.pathname.startsWith('/v1/api/test/simple')) {
+				const { handleSimpleTest } = await import('./dex/sync/simple-test');
+				return await handleSimpleTest(request, env);
 			}
 
 			// DEX API routes - Support both v1 and direct paths

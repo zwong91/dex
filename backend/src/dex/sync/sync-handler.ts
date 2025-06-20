@@ -5,6 +5,36 @@ import type { Env } from '../../index';
 let syncCoordinator: IndustrialSyncCoordinator | null = null;
 
 /**
+ * 检查数据库健康状态
+ */
+async function checkDatabaseHealth(env: Env): Promise<void> {
+  console.log('🔍 Checking database health...');
+  
+  if (!env.D1_DATABASE) {
+    throw new Error('D1_DATABASE is not configured');
+  }
+  
+  try {
+    // 测试基本的数据库连接
+    const result = await env.D1_DATABASE.prepare('SELECT 1 as test').first();
+    console.log('✅ Database connection successful');
+    
+    // 检查 pools 表是否存在
+    try {
+      await env.D1_DATABASE.prepare('SELECT COUNT(*) FROM pools LIMIT 1').first();
+      console.log('✅ Pools table exists');
+    } catch (error) {
+      console.error('❌ Pools table check failed:', error);
+      throw new Error('Pools table not accessible. Please run database migrations.');
+    }
+    
+  } catch (error) {
+    console.error('❌ Database health check failed:', error);
+    throw new Error(`Database connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
  * 初始化同步协调器
  */
 async function initializeSyncCoordinator(env: Env): Promise<IndustrialSyncCoordinator> {
@@ -151,6 +181,9 @@ async function handleSyncStart(
 ): Promise<Response> {
   try {
     console.log('Starting sync coordinator via API...');
+    
+    // 先检查数据库连接和表结构
+    await checkDatabaseHealth(env);
     
     const coordinator = await initializeSyncCoordinator(env);
     const status = await coordinator.getSystemStatus();
@@ -389,7 +422,7 @@ async function handleSyncConfig(
 
     if (request.method === 'PUT') {
       // 更新配置
-      const body = await request.json();
+      const body = await request.json() as any;
       
       if (body.coordinator) {
         await coordinator.updateConfiguration(body.coordinator);
