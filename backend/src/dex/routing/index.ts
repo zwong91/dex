@@ -228,6 +228,15 @@ export const DEX_ROUTES: RouteConfig[] = [
  * Route matcher utility
  */
 export function matchRoute(pathname: string, method: string): RouteConfig | null {
+  // Remove version prefix from pathname for matching
+  // Support both /v1/api/dex and /api/v2/dex patterns
+  let normalizedPath = pathname;
+  
+  // Remove /v1/ prefix if present
+  if (normalizedPath.startsWith('/v1/')) {
+    normalizedPath = normalizedPath.replace('/v1', '');
+  }
+  
   for (const route of DEX_ROUTES) {
     if (route.method !== method) continue;
     
@@ -238,7 +247,7 @@ export function matchRoute(pathname: string, method: string): RouteConfig | null
     
     const regex = new RegExp(`^${pattern}$`);
     
-    if (regex.test(pathname)) {
+    if (regex.test(normalizedPath)) {
       return route;
     }
   }
@@ -252,8 +261,14 @@ export function matchRoute(pathname: string, method: string): RouteConfig | null
 export function extractRouteParams(pathname: string, routePath: string): Record<string, string> {
   const params: Record<string, string> = {};
   
+  // Normalize pathname like in matchRoute
+  let normalizedPath = pathname;
+  if (normalizedPath.startsWith('/v1/')) {
+    normalizedPath = normalizedPath.replace('/v1', '');
+  }
+  
   const routeParts = routePath.split('/');
-  const pathParts = pathname.split('/');
+  const pathParts = normalizedPath.split('/');
   
   for (let i = 0; i < routeParts.length; i++) {
     const routePart = routeParts[i];
