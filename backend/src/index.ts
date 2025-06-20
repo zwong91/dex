@@ -1,71 +1,33 @@
 import { Router } from 'itty-router';
 import { json } from 'itty-router-extras';
-import { Hono } from 'hono';
 import { aiHandler } from './ai/handler';
-import { databaseHandler } from './database/handler';
 import { storageHandler } from './storage/handler';
-import { createDexHandler } from './dex/handler';
+import { createSimpleTestHandler } from './dex/simple-test-handler';
+import { createDexV2Handler } from './dex/dex-v2-handler';
+import { databaseHandler } from './database/handler';
 
 export interface Env {
 	AI?: any;
 	DB?: D1Database;
+	D1_DATABASE?: D1Database; // For new DEX database
 	R2?: R2Bucket;
 	KEY: string;
+	NODE_ENV?: string;
+	// RPC URLs
+	BSC_RPC_URL?: string;
+	BSCTEST_RPC_URL?: string;
+	// Contract addresses
+	LB_FACTORY_BSC?: string;
+	LB_FACTORY_BSCTEST?: string;
+	LB_ROUTER_BSC?: string;
+	LB_ROUTER_BSCTEST?: string;
+	LB_QUOTER_BSC?: string;
+	LB_QUOTER_BSCTEST?: string;
+	// API configuration
+	PRICE_API_URL?: string;
+	PRICE_API_KEY?: string;
+	API_RATE_LIMIT?: string;
 }
-
-const router = Router();
-
-// Create Hono app for DEX API
-const dexApp = createDexHandler();
-
-// AI routes
-router.get('/api/ai', aiHandler);
-
-// Database routes  
-router.all('/api/sandbox*', databaseHandler);
-router.all('/api/user*', databaseHandler);
-
-// Storage routes
-router.all('/api/project', storageHandler);
-router.all('/api/size', storageHandler);
-router.all('/api/create', storageHandler);
-router.all('/api/rename', storageHandler);
-router.all('/api/file', storageHandler);
-
-// DEX API routes - delegate to Hono app
-router.all('/api/dex/*', async (request: Request, env: Env, ctx: ExecutionContext) => {
-	// Remove /api/dex prefix for Hono routing
-	const url = new URL(request.url);
-	const newPath = url.pathname.replace('/api/dex', '');
-	const newUrl = new URL(newPath || '/', url.origin);
-	newUrl.search = url.search;
-	
-	const newRequest = new Request(newUrl, {
-		method: request.method,
-		headers: request.headers,
-		body: request.body,
-	});
-	
-	return dexApp.fetch(newRequest, env, ctx);
-});
-
-// Health check
-router.get('/health', () => json({ 
-	status: 'ok', 
-	timestamp: new Date().toISOString(),
-	services: ['ai', 'database', 'storage', 'dex']
-}));
-
-// Root route
-router.get('/', () => json({ 
-	message: 'DEX Backend API', 
-	status: 'ok',
-	timestamp: new Date().toISOString(),
-	version: '1.0.0'
-}));
-
-// 404 handler
-router.all('*', () => new Response('Not Found', { status: 404 }));
 
 export default {
 	async fetch(
@@ -73,35 +35,131 @@ export default {
 		env: Env,
 		ctx: ExecutionContext
 	): Promise<Response> {
-		// CORS handling
+		const url = new URL(request.url);
+		console.log('Request received:', request.method, url.pathname);
+		
+		// Handle CORS preflight
 		if (request.method === 'OPTIONS') {
 			return new Response(null, {
 				headers: {
 					'Access-Control-Allow-Origin': '*',
 					'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-					'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+					'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
 				},
 			});
 		}
 
-		try {
-			const response = await router.handle(request, env, ctx);
-			
-			// Add CORS headers to response
-			const corsHeaders = {
-				'Access-Control-Allow-Origin': '*',
-				'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-				'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-			};
+		const corsHeaders = {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
+		};
 
-			return new Response(response.body, {
-				status: response.status,
-				statusText: response.statusText,
-				headers: { ...response.headers, ...corsHeaders },
+		try {
+			// Direct routing instead of using itty-router to avoid hanging
+			
+			// Root route
+			if (url.pathname === '/') {
+				return new Response(JSON.stringify({ 
+					message: 'DEX Backend API', 
+					status: 'ok',
+					timestamp: new Date().toISOString(),
+					version: '1.0.0'
+				}), {
+					headers: { 'Content-Type': 'application/json', ...corsHeaders }
+				});
+			}
+			
+			// Health check
+			if (url.pathname === '/health') {
+				return new Response(JSON.stringify({ 
+					status: 'ok', 
+					timestamp: new Date().toISOString(),
+					services: ['ai', 'database', 'storage', 'dex']
+				}), {
+					headers: { 'Content-Type': 'application/json', ...corsHeaders }
+				});
+			}
+
+			// V2 Database Management API (users, api-keys, permissions, etc.)
+			if (url.pathname.startsWith('/api/users') || 
+				url.pathname.startsWith('/api/api-keys') ||
+				url.pathname.startsWith('/api/permissions') ||
+				url.pathname.startsWith('/api/usage') ||
+				url.pathname.startsWith('/api/subscriptions')) {
+				return await databaseHandler(request, env);
+			}
+
+			// DEX API routes
+			if (url.pathname.startsWith('/api/dex/')) {
+				const dexHandler = await createDexV2Handler(env);
+				const response = await dexHandler(request);
+				return response;
+			}
+
+			// Test routes
+			if (url.pathname.startsWith('/test/')) {
+				const testHandler = await createSimpleTestHandler(env);
+				const response = await testHandler(request);
+				return response;
+			}
+
+			// AI routes
+			if (url.pathname.startsWith('/api/ai')) {
+				return await aiHandler(request, env);
+			}
+
+			// Storage routes
+			if (url.pathname.startsWith('/api/project') || 
+				url.pathname.startsWith('/api/size') ||
+				url.pathname.startsWith('/api/create') ||
+				url.pathname.startsWith('/api/rename') ||
+				url.pathname.startsWith('/api/file')) {
+				return await storageHandler(request, env);
+			}
+
+			// Legacy routes - temporarily disabled
+			if (url.pathname.startsWith('/api/sandbox') || url.pathname.startsWith('/api/user')) {
+				return new Response(JSON.stringify({ 
+					error: 'Legacy API temporarily disabled - use V2 authentication' 
+				}), { 
+					status: 501,
+					headers: { 'Content-Type': 'application/json', ...corsHeaders }
+				});
+			}
+
+			// 404 for unknown routes
+			return new Response(JSON.stringify({ error: 'Not Found' }), { 
+				status: 404,
+				headers: { 'Content-Type': 'application/json', ...corsHeaders }
 			});
+			
 		} catch (error) {
 			console.error('Error handling request:', error);
-			return json({ error: 'Internal Server Error' }, { status: 500 });
+			return new Response(JSON.stringify({ 
+				error: 'Internal Server Error',
+				details: error instanceof Error ? error.message : 'Unknown error'
+			}), { 
+				status: 500,
+				headers: { 'Content-Type': 'application/json', ...corsHeaders }
+			});
 		}
 	},
+
+	// Handle scheduled events (cron jobs)
+	// Scheduled handler - disabled for now
+	// async scheduled(
+	// 	event: ScheduledEvent,
+	// 	env: Env,
+	// 	ctx: ExecutionContext
+	// ): Promise<void> {
+	// 	console.log('Scheduled event triggered:', event.cron);
+		
+	// 	// Handle different cron schedules
+	// 	try {
+	// 		await handleScheduledEvent(event, env, ctx);
+	// 	} catch (error) {
+	// 		console.error('Error in scheduled event:', error);
+	// 	}
+	// },
 } satisfies ExportedHandler<Env>;

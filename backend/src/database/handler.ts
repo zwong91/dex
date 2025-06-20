@@ -1,32 +1,69 @@
 import { drizzle } from "drizzle-orm/d1";
 import { json } from "itty-router-extras";
 import { ZodError, z } from "zod";
-import { user, sandbox, usersToSandboxes } from "./schema";
+import { users, apiKeys, permissions, subscriptions, applications, apiUsage } from "./schema";
 import * as schema from "./schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, desc, asc } from "drizzle-orm";
 import type { Env } from '../index';
 
-export async function databaseHandler(request: Request, env: Env): Promise<Response> {
-	const success = new Response("Success", { status: 200 });
-	const invalidRequest = new Response("Invalid Request", { status: 400 });
-	const notFound = new Response("Not Found", { status: 404 });
-	const methodNotAllowed = new Response("Method Not Allowed", { status: 405 });
+// 生成API密钥的辅助函数
+function generateApiKey(): string {
+	const prefix = 'dex_';
+	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	let result = prefix;
+	for (let i = 0; i < 32; i++) {
+		result += characters.charAt(Math.floor(Math.random() * characters.length));
+	}
+	return result;
+}
 
+// 生成API密钥哈希的辅助函数
+function hashApiKey(key: string): string {
+	// 简化版哈希 - 生产环境应使用更安全的哈希算法
+	return `sha256-${key}`;
+}
+
+export async function databaseHandler(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname;
 	const method = request.method;
+	
+	// CORS headers
+	const corsHeaders = {
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+		'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
+	};
 
-	// Authentication check
-	if (request.headers.get("Authorization") !== env.KEY) {
-		return new Response("Unauthorized", { status: 401 });
+	// Handle preflight requests
+	if (method === 'OPTIONS') {
+		return new Response(null, { headers: corsHeaders });
 	}
 
-	// Check if DB binding is available
-	if (!env.DB) {
-		return json({ error: "Database service not available in development environment" }, { status: 503 });
+	// Authentication check - 使用环境变量中的KEY进行简单验证
+	const authHeader = request.headers.get("Authorization");
+	if (!authHeader || authHeader !== `Bearer ${env.KEY}`) {
+		return new Response(JSON.stringify({ 
+			error: "Unauthorized", 
+			message: "Valid authorization required for database operations" 
+		}), { 
+			status: 401,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+		});
 	}
 
-	const db = drizzle(env.DB, { schema });
+	// Check if D1 database binding is available
+	if (!env.D1_DATABASE) {
+		return new Response(JSON.stringify({ 
+			error: "Database service not available",
+			message: "D1_DATABASE binding is not configured"
+		}), { 
+			status: 503,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+		});
+	}
+
+	const db = drizzle(env.D1_DATABASE, { schema });
 
 	try {
 		if (path === "/api/sandbox") {

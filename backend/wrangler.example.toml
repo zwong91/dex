@@ -1,45 +1,63 @@
-#:schema node_modules/wrangler/config-schema.json
+# ==================================================
+# Entysquare DEX API V2 - Example Configuration
+# ==================================================
+# This is the template configuration for DEX API V2
+# 
+# Major changes in V2:
+# 1. New D1 database with 15 tables for authentication and analytics
+# 2. API key-based authentication system
+# 3. Scheduled cron jobs for data synchronization
+# 4. Permission-based access control with subscription tiers
+# 5. Comprehensive rate limiting and usage tracking
+#
+# Setup Instructions:
+# 1. Copy this file to wrangler.toml
+# 2. Replace YOUR_*_HERE placeholders with actual values
+# 3. Create D1 databases: wrangler d1 create d1-dex-database
+# 4. Run migrations: npm run migrate:local
+# 5. Initialize data: npm run db:init
+# ==================================================
+
 name = "dex-backend-serverless"
 main = "src/index.ts"
-compatibility_date = "2024-05-12"
+compatibility_date = "2025-06-20"
 compatibility_flags = ["nodejs_compat"]
 
 # Replace with your Cloudflare account ID
 account_id = "YOUR_ACCOUNT_ID_HERE"
 
-# Cloudflare AI binding for AI functionality
-[ai]
-binding = "AI"
+# Database configuration for DEX V2
+[[d1_databases]]
+binding = "D1_DATABASE"
+database_name = "d1-dex-database"
+database_id = "YOUR_NEW_DEX_DATABASE_ID_HERE"
+migrations_dir = "drizzle"
 
-# D1 Database binding for storage
-# Create a new D1 database using: wrangler d1 create d1-dex-database
-# Then replace YOUR_DATABASE_ID_HERE with the actual database ID
+# Legacy database for backward compatibility
 [[d1_databases]]
 binding = "DB"
-database_name = "d1-dex-database"
-database_id = "YOUR_DATABASE_ID_HERE"
+database_name = "d1-database"
+database_id = "YOUR_LEGACY_DATABASE_ID_HERE"
 
-# R2 Storage binding for file storage
-# Create a new R2 bucket using: wrangler r2 bucket create dex-storage
-# Then replace YOUR_BUCKET_NAME_HERE with the actual bucket name
-[[r2_buckets]]
-binding = 'R2'
-bucket_name = 'YOUR_BUCKET_NAME_HERE'
-preview_bucket_name = 'YOUR_PREVIEW_BUCKET_NAME_HERE'
+# Scheduled jobs for data sync
+[[triggers.crons]]
+name = "sync-pools-frequent"
+cron = "*/5 * * * *"  # Every 5 minutes
+
+[[triggers.crons]]
+name = "sync-stats-hourly"
+cron = "0 * * * *"  # Every hour
+
+[[triggers.crons]]
+name = "cleanup-old-data"
+cron = "0 2 * * 0"  # Weekly on Sunday at 2 AM
 
 # Environment variables
 [vars]
-# Authentication and Security
 KEY = "YOUR_SECRET_KEY_HERE"
+NODE_ENV = "development"
 
-# Blockchain Configuration  
-PRIVATE_KEY = "your_private_key_here_for_faucet_functionality"
-
-# Token Addresses (BSC Testnet)
-TOKEN_A_ADDRESS = "0xafC9D020d0b67522337058f0fDea057769dd386A"
-TOKEN_B_ADDRESS = "0x8f6fDE1B60e0d74CA7B3fD496444Dac2f2C7d882"
-
-# RPC URLs - BSC Networks Only
+# RPC endpoints for blockchain interaction
 BSC_RPC_URL = "https://bsc-dataseed1.binance.org/"
 BSCTEST_RPC_URL = "https://data-seed-prebsc-1-s1.binance.org:8545/"
 
@@ -59,12 +77,17 @@ LB_QUOTER_BSCTEST = "0xfb76e9E7d88E308aB530330eD90e84a952570319"
 PRICE_API_URL = "https://api.coingecko.com/api/v3"
 PRICE_API_KEY = "your-price-api-key-here"
 
-# CORS Settings (comma-separated origins)
-CORS_ORIGIN = "http://localhost:5173,http://localhost:3000"
+# API rate limiting
+API_RATE_LIMIT = "100"
 
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS = "900000"
-RATE_LIMIT_MAX_REQUESTS = "100"
+# Optional bindings - configure for production
+# Cloudflare AI binding for AI functionality
+# [ai]
+# binding = "AI"
 
-# Application Environment
-NODE_ENV = "development"
+# R2 Storage binding for file storage
+# Create a new R2 bucket using: wrangler r2 bucket create dex-storage
+# [[r2_buckets]]
+# binding = 'R2'
+# bucket_name = 'YOUR_BUCKET_NAME_HERE'
+# preview_bucket_name = 'YOUR_PREVIEW_BUCKET_NAME_HERE'

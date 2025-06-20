@@ -2,7 +2,10 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import type { Env } from '../index';
-import { OnChainService } from './onchain-service';
+import { DatabaseService, createDatabaseService } from './database-service';
+import { SyncService, createSyncService } from './sync-service';
+import { drizzle } from 'drizzle-orm/d1';
+import * as schema from '../database/schema';
 import type { Address } from 'viem';
 import { formatUnits } from 'viem';
 
