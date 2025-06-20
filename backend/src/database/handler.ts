@@ -1,7 +1,3 @@
-/**
- * V2 Database Handler - 简化版本支持基本的用户和API密钥CRUD操作
- */
-
 import { drizzle } from "drizzle-orm/d1";
 import { ZodError, z } from "zod";
 import { users, apiKeys, permissions, subscriptions, applications, apiUsage, dailyUsageSummary } from "./schema";
@@ -129,10 +125,10 @@ export async function databaseHandler(request: Request, env: Env): Promise<Respo
 	const db = drizzle(env.D1_DATABASE, { schema });
 	
 	try {
-		// 解析路径: /api/v2/admin/{resource}/{id?}
+		// 解析路径: /v1/api/admin/{resource}/{id?}
 		const pathParts = url.pathname.split('/').filter(Boolean);
 		
-		if (pathParts.length < 4 || pathParts[0] !== "api" || pathParts[1] !== "v2" || pathParts[2] !== "admin") {
+		if (pathParts.length < 4 || pathParts[0] !== "v1" || pathParts[1] !== "api" || pathParts[2] !== "admin") {
 			return errorResponse("Invalid API path", 404);
 		}
 		

@@ -1,7 +1,3 @@
-/**
- * DEX API V2 Handler - Core implementation with authentication
- */
-
 export async function createDexHandler(env: any) {
   return async function handleDexRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -24,7 +20,7 @@ export async function createDexHandler(env: any) {
       const apiKey = request.headers.get('X-API-Key') || request.headers.get('Authorization')?.replace('Bearer ', '');
       
       // Basic API info endpoint (no auth required)
-      if (url.pathname === '/api/dex' || url.pathname === '/api/dex/') {
+      if (url.pathname === '/v1/api/dex' || url.pathname === '/v1/api/dex/') {
         return new Response(JSON.stringify({
           name: 'Entysquare DEX API',
           version: '2.0.0',
@@ -32,17 +28,17 @@ export async function createDexHandler(env: any) {
           documentation: 'https://docs.entysquare.com/dex-api',
           endpoints: {
             public: [
-              'GET /api/dex - API information',
-              'GET /api/dex/health - Health check'
+              'GET /v1/api/dex - API information',
+              'GET /v1/api/dex/health - Health check'
             ],
             authenticated: [
-              'GET /api/dex/pools - List pools',
-              'GET /api/dex/tokens - List tokens', 
-              'GET /api/dex/pools/{address} - Pool details',
-              'GET /api/dex/pools/{address}/stats - Pool statistics',
-              'GET /api/dex/swaps - Recent swaps',
-              'GET /api/dex/liquidity - Liquidity events',
-              'GET /api/dex/price/{token} - Token price'
+              'GET /v1/api/dex/pools - List pools',
+              'GET /v1/api/dex/tokens - List tokens', 
+              'GET /v1/api/dex/pools/{address} - Pool details',
+              'GET /v1/api/dex/pools/{address}/stats - Pool statistics',
+              'GET /v1/api/dex/swaps - Recent swaps',
+              'GET /v1/api/dex/liquidity - Liquidity events',
+              'GET /v1/api/dex/price/{token} - Token price'
             ]
           },
           authentication: {
@@ -62,7 +58,7 @@ export async function createDexHandler(env: any) {
       }
 
       // Health check (no auth required)
-      if (url.pathname === '/api/dex/health') {
+      if (url.pathname === '/v1/api/dex/health') {
         return new Response(JSON.stringify({
           status: 'healthy',
           timestamp: new Date().toISOString(),
@@ -125,8 +121,8 @@ export async function createDexHandler(env: any) {
       // Route to specific handlers based on path
       const pathSegments = url.pathname.split('/').filter(Boolean);
       
-      // GET /api/dex/pools
-      if (pathSegments[2] === 'pools' && request.method === 'GET' && pathSegments.length === 3) {
+      // GET /v1/api/dex/pools
+      if (pathSegments[3] === 'pools' && request.method === 'GET' && pathSegments.length === 4) {
         if (!hasPermission(permissions, 'pools_read')) {
           return new Response(JSON.stringify({
             error: 'Insufficient permissions',
@@ -142,8 +138,8 @@ export async function createDexHandler(env: any) {
         return await handlePoolsList(env, url);
       }
 
-      // GET /api/dex/tokens
-      if (pathSegments[2] === 'tokens' && request.method === 'GET') {
+      // GET /v1/api/dex/tokens
+      if (pathSegments[3] === 'tokens' && request.method === 'GET') {
         if (!hasPermission(permissions, 'tokens_read')) {
           return new Response(JSON.stringify({
             error: 'Insufficient permissions',
@@ -163,7 +159,7 @@ export async function createDexHandler(env: any) {
       return new Response(JSON.stringify({
         error: 'Endpoint not found',
         message: `The endpoint ${url.pathname} does not exist`,
-        available_endpoints: ['/api/dex', '/api/dex/health', '/api/dex/pools', '/api/dex/tokens']
+        available_endpoints: ['/v1/api/dex', '/v1/api/dex/health', '/v1/api/dex/pools', '/v1/api/dex/tokens']
       }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -81,17 +81,17 @@ export default {
 				});
 			}
 
-			// V2 Database Management API (users, api-keys, permissions, etc.)
-			if (url.pathname.startsWith('/api/v2/admin/users') || 
-				url.pathname.startsWith('/api/v2/admin/api-keys') ||
-				url.pathname.startsWith('/api/v2/admin/permissions') ||
-				url.pathname.startsWith('/api/v2/admin/analytics') ||
-				url.pathname.startsWith('/api/v2/admin/applications')) {
+			// V1 Database Management API (users, api-keys, permissions, etc.)
+			if (url.pathname.startsWith('/v1/api/admin/users') || 
+				url.pathname.startsWith('/v1/api/admin/api-keys') ||
+				url.pathname.startsWith('/v1/api/admin/permissions') ||
+				url.pathname.startsWith('/v1/api/admin/analytics') ||
+				url.pathname.startsWith('/v1/api/admin/applications')) {
 				return await databaseHandler(request, env);
 			}
 
 			// DEX API routes
-			if (url.pathname.startsWith('/api/dex/')) {
+			if (url.pathname.startsWith('/v1/api/dex')) {
 				const dexHandler = await createDexHandler(env);
 				const response = await dexHandler(request);
 				return response;
@@ -105,16 +105,16 @@ export default {
 			}
 
 			// AI routes
-			if (url.pathname.startsWith('/api/ai')) {
+			if (url.pathname.startsWith('/v1/api/ai')) {
 				return await aiHandler(request, env);
 			}
 
 			// Storage routes
-			if (url.pathname.startsWith('/api/project') || 
-				url.pathname.startsWith('/api/size') ||
-				url.pathname.startsWith('/api/create') ||
-				url.pathname.startsWith('/api/rename') ||
-				url.pathname.startsWith('/api/file')) {
+			if (url.pathname.startsWith('/v1/api/project') || 
+				url.pathname.startsWith('/v1/api/size') ||
+				url.pathname.startsWith('/v1/api/create') ||
+				url.pathname.startsWith('/v1/api/rename') ||
+				url.pathname.startsWith('/v1/api/file')) {
 				return await storageHandler(request, env);
 			}
 
@@ -137,19 +137,44 @@ export default {
 	},
 
 	// Handle scheduled events (cron jobs)
-	// Scheduled handler - disabled for now
-	// async scheduled(
-	// 	event: ScheduledEvent,
-	// 	env: Env,
-	// 	ctx: ExecutionContext
-	// ): Promise<void> {
-	// 	console.log('Scheduled event triggered:', event.cron);
+	async scheduled(
+		controller: ScheduledController,
+		env: Env,
+		ctx: ExecutionContext
+	): Promise<void> {
+		console.log('Scheduled event triggered:', controller.cron);
 		
-	// 	// Handle different cron schedules
-	// 	try {
-	// 		await handleScheduledEvent(event, env, ctx);
-	// 	} catch (error) {
-	// 		console.error('Error in scheduled event:', error);
-	// 	}
-	// },
+		// Handle different cron schedules
+		try {
+			await handleScheduledEvent(controller, env, ctx);
+		} catch (error) {
+			console.error('Error in scheduled event:', error);
+		}
+	},
 } satisfies ExportedHandler<Env>;
+
+// Simple scheduled event handler
+async function handleScheduledEvent(
+	controller: ScheduledController,
+	env: Env,
+	ctx: ExecutionContext
+): Promise<void> {
+	const now = new Date();
+	console.log(`Scheduled job executed at ${now.toISOString()}, cron: ${controller.cron}`);
+	
+	// Add your scheduled tasks here
+	switch (controller.cron) {
+		case '0 0 * * *': // Daily at midnight
+			console.log('Running daily maintenance task');
+			// Add daily tasks here (e.g., cleanup, analytics aggregation)
+			break;
+			
+		case '0 */6 * * *': // Every 6 hours  
+			console.log('Running 6-hourly sync task');
+			// Add sync tasks here (e.g., data refresh, cache cleanup)
+			break;
+			
+		default:
+			console.log(`Unknown cron schedule: ${controller.cron}`);
+	}
+}
