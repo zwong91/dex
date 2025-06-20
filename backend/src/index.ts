@@ -4,10 +4,6 @@ import { aiHandler } from './ai/handler';
 import { storageHandler } from './storage/handler';
 import { createDexHandler } from './dex/handler';
 import { databaseHandler } from './database/handler';
-import { createIndustrialSyncCoordinator } from './dex/industrial-sync-coordinator';
-import { createEnhancedDatabaseService } from './dex/enhanced-database-service';
-import { createEnhancedOnChainService } from './dex/enhanced-onchain-service';
-import { createContractSyncService } from './dex/contract-sync-service';
 import { drizzle } from 'drizzle-orm/d1';
 import * as schema from './database/schema';
 
@@ -97,6 +93,7 @@ export default {
 
 			// Admin sync endpoints
 			if (url.pathname.startsWith('/v1/api/admin/sync')) {
+				const { handleSync } = await import('./dex/sync/sync-handler');
 				return await handleSync(request, env);
 			}
 
@@ -136,6 +133,54 @@ export default {
 				status: 500,
 				headers: { 'Content-Type': 'application/json', ...corsHeaders }
 			});
+		}
+	},
+
+	/**
+	 * 处理 Cloudflare Worker Cron 触发器
+	 * 根据 wrangler.toml 中定义的 cron 调度执行不同的同步任务
+	 */
+	async scheduled(
+		controller: ScheduledController,
+		env: Env,
+		ctx: ExecutionContext
+	): Promise<void> {
+		const cronTimestamp = new Date(controller.scheduledTime).toISOString();
+		
+		console.log(`🕐 Cron job triggered: ${controller.cron} at ${cronTimestamp}`);
+
+		try {
+			// 动态导入 Cron 处理器
+			const { CronHandler } = await import('./dex/sync/cron-handler');
+			const cronHandler = new CronHandler(env);
+
+			// 根据 cron 表达式执行相应的任务
+			switch (controller.cron) {
+				case "*/5 * * * *": // sync-pools-frequent - 每5分钟
+					await cronHandler.handleFrequentPoolSync();
+					break;
+
+				case "0 * * * *": // sync-stats-hourly - 每小时
+					await cronHandler.handleHourlyStatsSync();
+					break;
+
+				case "0 2 * * 0": // cleanup-old-data - 每周日凌晨2点
+					await cronHandler.handleWeeklyCleanup();
+					break;
+
+				default:
+					console.warn(`⚠️ Unknown cron pattern: ${controller.cron}`);
+					break;
+			}
+
+		} catch (error) {
+			console.error(`❌ Cron job failed for pattern ${controller.cron}:`, error);
+			
+			// 可以在这里添加错误通知逻辑
+			// 例如发送到监控系统或错误追踪服务
+			
+			// 重新抛出错误以便 Cloudflare 知道任务失败
+			throw error;
 		}
 	},
 
