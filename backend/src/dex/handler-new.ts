@@ -31,12 +31,11 @@ export async function createDexHandler(env: any) {
 
     try {
       // Handle public endpoints first (no auth required)
-      if (url.pathname === '/api/dex' || url.pathname === '/api/dex/' || 
-          url.pathname === '/v1/api/dex' || url.pathname === '/v1/api/dex/') {
+      if (url.pathname === '/api/v2/dex' || url.pathname === '/api/v2/dex/') {
         return handleApiInfo(corsHeaders);
       }
 
-      if (url.pathname === '/api/dex/health' || url.pathname === '/v1/api/dex/health') {
+      if (url.pathname === '/api/v2/dex/health') {
         return handleHealthCheck(env, corsHeaders);
       }
 

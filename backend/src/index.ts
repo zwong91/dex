@@ -100,7 +100,7 @@ export default {
 				return await handleIndustrialSync(request, env);
 			}
 
-			// DEX API routes
+			// DEX API routes - Support both v1 and direct paths
 			if (url.pathname.startsWith('/v1/api/dex')) {
 				const dexHandler = await createDexHandler(env);
 				const response = await dexHandler(request);
