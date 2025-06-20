@@ -77,10 +77,24 @@ const worker = {
 		
 		if (pathname.endsWith('/create')) {
 			if (request.method === 'POST') {
-				return new Response(JSON.stringify({ success: true, message: "Project created" }), {
-					status: 200,
-					headers: { 'Content-Type': 'application/json' }
-				});
+				try {
+					const body = await request.json() as any;
+					if (!body || !body.sandboxId || !body.type) {
+						return new Response(JSON.stringify({ error: "Invalid request data" }), {
+							status: 400,
+							headers: { 'Content-Type': 'application/json' }
+						});
+					}
+					return new Response(JSON.stringify({ success: true, message: "Project created" }), {
+						status: 200,
+						headers: { 'Content-Type': 'application/json' }
+					});
+				} catch (e) {
+					return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
+						status: 400,
+						headers: { 'Content-Type': 'application/json' }
+					});
+				}
 			} else {
 				return new Response(JSON.stringify({ error: "Method not allowed" }), {
 					status: 405,
@@ -91,10 +105,24 @@ const worker = {
 		
 		if (pathname.endsWith('/rename')) {
 			if (request.method === 'PUT') {
-				return new Response(JSON.stringify({ success: true, message: "File renamed" }), {
-					status: 200,
-					headers: { 'Content-Type': 'application/json' }
-				});
+				try {
+					const body = await request.json() as any;
+					if (!body || !body.sandboxId || !body.oldPath || !body.newPath) {
+						return new Response(JSON.stringify({ error: "Invalid request data" }), {
+							status: 400,
+							headers: { 'Content-Type': 'application/json' }
+						});
+					}
+					return new Response(JSON.stringify({ success: true, message: "File renamed" }), {
+						status: 200,
+						headers: { 'Content-Type': 'application/json' }
+					});
+				} catch (e) {
+					return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
+						status: 400,
+						headers: { 'Content-Type': 'application/json' }
+					});
+				}
 			} else {
 				return new Response(JSON.stringify({ error: "Method not allowed" }), {
 					status: 405,
@@ -270,8 +298,7 @@ describe("Storage Handler", () => {
 		it("should create new file", async () => {
 			const createData = {
 				sandboxId: "test-sandbox",
-				path: "src/test.js",
-				content: "console.log('Hello World');"
+				type: "react"
 			};
 
 			const response = await fetch(`${baseUrl}/create`, {
