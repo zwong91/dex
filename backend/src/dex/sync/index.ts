@@ -3,8 +3,13 @@
  * 
  * 提供完整的 Trader Joe LiquiBook 合约数据同步功能，包括：
  * - 事件监听和数据抓取
- * - 高性能数据库查询
- * - 自动同步服务
+ * - 高性能数  return new SyncCoordinator(env, {
+    syncInterval: 5 * 60 * 1000,      // 5分钟同步
+    healthCheckInterval: 30 * 1000,    // 30秒健康检查
+    maxRetries: 3,                     // 最大重试次数
+    retryDelay: 5000,                  // 重试延迟
+    enableAutoRestart: true,           // 启用自动恢复
+    enableMetrics: true               // 启用指标收集 * - 自动同步服务
  * - 链上数据验证
  * - 价格数据更新
  * - 工业级监控和恢复
@@ -19,7 +24,7 @@ export { PriceService } from './price-service';
 
 // 协调器和管理
 export { 
-  IndustrialSyncCoordinator, 
+  SyncCoordinator, 
   DEFAULT_COORDINATOR_CONFIG 
 } from './sync-coordinator';
 export { 
@@ -83,12 +88,13 @@ export type {
  * 快速创建完整的同步系统
  */
 export async function createDexSyncSystem(env: any) {
-  const { SyncCoordinator, DEFAULT_COORDINATOR_CONFIG } = await import('./sync-coordinator');
+  const { SyncCoordinator } = await import('./sync-coordinator');
 
   return new SyncCoordinator(env, {
-    ...DEFAULT_COORDINATOR_CONFIG,
     syncInterval: 5 * 60 * 1000,      // 5分钟同步
     healthCheckInterval: 30 * 1000,    // 30秒健康检查
+    maxRetries: 3,                     // 最大重试次数
+    retryDelay: 5000,                  // 重试延迟
     enableAutoRestart: true,           // 启用自动恢复
     enableMetrics: true                // 启用指标收集
   });

@@ -1,8 +1,8 @@
-import { IndustrialSyncCoordinator, DEFAULT_COORDINATOR_CONFIG } from './sync-coordinator';
+import { SyncCoordinator, DEFAULT_COORDINATOR_CONFIG } from './sync-coordinator';
 import { DatabaseService } from './database-service';
 import type { Env } from '../../index';
 
-let syncCoordinator: IndustrialSyncCoordinator | null = null;
+let syncCoordinator: SyncCoordinator | null = null;
 
 /**
  * 检查数据库健康状态
@@ -37,9 +37,9 @@ async function checkDatabaseHealth(env: Env): Promise<void> {
 /**
  * 初始化同步协调器
  */
-async function initializeSyncCoordinator(env: Env): Promise<IndustrialSyncCoordinator> {
+async function initializeSyncCoordinator(env: Env): Promise<SyncCoordinator> {
   if (!syncCoordinator) {
-    syncCoordinator = new IndustrialSyncCoordinator(env, DEFAULT_COORDINATOR_CONFIG);
+    syncCoordinator = new SyncCoordinator(env, DEFAULT_COORDINATOR_CONFIG);
     await syncCoordinator.start();
   }
   return syncCoordinator;
@@ -48,7 +48,7 @@ async function initializeSyncCoordinator(env: Env): Promise<IndustrialSyncCoordi
 /**
  * 获取同步协调器实例
  */
-function getSyncCoordinator(): IndustrialSyncCoordinator | null {
+function getSyncCoordinator(): SyncCoordinator | null {
   return syncCoordinator;
 }
 

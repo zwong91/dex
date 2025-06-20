@@ -86,7 +86,7 @@ export async function createDexHandler(env: any) {
       trackApiUsage(env, apiKey, url.pathname, request.method, user.id).catch(console.error);
 
       // Rate limiting check
-      const rateLimitResult = await checkRateLimit(env, user.id, tier);
+      const rateLimitResult = await checkRateLimit(env, user.id, tier || 'basic');
       if (rateLimitResult.exceeded) {
         return new Response(JSON.stringify({
           error: 'Rate limit exceeded',
@@ -116,7 +116,7 @@ export async function createDexHandler(env: any) {
       if (route.requiresAuth) {
         // For now, we'll use a simplified permission check
         // In the future, this could be made more granular per endpoint
-        const hasBasicAccess = permissions.length > 0 || tier === 'enterprise';
+        const hasBasicAccess = (permissions && permissions.length > 0) || tier === 'enterprise';
         
         if (!hasBasicAccess) {
           return new Response(JSON.stringify({

@@ -46,7 +46,7 @@ export interface SyncMetrics {
  * - 负载平衡
  * - 错误处理和重试
  */
-export class IndustrialSyncCoordinator {
+export class SyncCoordinator {
   private syncService?: SyncService;
   private databaseService: DatabaseService;
   private onChainService: OnChainService;

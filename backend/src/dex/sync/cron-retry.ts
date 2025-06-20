@@ -105,7 +105,13 @@ export class CronRetryHandler {
             job.jobName,
             job.cronPattern,
             jobFunction,
-            { maxRetries: 2, timeoutMs: 30000 }
+            { 
+              maxRetries: 2, 
+              baseDelayMs: 1000,
+              maxDelayMs: 10000,
+              timeoutMs: 30000,
+              backoffStrategy: 'exponential' as const
+            }
           );
           
           results.push({
@@ -360,7 +366,7 @@ export class CronRetryHandler {
       if (!groups[job.jobName]) {
         groups[job.jobName] = [];
       }
-      groups[job.jobName].push(job);
+      groups[job.jobName]!.push(job);
       return groups;
     }, {} as Record<string, JobExecution[]>);
   }
