@@ -24,7 +24,7 @@ compatibility_date = "2025-06-20"
 compatibility_flags = ["nodejs_compat"]
 
 # Replace with your Cloudflare account ID
-account_id = "YOUR_ACCOUNT_ID_HERE"
+account_id = "ec9b597fa02615ca6a0e62b7ff35d0cc"
 
 # Database configuration for DEX V1
 [[d1_databases]]
