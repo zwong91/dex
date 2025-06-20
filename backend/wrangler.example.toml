@@ -35,10 +35,13 @@ migrations_dir = "drizzle"
 
 # Scheduled jobs for data sync
 [triggers]
+# sync-pools-frequent: Every 5 minutes
+# sync-stats-hourly: Every hour
+# cleanup-old-data: Weekly on Sunday at 2 AM
 crons = [
-  "*/5 * * * *",  # sync-pools-frequent: Every 5 minutes
-  "0 * * * *",    # sync-stats-hourly: Every hour
-  "0 2 * * 0"     # cleanup-old-data: Weekly on Sunday at 2 AM
+  "*/5 * * * *",
+  "0 * * * *",
+  "0 2 * * 0"
 ]
 
 # Environment variables
