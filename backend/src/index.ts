@@ -107,13 +107,6 @@ export default {
 				return response;
 			}
 
-			// DEX API routes
-			if (url.pathname.startsWith('/v1/api/dex')) {
-				const dexHandler = await createDexHandler(env);
-				const response = await dexHandler(request);
-				return response;
-			}
-
 			// AI routes
 			if (url.pathname.startsWith('/v1/api/ai')) {
 				return await aiHandler(request, env);
