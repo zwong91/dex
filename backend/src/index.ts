@@ -56,6 +56,14 @@ router.get('/health', () => json({
 	services: ['ai', 'database', 'storage', 'dex']
 }));
 
+// Root route
+router.get('/', () => json({ 
+	message: 'DEX Backend API', 
+	status: 'ok',
+	timestamp: new Date().toISOString(),
+	version: '1.0.0'
+}));
+
 // 404 handler
 router.all('*', () => new Response('Not Found', { status: 404 }));
 

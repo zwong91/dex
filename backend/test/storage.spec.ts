@@ -1,4 +1,30 @@
-import { describe, it, exp		// Project operations
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+// Mock Cloudflare Workers environment for testing
+const mockEnv = {
+	AI: {},
+	DB: {},
+	R2: {},
+	KEY: "test-secret-key",
+	NODE_ENV: "test"
+};
+
+// Mock Worker implementation
+const worker = {
+	async fetch(request: Request, env: any, ctx: any) {
+		const url = new URL(request.url);
+		const pathname = url.pathname;
+		
+		// Mock authorization check
+		const auth = request.headers.get("Authorization");
+		if (auth !== env.KEY) {
+			return new Response(JSON.stringify({ error: "Unauthorized" }), { 
+				status: 401, 
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+		
+		// Project operations
 		if (pathname.endsWith('/project')) {
 			if (request.method === 'DELETE') {
 				try {
@@ -25,47 +51,9 @@ import { describe, it, exp		// Project operations
 					headers: { 'Content-Type': 'application/json' }
 				});
 			}
-		}h, afterEach, vi } from "vitest";
-
-// Mock Cloudflare Workers environment for testing
-const mockEnv = {
-	AI: {},
-	DB: {},
-	R2: {},
-	KEY: "test-secret-key",
-	NODE_ENV: "test"
-};
-
-// Mock Worker implementation
-const worker = {
-	async fetch(request: Request, env: any, ctx: any) {
-		const url = new URL(request.url);
-		const pathname = url.pathname;
-		
-		// Mock authorization check
-		const auth = request.headers.get("Authorization");
-		if (auth !== env.KEY) {
-			return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-				status: 401, 
-				headers: { 'Content-Type': 'application/json' }
-			});
 		}
 		
 		// Mock storage responses
-		if (pathname.endsWith('/project')) {
-			if (request.method === 'DELETE') {
-				return new Response(JSON.stringify({ success: true, message: "Project deleted" }), {
-					status: 200,
-					headers: { 'Content-Type': 'application/json' }
-				});
-			} else {
-				return new Response(JSON.stringify({ error: "Method not allowed" }), {
-					status: 405,
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-		}
-		
 		if (pathname.endsWith('/size')) {
 			if (request.method === 'GET') {
 				const sandboxId = url.searchParams.get('sandboxId');
@@ -339,7 +327,7 @@ describe("Storage Handler", () => {
 			};
 
 			const response = await fetch(`${baseUrl}/rename`, {
-				method: "POST",
+				method: "PUT",
 				headers: authHeaders,
 				body: JSON.stringify(renameData)
 			});
@@ -360,7 +348,7 @@ describe("Storage Handler", () => {
 			};
 
 			const response = await fetch(`${baseUrl}/rename`, {
-				method: "POST",
+				method: "PUT",
 				headers: authHeaders,
 				body: JSON.stringify(invalidData)
 			});
