@@ -1,9 +1,12 @@
 # Dependencies
 node_modules/
 npm-debug.log*
+yarn-error.log
+.pnpm-debug.log*
 
 # Build outputs
 dist/
+.wrangler/
 *.tsbuildinfo
 
 # Coverage reports
@@ -17,24 +20,7 @@ coverage/
 .env.development
 wrangler.toml
 
-# Keep example config
-!wrangler.example.toml
-
-# Database
-*.sqlite
-*.db
-
-# Cloudflare
-.wrangler/
-
-# IDEs and editors
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
+# System files
 .DS_Store
 .DS_Store?
 ._*
@@ -43,14 +29,22 @@ wrangler.toml
 ehthumbs.db
 Thumbs.db
 
+# IDE files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
 # Logs
 logs/
 *.log
 
-# Coverage
-coverage/
-.nyc_output/
-
 # Temporary files
-tmp/
-temp/
+*.tmp
+*.temp
+.cache/
+
+# Test results
+test-results/
+coverage/

@@ -15,7 +15,7 @@ import type { CorsHeaders } from './types';
 export async function createDexHandler(env: any) {
   return async function handleDexRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    console.log('DEX V2 API request:', request.method, url.pathname);
+    console.log('DEX V1 API request:', request.method, url.pathname);
     
     // CORS headers
     const corsHeaders: CorsHeaders = {
@@ -31,12 +31,11 @@ export async function createDexHandler(env: any) {
 
     try {
       // Handle public endpoints first (no auth required)
-      if (url.pathname === '/api/dex' || url.pathname === '/api/dex/' || 
-          url.pathname === '/v1/api/dex' || url.pathname === '/v1/api/dex/') {
+      if ( url.pathname === '/v1/api/dex' || url.pathname === '/v1/api/dex/') {
         return handleApiInfo(corsHeaders);
       }
 
-      if (url.pathname === '/api/dex/health' || url.pathname === '/v1/api/dex/health') {
+      if (url.pathname === '/v1/api/dex/health') {
         return handleHealthCheck(env, corsHeaders);
       }
 
