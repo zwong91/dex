@@ -30,7 +30,7 @@ account_id = "ec9b597fa02615ca6a0e62b7ff35d0cc"
 [[d1_databases]]
 binding = "D1_DATABASE"
 database_name = "d1-dex-database"
-database_id = "YOUR_NEW_DEX_DATABASE_ID_HERE"
+database_id = "7daf1efd-a4f2-4e77-a099-586d83b0f06d"
 migrations_dir = "drizzle"
 
 # Scheduled jobs for data sync
