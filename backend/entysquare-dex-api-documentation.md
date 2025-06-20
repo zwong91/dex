@@ -107,7 +107,7 @@ const supportedChains = [
 - 优化的 SQL 查询性能
 
 
-Entysquare DEX API后端v2.0，采用基于数据库的架构，通过监听Trader Joe合约事件和调用链上合约并缓存到Cloudflare D1数据库，实现了极快的API响应速度和高并发支持。
+Entysquare DEX API后端v1.0，采用基于数据库的架构，通过监听Trader Joe合约事件和调用链上合约并缓存到Cloudflare D1数据库，实现了极快的API响应速度和高并发支持。
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐

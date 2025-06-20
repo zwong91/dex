@@ -95,9 +95,9 @@ export default {
 				return await databaseHandler(request, env);
 			}
 
-			// Admin sync endpoints - Enhanced Industrial Grade
+			// Admin sync endpoints
 			if (url.pathname.startsWith('/v1/api/admin/sync')) {
-				return await handleIndustrialSync(request, env);
+				return await handleSync(request, env);
 			}
 
 			// DEX API routes - Support both v1 and direct paths
