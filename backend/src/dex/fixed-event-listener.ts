@@ -1,4 +1,4 @@
-import { createPublicClient, http, parseAbiItem, Log, decodeEventLog, formatUnits } from 'viem';
+import { createPublicClient, http, parseAbiItem, type Log, decodeEventLog, formatUnits } from 'viem';
 import { bsc, bscTestnet } from 'viem/chains';
 import { eq, and, desc, max } from 'drizzle-orm';
 import { DrizzleD1Database } from 'drizzle-orm/d1';
@@ -10,8 +10,6 @@ const SWAP_EVENT_ABI = parseAbiItem('event Swap(address indexed sender, address 
 const DEPOSIT_EVENT_ABI = parseAbiItem('event DepositedToBins(address indexed sender, address indexed to, uint256[] ids, bytes32[] amounts)');
 
 const WITHDRAW_EVENT_ABI = parseAbiItem('event WithdrawnFromBins(address indexed sender, address indexed to, uint256[] ids, bytes32[] amounts)');
-
-const COMPOSITION_FEES_ABI = parseAbiItem('event CompositionFees(address indexed sender, uint24 indexed id, bytes32 totalFees, bytes32 protocolFees)');
 
 interface ChainConfig {
   chain: any;
@@ -38,7 +36,7 @@ const CHAIN_CONFIGS: Record<string, ChainConfig> = {
   }
 };
 
-export class EventListener {
+export class FixedEventListener {
   private db: DrizzleD1Database<typeof schema>;
   private chainConfig: ChainConfig;
   private client: any;
@@ -102,18 +100,55 @@ export class EventListener {
           eventType,
           lastBlockNumber: blockNumber,
           lastLogIndex: logIndex,
-          updatedAt: Date.now()
-        })
-        .onConflictDoUpdate({
-          target: [schema.syncStatus.chain, schema.syncStatus.contractAddress, schema.syncStatus.eventType],
-          set: {
-            lastBlockNumber: blockNumber,
-            lastLogIndex: logIndex,
-            updatedAt: Date.now()
-          }
+          updatedAt: new Date()
         });
     } catch (error) {
       console.error('Error updating sync status:', error);
+    }
+  }
+
+  /**
+   * 获取池的token地址
+   */
+  private async getPoolTokens(poolAddress: string): Promise<{ tokenX: string; tokenY: string }> {
+    try {
+      const pool = await this.db
+        .select()
+        .from(schema.pools)
+        .where(eq(schema.pools.address, poolAddress))
+        .limit(1);
+
+      if (pool.length > 0) {
+        return {
+          tokenX: pool[0].tokenX,
+          tokenY: pool[0].tokenY
+        };
+      }
+
+      // 如果数据库中没有池信息，从链上获取
+      const [tokenX, tokenY] = await Promise.all([
+        this.client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: ['function getTokenX() external view returns (address)'],
+          functionName: 'getTokenX'
+        }),
+        this.client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: ['function getTokenY() external view returns (address)'],
+          functionName: 'getTokenY'
+        })
+      ]);
+
+      return {
+        tokenX: tokenX as string,
+        tokenY: tokenY as string
+      };
+    } catch (error) {
+      console.error('Error getting pool tokens:', error);
+      return {
+        tokenX: '',
+        tokenY: ''
+      };
     }
   }
 
@@ -140,28 +175,32 @@ export class EventListener {
           });
 
           // 获取交易详情
-          const tx = await this.client.getTransaction({ hash: log.transactionHash });
           const block = await this.client.getBlock({ blockNumber: log.blockNumber });
 
           // 解析金额数据 (bytes32 需要特殊处理)
-          const amountsIn = this.parseBytes32Amounts(decoded.args.amountsIn);
-          const amountsOut = this.parseBytes32Amounts(decoded.args.amountsOut);
-          const totalFees = this.parseBytes32Amounts(decoded.args.totalFees);
+          const amountsIn = this.parseBytes32Amounts(decoded.args.amountsIn as string);
+          const amountsOut = this.parseBytes32Amounts(decoded.args.amountsOut as string);
+          const totalFees = this.parseBytes32Amounts(decoded.args.totalFees as string);
 
+          // 获取池的token信息
+          const poolData = await this.getPoolTokens(poolAddress);
+          
           await this.db.insert(schema.swapEvents).values({
             txHash: log.transactionHash,
             poolAddress: poolAddress,
             chain: this.chainName,
-            sender: decoded.args.sender,
-            to: decoded.args.to,
-            tokenInAddress: '', // 需要从池信息获取
-            tokenOutAddress: '', // 需要从池信息获取
+            sender: decoded.args.sender as string,
+            to: decoded.args.to as string,
+            tokenInAddress: poolData.tokenX,
+            tokenOutAddress: poolData.tokenY,
             amountIn: amountsIn.tokenX.toString(),
             amountOut: amountsOut.tokenY.toString(),
+            amountInUsd: 0, // 需要计算USD价值
+            amountOutUsd: 0, // 需要计算USD价值
             fees: totalFees.tokenX.toString(),
             blockNumber: Number(log.blockNumber),
             logIndex: log.logIndex || 0,
-            timestamp: Number(block.timestamp) * 1000
+            timestamp: new Date(Number(block.timestamp) * 1000)
           });
 
           await this.updateSyncStatus(poolAddress, 'swap', Number(log.blockNumber), log.logIndex || 0);
@@ -202,18 +241,24 @@ export class EventListener {
             txHash: log.transactionHash,
             poolAddress: poolAddress,
             chain: this.chainName,
-            user: decoded.args.sender,
+            user: decoded.args.sender as string,
             eventType: 'deposit',
-            binIds: JSON.stringify(decoded.args.ids.map(id => Number(id))),
-            amounts: JSON.stringify(decoded.args.amounts.map(amount => amount.toString())),
+            binIds: JSON.stringify((decoded.args.ids as readonly bigint[]).map(id => Number(id))),
+            amounts: JSON.stringify((decoded.args.amounts as readonly string[]).map(amount => amount.toString())),
             liquidity: '0', // 需要计算
             blockNumber: Number(log.blockNumber),
             logIndex: log.logIndex || 0,
-            timestamp: Number(block.timestamp) * 1000
+            timestamp: new Date(Number(block.timestamp) * 1000)
           });
 
           // 更新用户仓位
-          await this.updateUserPositions(decoded.args.to, poolAddress, decoded.args.ids, decoded.args.amounts, 'add');
+          await this.updateUserPositions(
+            decoded.args.to as string, 
+            poolAddress, 
+            decoded.args.ids as readonly bigint[], 
+            decoded.args.amounts as readonly string[], 
+            'add'
+          );
 
           await this.updateSyncStatus(poolAddress, 'deposit', Number(log.blockNumber), log.logIndex || 0);
         } catch (error) {
@@ -253,18 +298,24 @@ export class EventListener {
             txHash: log.transactionHash,
             poolAddress: poolAddress,
             chain: this.chainName,
-            user: decoded.args.sender,
+            user: decoded.args.sender as string,
             eventType: 'withdraw',
-            binIds: JSON.stringify(decoded.args.ids.map(id => Number(id))),
-            amounts: JSON.stringify(decoded.args.amounts.map(amount => amount.toString())),
+            binIds: JSON.stringify((decoded.args.ids as readonly bigint[]).map(id => Number(id))),
+            amounts: JSON.stringify((decoded.args.amounts as readonly string[]).map(amount => amount.toString())),
             liquidity: '0', // 需要计算
             blockNumber: Number(log.blockNumber),
             logIndex: log.logIndex || 0,
-            timestamp: Number(block.timestamp) * 1000
+            timestamp: new Date(Number(block.timestamp) * 1000)
           });
 
           // 更新用户仓位
-          await this.updateUserPositions(decoded.args.to, poolAddress, decoded.args.ids, decoded.args.amounts, 'subtract');
+          await this.updateUserPositions(
+            decoded.args.to as string, 
+            poolAddress, 
+            decoded.args.ids as readonly bigint[], 
+            decoded.args.amounts as readonly string[], 
+            'subtract'
+          );
 
           await this.updateSyncStatus(poolAddress, 'withdraw', Number(log.blockNumber), log.logIndex || 0);
         } catch (error) {
@@ -323,7 +374,7 @@ export class EventListener {
               .update(schema.userPositions)
               .set({
                 liquidity: newLiquidity.toString(),
-                updatedAt: Date.now()
+                updatedAt: new Date()
               })
               .where(eq(schema.userPositions.id, existingPosition[0].id));
           }
@@ -335,8 +386,8 @@ export class EventListener {
             chain: this.chainName,
             binId,
             liquidity: amount,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
+            createdAt: new Date(),
+            updatedAt: new Date()
           });
         }
       } catch (error) {
@@ -455,7 +506,7 @@ export class EventListener {
         fees24h: stats24h.fees24h,
         apy: stats24h.apy,
         blockNumber: Number(currentBlock),
-        timestamp: Date.now()
+        timestamp: new Date()
       });
     } catch (error) {
       console.error('Error updating pool stats:', error);
@@ -463,16 +514,38 @@ export class EventListener {
   }
 
   /**
-   * 从链上获取池数据（占位符方法，需要实现具体的合约调用）
+   * 从链上获取池数据
    */
   private async getPoolDataFromChain(poolAddress: string): Promise<any> {
-    // TODO: 实现具体的合约调用逻辑
-    return {
-      reserveX: BigInt(0),
-      reserveY: BigInt(0),
-      activeBinId: 0,
-      totalSupply: BigInt(0)
-    };
+    try {
+      const [reserves, activeId] = await Promise.all([
+        this.client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: ['function getReserves() external view returns (uint128 reserveX, uint128 reserveY)'],
+          functionName: 'getReserves'
+        }),
+        this.client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: ['function getActiveId() external view returns (uint24)'],
+          functionName: 'getActiveId'
+        })
+      ]);
+
+      return {
+        reserveX: (reserves as any)[0],
+        reserveY: (reserves as any)[1],
+        activeBinId: activeId,
+        totalSupply: BigInt(0) // TODO: 实现总供应量计算
+      };
+    } catch (error) {
+      console.error('Error getting pool data from chain:', error);
+      return {
+        reserveX: BigInt(0),
+        reserveY: BigInt(0),
+        activeBinId: 0,
+        totalSupply: BigInt(0)
+      };
+    }
   }
 
   /**
@@ -481,14 +554,11 @@ export class EventListener {
   private async calculate24hStats(poolAddress: string): Promise<any> {
     const now = Date.now();
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
     try {
       // 计算24小时交易量
-      const volume24h = await this.db
-        .select({
-          total: schema.swapEvents.amountInUsd
-        })
+      const swaps = await this.db
+        .select()
         .from(schema.swapEvents)
         .where(
           and(
@@ -521,6 +591,6 @@ export class EventListener {
 /**
  * 创建事件监听器实例
  */
-export function createEventListener(db: DrizzleD1Database<typeof schema>, chainName: string): EventListener {
-  return new EventListener(db, chainName);
+export function createFixedEventListener(db: DrizzleD1Database<typeof schema>, chainName: string): FixedEventListener {
+  return new FixedEventListener(db, chainName);
 }
