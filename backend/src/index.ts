@@ -3,7 +3,7 @@ import { json } from 'itty-router-extras';
 import { aiHandler } from './ai/handler';
 import { storageHandler } from './storage/handler';
 import { createSimpleTestHandler } from './dex/simple-test-handler';
-import { createDexV2Handler } from './dex/dex-v2-handler';
+import { createDexHandler } from './dex/handler';
 import { databaseHandler } from './database/handler';
 
 export interface Env {
@@ -82,17 +82,17 @@ export default {
 			}
 
 			// V2 Database Management API (users, api-keys, permissions, etc.)
-			if (url.pathname.startsWith('/api/users') || 
-				url.pathname.startsWith('/api/api-keys') ||
-				url.pathname.startsWith('/api/permissions') ||
-				url.pathname.startsWith('/api/usage') ||
-				url.pathname.startsWith('/api/subscriptions')) {
+			if (url.pathname.startsWith('/api/v2/admin/users') || 
+				url.pathname.startsWith('/api/v2/admin/api-keys') ||
+				url.pathname.startsWith('/api/v2/admin/permissions') ||
+				url.pathname.startsWith('/api/v2/admin/analytics') ||
+				url.pathname.startsWith('/api/v2/admin/applications')) {
 				return await databaseHandler(request, env);
 			}
 
 			// DEX API routes
 			if (url.pathname.startsWith('/api/dex/')) {
-				const dexHandler = await createDexV2Handler(env);
+				const dexHandler = await createDexHandler(env);
 				const response = await dexHandler(request);
 				return response;
 			}
@@ -116,16 +116,6 @@ export default {
 				url.pathname.startsWith('/api/rename') ||
 				url.pathname.startsWith('/api/file')) {
 				return await storageHandler(request, env);
-			}
-
-			// Legacy routes - temporarily disabled
-			if (url.pathname.startsWith('/api/sandbox') || url.pathname.startsWith('/api/user')) {
-				return new Response(JSON.stringify({ 
-					error: 'Legacy API temporarily disabled - use V2 authentication' 
-				}), { 
-					status: 501,
-					headers: { 'Content-Type': 'application/json', ...corsHeaders }
-				});
 			}
 
 			// 404 for unknown routes
