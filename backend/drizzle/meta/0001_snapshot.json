@@ -1,0 +1,13 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "0001_initial_data",
+  "prevId": "0000_whole_punisher",
+  "tables": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  }
+}

@@ -284,7 +284,7 @@ export class PriceService {
       if (!response.ok) {
         throw new Error(`CoinCap API error: ${response.status}`);
       }
-      const data = await response.json();
+      const data = await response.json() as any;
       if (!data.data) return null;
       return {
         address: '',
