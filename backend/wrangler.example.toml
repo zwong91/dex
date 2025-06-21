@@ -34,15 +34,13 @@ database_id = "YOUR_NEW_DEX_DATABASE_ID_HERE"
 migrations_dir = "drizzle"
 
 # Scheduled jobs for data sync
+[triggers]
+# Schedule cron triggers:
 # sync-pools-frequent: Every 5 minutes
 # sync-stats-hourly: Every hour
 # cleanup-old-data: Weekly on Sunday at 2 AM
-[triggers]
-crons = [
-  "*/5 * * * *",
-  "0 * * * *",
-  "0 2 * * 0"
-]
+crons = [ "*/5 * * * *", "0 * * * *", "0 2 * * 0" ]
+
 # Environment variables
 [vars]
 KEY = "YOUR_SECRET_KEY_HERE"
