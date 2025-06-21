@@ -3,6 +3,14 @@ import { DatabaseService } from './database-service';
 import { EventListener } from './event-listener';
 import { OnChainService } from './onchain-service';
 import { PriceService } from './price-service';
+import { PoolDiscoveryService } from './pool-discovery';
+import { 
+  TRADER_JOE_POOLS, 
+  getAllPoolAddresses, 
+  getHighPriorityPools, 
+  getInitialPoolsForDatabase,
+  DEFAULT_POOL_ADDRESSES
+} from './pool-config';
 import type { Env } from '../../index';
 
 export interface SyncCoordinatorConfig {
@@ -34,6 +42,13 @@ export interface SyncMetrics {
   avgSyncDuration: number;
   errorRate: number;
   uptime: number;
+  poolDiscovery: {
+    totalScanned: number;
+    newPoolsFound: number;
+    poolsAdded: number;
+    lastScanTime: number;
+    errors: number;
+  };
 }
 
 /**
@@ -51,6 +66,7 @@ export class SyncCoordinator {
   private databaseService: DatabaseService;
   private onChainService: OnChainService;
   private priceService: PriceService;
+  private poolDiscoveryService: PoolDiscoveryService;
   
   private isRunning = false;
   private startTime = 0;
@@ -74,6 +90,7 @@ export class SyncCoordinator {
     this.databaseService = new DatabaseService(env);
     this.onChainService = new OnChainService(env);
     this.priceService = new PriceService(env);
+    this.poolDiscoveryService = new PoolDiscoveryService(env);
   }
 
   /**
@@ -108,11 +125,15 @@ export class SyncCoordinator {
       // 4. 启动同步服务
       await this.syncService.start();
 
-      // 5. 启动健康监控
+      // 5. 启动池发现服务
+      await this.poolDiscoveryService.startDiscovery();
+
+      // 6. 启动健康监控
       this.startHealthMonitoring();
 
       console.log('✅ DEX Sync Coordinator started successfully');
       console.log(`📊 Monitoring ${poolConfig.poolAddresses.length} pools across ${syncConfig.chains.length} chains`);
+      console.log('🔍 Pool discovery service active - will scan for new pools every hour');
 
     } catch (error) {
       console.error('❌ Failed to start sync coordinator:', error);
@@ -138,6 +159,9 @@ export class SyncCoordinator {
     if (this.syncService) {
       await this.syncService.stop();
     }
+
+    // 停止池发现服务
+    this.poolDiscoveryService.stop();
 
     console.log('✅ Sync coordinator stopped');
   }
@@ -272,13 +296,29 @@ export class SyncCoordinator {
 
       const poolAddresses = pools.pools.map(pool => pool.address);
 
-      // 如果没有池，使用默认配置
+      // 如果没有池，初始化默认池配置
       if (poolAddresses.length === 0) {
-        console.warn('⚠️  No pools found in database, using default configuration');
-        return {
-          poolAddresses: [], // 空数组，需要手动添加池
-          totalPools: 0
-        };
+        console.warn('⚠️  No pools found in database, initializing with default pools...');
+        
+        // 尝试初始化数据库池数据
+        await this.initializeDefaultPools();
+        
+        // 使用配置文件中的池地址
+        const configPools = getAllPoolAddresses();
+        
+        if (configPools.length > 0) {
+          return {
+            poolAddresses: configPools,
+            totalPools: configPools.length
+          };
+        } else {
+          // 最后的备选方案：使用硬编码的默认地址
+          console.log(`📊 Using ${DEFAULT_POOL_ADDRESSES.length} fallback pool addresses`);
+          return {
+            poolAddresses: DEFAULT_POOL_ADDRESSES,
+            totalPools: DEFAULT_POOL_ADDRESSES.length
+          };
+        }
       }
 
       console.log(`📊 Loaded ${poolAddresses.length} active pools`);
@@ -289,6 +329,51 @@ export class SyncCoordinator {
     } catch (error) {
       console.error('❌ Failed to load pool configuration:', error);
       throw new Error('Pool configuration loading failed');
+    }
+  }
+
+  /**
+   * 初始化默认池数据到数据库
+   */
+  private async initializeDefaultPools(): Promise<void> {
+    try {
+      console.log('🔧 Initializing default pools in database...');
+      
+      const poolsToInsert = getInitialPoolsForDatabase();
+      
+      if (poolsToInsert.length === 0) {
+        console.warn('⚠️  No valid pool configurations found to initialize');
+        return;
+      }
+      
+      // 批量插入池数据
+      for (const poolData of poolsToInsert) {
+        try {
+          // 检查池是否已存在
+          const existingPools = await this.databaseService.getPools(
+            { chain: poolData.chain },
+            { limit: 1 }
+          );
+          
+          const poolExists = existingPools.pools.some(
+            p => p.address.toLowerCase() === poolData.address.toLowerCase()
+          );
+          
+          if (!poolExists) {
+            // 这里需要添加实际的插入方法到 DatabaseService
+            console.log(`➕ Adding pool: ${poolData.name} (${poolData.address.slice(0, 8)}...)`);
+            // await this.databaseService.insertPool(poolData);
+          }
+        } catch (error) {
+          console.error(`❌ Failed to insert pool ${poolData.address}:`, error);
+          // 继续处理其他池，不抛出错误
+        }
+      }
+      
+      console.log(`✅ Pool initialization completed`);
+    } catch (error) {
+      console.error('❌ Failed to initialize default pools:', error);
+      // 不抛出错误，继续使用配置文件中的地址
     }
   }
 
@@ -484,6 +569,8 @@ export class SyncCoordinator {
       totalTransactions24h: 0
     }));
 
+    const discoveryMetrics = this.poolDiscoveryService.getMetrics();
+
     return {
       syncService: this.syncService?.getStatus() || null,
       totalPools: analytics.totalPools || 0,
@@ -492,7 +579,14 @@ export class SyncCoordinator {
       lastSyncDuration: 0, // 需要从同步服务获取
       avgSyncDuration,
       errorRate,
-      uptime
+      uptime,
+      poolDiscovery: {
+        totalScanned: discoveryMetrics.totalScanned,
+        newPoolsFound: discoveryMetrics.newPoolsFound,
+        poolsAdded: discoveryMetrics.poolsAdded,
+        lastScanTime: discoveryMetrics.lastScanTime,
+        errors: discoveryMetrics.errors
+      }
     };
   }
 

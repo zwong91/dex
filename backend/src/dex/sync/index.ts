@@ -21,6 +21,17 @@ export { DatabaseService } from './database-service';
 export { SyncService, DEFAULT_SYNC_CONFIG } from './sync-service';
 export { OnChainService } from './onchain-service';
 export { PriceService } from './price-service';
+export { PoolDiscoveryService } from './pool-discovery';
+
+// 池配置
+export { 
+  TRADER_JOE_POOLS, 
+  DEFAULT_POOL_ADDRESSES,
+  POOL_DISCOVERY_CONFIG,
+  getAllPoolAddresses,
+  getHighPriorityPools,
+  getInitialPoolsForDatabase
+} from './pool-config';
 
 // 协调器和管理
 export { 
@@ -152,6 +163,26 @@ if (coordinator) {
 }
 `,
 
+  // 池配置管理
+  poolConfig: `
+import { 
+  getAllPoolAddresses, 
+  getHighPriorityPools,
+  DEFAULT_POOL_ADDRESSES
+} from './dex/sync';
+
+// 获取所有配置的池地址
+const allPools = getAllPoolAddresses();
+console.log('监控池数量:', allPools.length);
+
+// 获取高优先级池
+const priorityPools = getHighPriorityPools();
+console.log('高优先级池:', priorityPools);
+
+// 使用默认池地址
+console.log('默认池配置:', DEFAULT_POOL_ADDRESSES);
+`,
+
   // 查询池数据
   queryPools: `
 import { DatabaseService } from './dex/sync';
@@ -186,7 +217,28 @@ const positions = await dbService.getUserPositions(
 // 手动触发完整同步
 
 // GET /v1/api/admin/sync/metrics
-// 获取性能指标
+// 获取性能指标和池发现统计
+`,
+
+  // 池发现功能
+  poolDiscovery: `
+import { PoolDiscoveryService } from './dex/sync';
+
+// 创建池发现服务
+const discovery = new PoolDiscoveryService(env);
+
+// 启动自动发现
+await discovery.startDiscovery();
+
+// 手动触发扫描
+const metrics = await discovery.performDiscoveryScan();
+console.log('发现结果:', metrics);
+
+// 获取发现指标
+const stats = discovery.getMetrics();
+console.log('总计扫描:', stats.totalScanned);
+console.log('发现新池:', stats.newPoolsFound);
+console.log('添加池数:', stats.poolsAdded);
 `
 };
 
