@@ -36,7 +36,7 @@ export class PriceService {
 
   // 价格数据源配置
   private readonly priceSources: PriceSource[] = [
-    { name: 'coingecko', url: 'https://api.coingecko.com/api/v3', weight: 0.4 },
+    { name: 'coincap', url: 'https://api.coincap.io/v2', weight: 0.4 },
     { name: 'coinmarketcap', url: 'https://pro-api.coinmarketcap.com/v1', weight: 0.3 },
     { name: 'binance', url: 'https://api.binance.com/api/v3', weight: 0.2 },
     { name: 'pancakeswap', url: 'https://api.pancakeswap.info/api/v2', weight: 0.1 }
@@ -45,16 +45,15 @@ export class PriceService {
   // 主流代币地址映射
   private readonly tokenMappings = new Map([
     // BSC主网
-    ['0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c', { symbol: 'WBNB', coingeckoId: 'wbnb' }], // WBNB
-    ['0x55d398326f99059ff775485246999027b3197955', { symbol: 'USDT', coingeckoId: 'tether' }], // BSC-USD
-    ['0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d', { symbol: 'USDC', coingeckoId: 'usd-coin' }], // USDC
-    ['0xe9e7cea3dedca5984780bafc599bd69add087d56', { symbol: 'BUSD', coingeckoId: 'binance-usd' }], // BUSD
-    ['0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c', { symbol: 'BTCB', coingeckoId: 'bitcoin' }], // BTCB
-    ['0x2170ed0880ac9a755fd29b2688956bd959f933f8', { symbol: 'ETH', coingeckoId: 'ethereum' }], // ETH
-    ['0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82', { symbol: 'CAKE', coingeckoId: 'pancakeswap-token' }], // CAKE
-    
+    ['0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c', { symbol: 'WBNB', coincapId: 'binance-coin' }], // WBNB
+    ['0x55d398326f99059ff775485246999027b3197955', { symbol: 'USDT', coincapId: 'tether' }], // BSC-USD
+    ['0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d', { symbol: 'USDC', coincapId: 'usd-coin' }], // USDC
+    ['0xe9e7cea3dedca5984780bafc599bd69add087d56', { symbol: 'BUSD', coincapId: 'binance-usd' }], // BUSD
+    ['0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c', { symbol: 'BTCB', coincapId: 'bitcoin' }], // BTCB
+    ['0x2170ed0880ac9a755fd29b2688956bd959f933f8', { symbol: 'ETH', coincapId: 'ethereum' }], // ETH
+    ['0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82', { symbol: 'CAKE', coincapId: 'pancakeswap-token' }], // CAKE
     // BSC测试网
-    ['0xae13d989dac2f0debff460ac112a837c89baa7cd', { symbol: 'WBNB', coingeckoId: 'wbnb' }], // WBNB testnet
+    ['0xae13d989dac2f0debff460ac112a837c89baa7cd', { symbol: 'WBNB', coincapId: 'binance-coin' }], // WBNB testnet
   ]);
 
   constructor(private env: Env) {
@@ -248,7 +247,7 @@ export class PriceService {
     }
 
     const pricePromises: Promise<PriceResponse | null>[] = [
-      this.fetchFromCoinGecko(tokenMapping.coingeckoId),
+      this.fetchFromCoinCap(tokenMapping.coincapId),
       this.fetchFromPancakeSwap(tokenAddress),
       this.fetchFromBinance(tokenMapping.symbol)
     ];
@@ -271,39 +270,32 @@ export class PriceService {
   }
 
   /**
-   * 从CoinGecko获取价格
+   * Fetch price from CoinCap
    */
-  private async fetchFromCoinGecko(tokenId: string): Promise<PriceResponse | null> {
+  private async fetchFromCoinCap(assetId: string): Promise<PriceResponse | null> {
     try {
-      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${tokenId}&vs_currencies=usd&include_24hr_vol=true&include_market_cap=true`;
-      
+      if (!assetId) return null;
+      const url = `https://api.coincap.io/v2/assets/${assetId}`;
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
         }
       });
-
       if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status}`);
+        throw new Error(`CoinCap API error: ${response.status}`);
       }
-
-      const data = await response.json() as Record<string, any>;
-      const tokenData = data[tokenId];
-
-      if (!tokenData) {
-        return null;
-      }
-
+      const data = await response.json();
+      if (!data.data) return null;
       return {
         address: '',
-        price: tokenData.usd || 0,
-        volume24h: tokenData.usd_24h_vol,
-        marketCap: tokenData.usd_market_cap,
+        price: parseFloat(data.data.priceUsd) || 0,
+        volume24h: parseFloat(data.data.volumeUsd24Hr) || undefined,
+        marketCap: parseFloat(data.data.marketCapUsd) || undefined,
         timestamp: Date.now(),
-        source: 'coingecko'
+        source: 'coincap'
       };
     } catch (error) {
-      console.error('CoinGecko fetch error:', error);
+      console.error('CoinCap fetch error:', error);
       return null;
     }
   }
@@ -564,7 +556,6 @@ export class PriceService {
       
       // 测试外部API连接
       const testPromises = [
-        this.fetchFromCoinGecko('bitcoin'),
         this.fetchFromBinance('BTC')
       ];
 
