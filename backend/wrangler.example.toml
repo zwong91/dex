@@ -1,7 +1,7 @@
 # ==================================================
-# DEX API V1 - Example Configuration
+# DEX API V1 - Production Configuration
 # ==================================================
-# This is the template configuration for DEX API V1
+# This is the production-ready configuration for DEX API V1
 # 
 # Major changes in V1:
 # 1. New D1 database with 15 tables for authentication and analytics
@@ -16,6 +16,7 @@
 # 3. Create D1 databases: wrangler d1 create d1-dex-database
 # 4. Run migrations: npm run migrate:local
 # 5. Initialize data: npm run db:init
+# 6. Set secrets: wrangler secret put KEY && wrangler secret put PRICE_API_KEY
 # ==================================================
 
 name = "dex-backend-serverless"
@@ -26,57 +27,66 @@ compatibility_flags = ["nodejs_compat"]
 # Replace with your Cloudflare account ID
 account_id = "YOUR_ACCOUNT_ID_HERE"
 
-# Database configuration for DEX V1
+# ✅ Database configuration - Consistent binding names
 [[d1_databases]]
-binding = "D1_DATABASE"
+binding = "D1_DATABASE"  # Matches env.D1_DATABASE in code
 database_name = "d1-dex-database"
 database_id = "YOUR_NEW_DEX_DATABASE_ID_HERE"
 migrations_dir = "drizzle"
 
-# Scheduled jobs for data sync
+# ✅ Scheduled jobs for data synchronization - Multiple cron triggers
 [triggers]
-# Schedule cron triggers:
-# sync-pools-frequent: Every 5 minutes
-# sync-stats-hourly: Every hour
-# cleanup-old-data: Weekly on Sunday at 2 AM
-crons = ["*/5 * * * *", "0 * * * *", "0 2 * * 0"]
+crons = [
+    "*/5 * * * *",    # Every 5 minutes - Frequent pool sync
+    "0 * * * *",      # Every hour - Statistics sync  
+    "0 2 * * 0"       # Every Sunday at 2 AM - Data cleanup
+]
 
-# Environment variables
+# ✅ Environment variables - Public configuration
 [vars]
-KEY = "YOUR_SECRET_KEY_HERE"
-NODE_ENV = "development"
+# Basic configuration
+NODE_ENV = "production"
+API_RATE_LIMIT = "100"
 
-# RPC endpoints for blockchain interaction
+# Blockchain RPC endpoints
 BSC_RPC_URL = "https://bsc-dataseed1.binance.org/"
 BSCTEST_RPC_URL = "https://data-seed-prebsc-1-s1.binance.org:8545/"
 
-# LiquiBook Factory contract addresses
+# Contract addresses
 LB_FACTORY_BSC = "0x7D73A6eFB91C89502331b2137c2803408838218b"
 LB_FACTORY_BSCTEST = "0x7D73A6eFB91C89502331b2137c2803408838218b"
-
-# Router contract addresses
 LB_ROUTER_BSC = "0xe98efCE22A8Ec0dd5dDF6C1A81B6ADD740176E98"
 LB_ROUTER_BSCTEST = "0xe98efCE22A8Ec0dd5dDF6C1A81B6ADD740176E98"
-
-# Quoter contract addresses
 LB_QUOTER_BSC = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
 LB_QUOTER_BSCTEST = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
 
 # Price API configuration
 PRICE_API_URL = "https://api.coingecko.com/api/v3"
-PRICE_API_KEY = "your-price-api-key-here"
 
-# API rate limiting
-API_RATE_LIMIT = "100"
+# ⚠️ Sensitive information should use secrets instead of vars
+# Run these commands to set secrets:
+# wrangler secret put KEY
+# wrangler secret put PRICE_API_KEY
 
-# Optional bindings - configure for production
-# Cloudflare AI binding for AI functionality
-# [ai]
-# binding = "AI"
+# 🔧 Production AI binding - Enabled for AI functionality
+[ai]
+binding = "AI"
 
-# R2 Storage binding for file storage
-# Create a new R2 bucket using: wrangler r2 bucket create dex-storage
-# [[r2_buckets]]
-# binding = 'R2'
-# bucket_name = 'YOUR_BUCKET_NAME_HERE'
-# preview_bucket_name = 'YOUR_PREVIEW_BUCKET_NAME_HERE'
+# 🔧 Production R2 storage binding - Enabled for file storage
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "dex-storage"
+# preview_bucket_name = "dex-storage-preview"  # Optional
+
+# 🔧 Development environment configuration
+[env.development]
+vars = { NODE_ENV = "development" }
+# Development can use different RPC endpoints or test networks
+
+# 🔧 Staging environment configuration
+[env.staging]
+vars = { NODE_ENV = "staging" }
+
+# ✅ Production environment configuration
+[env.production]
+vars = { NODE_ENV = "production" }
