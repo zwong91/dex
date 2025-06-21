@@ -39,7 +39,7 @@ migrations_dir = "drizzle"
 # sync-pools-frequent: Every 5 minutes
 # sync-stats-hourly: Every hour
 # cleanup-old-data: Weekly on Sunday at 2 AM
-crons = ["*/5 * * * *", "0 * * * *", "0 2 * * 0"]
+crons = ["*/5 * * * *"]
 
 # Environment variables
 [vars]
