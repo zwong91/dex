@@ -288,7 +288,9 @@ export class SyncCoordinator {
         { limit: 1000 }
       );
 
-      const poolAddresses = pools.pools.map(pool => pool.address);
+      const poolAddresses = pools.pools
+        .map(pool => pool.address)
+        .filter(address => address && typeof address === 'string');
 
       // 如果没有池，启动池发现来初始化
       if (poolAddresses.length === 0) {

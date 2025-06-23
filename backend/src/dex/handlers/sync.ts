@@ -107,50 +107,6 @@ export async function handlePoolDiscovery(request: Request, env: Env): Promise<R
   }
 }
 
-/**
- * 测试池发现功能（无需认证）
- */
-export async function handlePoolDiscoveryTest(request: Request, env: Env): Promise<Response> {
-  console.log('🧪 Testing pool discovery without authentication...');
-  
-  try {
-    const poolDiscovery = new PoolDiscoveryService(env);
-    
-    console.log('✅ Pool Discovery Service initialized');
-    console.log('🔍 Starting discovery scan...');
-    
-    const metrics = await poolDiscovery.performDiscoveryScan();
-    
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Pool discovery test completed',
-      results: {
-        totalScanned: metrics.totalScanned,
-        newPoolsFound: metrics.newPoolsFound,
-        poolsAdded: metrics.poolsAdded,
-        poolsSkipped: metrics.poolsSkipped,
-        scanDuration: `${metrics.scanDuration}ms`,
-        errors: metrics.errors
-      },
-      timestamp: new Date().toISOString()
-    }, null, 2), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-  } catch (error) {
-    console.error('❌ Pool discovery test failed:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Pool discovery test failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString()
-    }, null, 2), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-}
 
 /**
  * 获取数据库统计信息

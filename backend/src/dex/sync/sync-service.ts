@@ -206,6 +206,12 @@ export class SyncService {
       console.log(`Syncing events for chain: ${chain}`);
 
       for (const poolAddress of this.config.poolAddresses) {
+        // 跳过无效的池地址
+        if (!poolAddress || typeof poolAddress !== 'string') {
+          console.warn(`⚠️  Skipping invalid pool address: ${poolAddress}`);
+          continue;
+        }
+        
         try {
           // 增量同步每个池
           await eventListener.incrementalSync(poolAddress);
@@ -243,6 +249,12 @@ export class SyncService {
 
     for (const chain of this.config.chains) {
       for (const poolAddress of this.config.poolAddresses) {
+        // 跳过无效的池地址
+        if (!poolAddress || typeof poolAddress !== 'string') {
+          console.warn(`⚠️  Skipping invalid pool address in stats update: ${poolAddress}`);
+          continue;
+        }
+        
         try {
           // 从链上获取最新池状态
           const poolStats = await this.onChainService.getPoolStats(poolAddress, chain);

@@ -29,6 +29,7 @@ export class CronHandler {
         console.log('🔄 Starting frequent pool sync...');
         
         const coordinator = await this.getSyncCoordinator();
+        await coordinator.start();
         this.monitor.incrementDbQueries(execution, 1);
         
         const result = await coordinator.triggerFullSync();
@@ -59,6 +60,7 @@ export class CronHandler {
         console.log('📊 Starting hourly stats sync...');
         
         const coordinator = await this.getSyncCoordinator();
+        await coordinator.start();
         const dbService = new DatabaseService(this.env);
         
         // 1. 执行常规同步
@@ -133,10 +135,14 @@ export class CronHandler {
     if (!coordinator) {
       console.log('🔧 Initializing sync coordinator...');
       try {
+        // 输出 env 关键信息，便于排查
+        console.log('Env.D1_DATABASE:', this.env.D1_DATABASE ? 'exists' : 'undefined', 'Env keys:', Object.keys(this.env));
         coordinator = await initializeSyncCoordinator(this.env);
         console.log('✅ Sync coordinator initialized successfully');
       } catch (error) {
-        console.error('❌ Failed to initialize sync coordinator:', error);
+        console.error('❌ Failed to initialize sync coordinator:', error, error instanceof Error ? error.stack : '');
+        // 输出 env 关键信息
+        console.error('Env.D1_DATABASE:', this.env.D1_DATABASE ? 'exists' : 'undefined', 'Env keys:', Object.keys(this.env));
         throw new Error(`Sync service not initialized: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }

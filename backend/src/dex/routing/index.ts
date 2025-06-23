@@ -21,7 +21,6 @@ import {
   handleTriggerSync, 
   handleSyncStatus, 
   handlePoolDiscovery, 
-  handlePoolDiscoveryTest,
   handleDatabaseStats 
 } from '../handlers/sync';
 
@@ -251,13 +250,6 @@ export const DEX_ROUTES: RouteConfig[] = [
     handler: handlePoolDiscovery,
     requiresAuth: true,
     rateLimitTier: 'enterprise'
-  },
-  {
-    path: '/api/dex/pools/discover/test',
-    method: 'GET',
-    handler: handlePoolDiscoveryTest,
-    requiresAuth: false,
-    rateLimitTier: 'basic'
   },
   {
     path: '/api/dex/database/stats',

@@ -13,7 +13,7 @@ async function testSyncService() {
     
     // 创建同步协调器
     const coordinator = new SyncCoordinator(env);
-    
+    await coordinator.start();
     console.log('📋 检查初始状态...');
     
     // 查询初始池数量
@@ -43,7 +43,7 @@ async function testSyncService() {
       LIMIT 3
     `).all();
     
-    if (latestEvents.results.length > 0) {
+    if (latestEvents.results && latestEvents.results.length > 0) {
       console.log('\n📈 最新事件:');
       latestEvents.results.forEach((event: any, index: number) => {
         console.log(`  ${index + 1}. Pool: ${event.pool_address.slice(0, 10)}...`);
