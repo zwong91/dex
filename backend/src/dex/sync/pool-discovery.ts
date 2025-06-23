@@ -205,7 +205,12 @@ export class PoolDiscoveryService {
 
       // 获取已知池的最大索引
       const knownPools = await this.databaseService.getPools({ chain }, { limit: 1000 });
-      const knownAddresses = new Set(knownPools.pools.map(p => p.address.toLowerCase()));
+      const knownAddresses = new Set(
+        knownPools.pools
+          .map(p => p.address)
+          .filter(address => address && typeof address === 'string')
+          .map(address => address.toLowerCase())
+      );
 
       let newPoolsFound = 0;
       let poolsAdded = 0;

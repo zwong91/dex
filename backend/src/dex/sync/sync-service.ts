@@ -359,8 +359,12 @@ export class SyncService {
       const tokens = new Set<string>();
 
       pools.pools.forEach(pool => {
-        tokens.add(pool.tokenX);
-        tokens.add(pool.tokenY);
+        if (pool.tokenX && typeof pool.tokenX === 'string') {
+          tokens.add(pool.tokenX);
+        }
+        if (pool.tokenY && typeof pool.tokenY === 'string') {
+          tokens.add(pool.tokenY);
+        }
       });
 
       return Array.from(tokens);

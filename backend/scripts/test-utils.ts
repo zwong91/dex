@@ -72,8 +72,8 @@ class MockD1Database {
               };
             }
             
-            // 通用的池子查询（适用于 getAllTokens）
-            if (query.includes('pools') && !query.includes('count')) {
+            // 通用的池子查询（适用于 getAllTokens 和其他池查询）
+            if (query.includes('pools') && !query.includes('count') && !query.includes('status')) {
               return {
                 results: [
                   {
