@@ -3,6 +3,7 @@ import { getSyncCoordinator, initializeSyncCoordinator } from './sync-handler';
 import { DatabaseService } from './database-service';
 import { CronMonitor } from './cron-monitor';
 import { CronRetryHandler } from './cron-retry';
+import type { SyncCoordinator } from './sync-coordinator';
 
 /**
  * 增强的 Cron 作业处理器
@@ -29,14 +30,16 @@ export class CronHandler {
         console.log('🔄 Starting frequent pool sync...');
         
         const coordinator = await this.getSyncCoordinator();
-        await coordinator.start();
+        // 确保 coordinator 已启动（如果未启动则启动，已启动则跳过）
+        await this.ensureCoordinatorStarted(coordinator);
         this.monitor.incrementDbQueries(execution, 1);
         
-        const result = await coordinator.triggerFullSync();
+        // 触发同步（内置幂等性保护）
+        await coordinator.triggerFullSync();
         this.monitor.incrementProcessedRecords(execution, 5); // 固定记录数，避免类型错误
         
         console.log('✅ Frequent pool sync completed');
-        return result;
+        return { syncCompleted: true };
       },
       {
         maxRetries: 2,
@@ -60,7 +63,7 @@ export class CronHandler {
         console.log('📊 Starting hourly stats sync...');
         
         const coordinator = await this.getSyncCoordinator();
-        await coordinator.start();
+        await this.ensureCoordinatorStarted(coordinator);
         const dbService = new DatabaseService(this.env);
         
         // 1. 执行常规同步
@@ -150,9 +153,29 @@ export class CronHandler {
   }
 
   /**
+   * 确保同步协调器已启动（幂等性保护）
+   */
+  private async ensureCoordinatorStarted(coordinator: SyncCoordinator): Promise<void> {
+    try {
+      const status = await coordinator.getSystemStatus();
+      if (!status.isRunning) {
+        console.log('🔧 Starting sync coordinator...');
+        await coordinator.start();
+        console.log('✅ Sync coordinator started');
+      } else {
+        console.log('ℹ️ Sync coordinator already running');
+      }
+    } catch (error) {
+      console.error('❌ Failed to check/start coordinator:', error);
+      // 尝试启动（可能是第一次运行）
+      await coordinator.start();
+    }
+  }
+
+  /**
    * 更新每小时统计数据
    */
-  private async updateHourlyStats(dbService: DatabaseService): Promise<void> {
+  private async updateHourlyStats(_dbService: DatabaseService): Promise<void> {
     console.log('📈 Updating hourly statistics...');
     
     try {
@@ -160,8 +183,8 @@ export class CronHandler {
       // 例如：计算每小时的交易量、流动性变化、用户活跃度等
       
       // 示例：更新交易对统计
-      // const pools = await dbService.getAllPools();
-      // for (const pool of pools) {
+      // const pools = await dbService.getPools({}, { limit: 100 });
+      // for (const pool of pools.pools) {
       //   await dbService.updatePoolHourlyStats(pool.id);
       // }
       
@@ -175,7 +198,7 @@ export class CronHandler {
   /**
    * 清理旧的同步日志
    */
-  private async cleanupOldSyncLogs(dbService: DatabaseService): Promise<void> {
+  private async cleanupOldSyncLogs(_dbService: DatabaseService): Promise<void> {
     console.log('🗑️ Cleaning up old sync logs...');
     
     try {
@@ -195,15 +218,15 @@ export class CronHandler {
   /**
    * 压缩历史交易数据
    */
-  private async compressHistoricalData(dbService: DatabaseService): Promise<void> {
+  private async compressHistoricalData(_dbService: DatabaseService): Promise<void> {
     console.log('🗜️ Compressing historical data...');
     
     try {
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       
-      // 将90天前的详细交易数据聚合为每日摘要
-      // await dbService.compressOldTransactionData(ninetyDaysAgo);
+      // 这里可以添加数据压缩逻辑
+      // 例如：将详细的交易记录聚合为每日汇总
       
       console.log('✅ Historical data compressed');
     } catch (error) {
@@ -215,16 +238,16 @@ export class CronHandler {
   /**
    * 清理过期的缓存数据
    */
-  private async cleanupExpiredCache(dbService: DatabaseService): Promise<void> {
+  private async cleanupExpiredCache(_dbService: DatabaseService): Promise<void> {
     console.log('🧽 Cleaning up expired cache...');
     
     try {
-      // 清理过期的价格缓存、统计缓存等
-      // await dbService.cleanupExpiredCache();
+      // 这里可以添加缓存清理逻辑
+      // 例如：清理过期的价格缓存、池状态缓存等
       
       console.log('✅ Expired cache cleaned up');
     } catch (error) {
-      console.error('❌ Failed to cleanup cache:', error);
+      console.error('❌ Failed to cleanup expired cache:', error);
       throw error;
     }
   }
@@ -232,13 +255,12 @@ export class CronHandler {
   /**
    * 更新数据库统计信息
    */
-  private async updateDatabaseStats(dbService: DatabaseService): Promise<void> {
+  private async updateDatabaseStats(_dbService: DatabaseService): Promise<void> {
     console.log('📊 Updating database statistics...');
     
     try {
-      // 更新数据库的统计信息，优化查询性能
-      // 这在大型数据库中很重要
-      // await dbService.updateTableStatistics();
+      // 这里可以添加数据库统计更新逻辑
+      // 例如：重新计算索引统计、更新表大小信息等
       
       console.log('✅ Database statistics updated');
     } catch (error) {
@@ -301,22 +323,25 @@ export class CronHandler {
     const now = new Date();
     
     switch (cronExpression) {
-      case '*/5 * * * *': // 每5分钟
+      case '*/5 * * * *': { // 每5分钟
         const nextFiveMin = new Date(now);
         nextFiveMin.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
         return nextFiveMin.toISOString();
+      }
         
-      case '0 * * * *': // 每小时
+      case '0 * * * *': { // 每小时
         const nextHour = new Date(now);
         nextHour.setHours(now.getHours() + 1, 0, 0, 0);
         return nextHour.toISOString();
+      }
         
-      case '0 2 * * 0': // 每周日凌晨2点
+      case '0 2 * * 0': { // 每周日凌晨2点
         const nextSunday = new Date(now);
         const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
         nextSunday.setDate(now.getDate() + daysUntilSunday);
         nextSunday.setHours(2, 0, 0, 0);
         return nextSunday.toISOString();
+      }
         
       default:
         return new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(); // 默认24小时后

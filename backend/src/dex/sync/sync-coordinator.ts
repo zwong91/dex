@@ -1,10 +1,8 @@
 import { SyncService, DEFAULT_SYNC_CONFIG, type SyncConfig } from './sync-service';
 import { DatabaseService } from './database-service';
-import { EventListener } from './event-listener';
 import { OnChainService } from './onchain-service';
 import { PriceService } from './price-service';
 import { PoolDiscoveryService } from './pool-discovery';
-import { getPoolDiscoveryConfig } from './pool-config';
 import type { Env } from '../../index';
 
 export interface SyncCoordinatorConfig {
@@ -19,16 +17,16 @@ export interface SyncCoordinatorConfig {
 export interface SystemHealth {
   overall: 'healthy' | 'degraded' | 'unhealthy';
   services: {
-    sync: any;
-    database: any;
-    onchain: any;
-    price: any;
+    sync: { status: string; error?: string } | null;
+    database: { status: string; error?: string } | null;
+    onchain: { status: string; error?: string } | null;
+    price: { status: string; error?: string } | null;
   };
   lastChecked: number;
 }
 
 export interface SyncMetrics {
-  syncService: any;
+  syncService: { status: string; metrics?: Record<string, unknown> } | null;
   totalPools: number;
   totalUsers: number;
   totalTransactions: number;
@@ -42,6 +40,24 @@ export interface SyncMetrics {
     poolsAdded: number;
     lastScanTime: number;
     errors: number;
+  };
+}
+
+interface DetailedReport {
+  system: {
+    isRunning: boolean;
+    uptime: number;
+    health: SystemHealth | null;
+    metrics: SyncMetrics;
+  };
+  pools: {
+    total: number;
+    recent: Array<{ id: string; address: string; [key: string]: unknown }>;
+  };
+  analytics: Record<string, unknown>;
+  configuration: {
+    coordinator: SyncCoordinatorConfig;
+    sync: Record<string, unknown> | null;
   };
 }
 
@@ -64,7 +80,7 @@ export class SyncCoordinator {
   
   private isRunning = false;
   private startTime = 0;
-  private healthCheckTimer?: any; // 使用 any 替代 NodeJS.Timeout 以兼容 Cloudflare Workers
+  private healthCheckTimer?: number; // 使用 number 替代 NodeJS.Timeout 以兼容 Cloudflare Workers
   private lastHealthCheck: SystemHealth | null = null;
   private errorCount = 0;
   private totalSyncs = 0;
@@ -180,7 +196,7 @@ export class SyncCoordinator {
   }
 
   /**
-   * 手动触发完整同步
+   * 手动触发完整同步（幂等性保护）
    */
   async triggerFullSync(): Promise<void> {
     if (!this.syncService) {
@@ -191,6 +207,13 @@ export class SyncCoordinator {
     const startTime = Date.now();
 
     try {
+      // 检查同步服务状态，如果已在同步中则跳过
+      const status = this.syncService.getStatus();
+      if (status.currentPhase !== 'idle') {
+        console.log(`ℹ️ Sync already in progress (phase: ${status.currentPhase}), skipping this run`);
+        return;
+      }
+
       await this.syncService.triggerSync();
       const duration = Date.now() - startTime;
       
@@ -199,6 +222,12 @@ export class SyncCoordinator {
       
       console.log(`✅ Manual sync completed in ${duration}ms`);
     } catch (error) {
+      // 如果错误是"同步已在进行中"，将其视为正常跳过而非错误
+      if (error instanceof Error && error.message === 'Sync is already in progress') {
+        console.log(`ℹ️ Sync already in progress, skipping this run`);
+        return;
+      }
+      
       this.errorCount++;
       console.error('❌ Manual sync failed:', error);
       throw error;
@@ -414,7 +443,7 @@ export class SyncCoordinator {
       // 计算整体健康状态
       const serviceStatuses = Object.values(healthCheck.services)
         .filter(service => service && service.status)
-        .map(service => service.status);
+        .map(service => service!.status);
 
       const unhealthyCount = serviceStatuses.filter(status => status === 'unhealthy').length;
       const degradedCount = serviceStatuses.filter(status => status === 'degraded').length;
@@ -550,7 +579,10 @@ export class SyncCoordinator {
     const discoveryMetrics = this.poolDiscoveryService.getMetrics();
 
     return {
-      syncService: this.syncService?.getStatus() || null,
+      syncService: this.syncService ? {
+        status: this.syncService.getStatus().isRunning ? 'running' : 'idle',
+        metrics: this.syncService.getStatus().metrics as unknown as Record<string, unknown>
+      } : null,
       totalPools: analytics.totalPools || 0,
       totalUsers: analytics.activeUsers24h || 0,
       totalTransactions: analytics.totalTransactions24h || 0,
@@ -588,7 +620,7 @@ export class SyncCoordinator {
   /**
    * 获取详细状态报告
    */
-  async getDetailedReport(): Promise<any> {
+  async getDetailedReport(): Promise<DetailedReport> {
     const status = await this.getSystemStatus();
     const pools = await this.databaseService.getPools({}, { limit: 10 });
     const analytics = await this.databaseService.getPoolAnalytics();
@@ -599,10 +631,10 @@ export class SyncCoordinator {
         total: pools.total,
         recent: pools.pools.slice(0, 5)
       },
-      analytics,
+      analytics: analytics as unknown as Record<string, unknown>,
       configuration: {
         coordinator: this.config,
-        sync: this.syncService?.getConfig() || null
+        sync: this.syncService?.getConfig() as unknown as Record<string, unknown> || null
       }
     };
   }
