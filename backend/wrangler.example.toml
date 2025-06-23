@@ -42,12 +42,22 @@ crons = [
     "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (7 = Sunday)
 ]
 
+# ✅ Logging configuration - Enable Workers logs
+# This enables automatic logging in Cloudflare Workers dashboard
+# Logs will be available in: Cloudflare Dashboard > Workers & Pages > Your Worker > Logs
+[observability]
+enabled = true
 
 # ✅ Environment variables - Public configuration
 [vars]
 # Basic configuration
 NODE_ENV = "production"
 API_RATE_LIMIT = "100"
+
+# Logging configuration
+LOG_LEVEL = "info"  # debug, info, warn, error
+ENABLE_CONSOLE_LOGS = "true"
+ENABLE_STRUCTURED_LOGS = "true"
 
 # Blockchain RPC endpoints
 # 用 wrangler secret 管理 key，URL 保留 Infura 格式，key 用 secret 注入
@@ -82,13 +92,25 @@ bucket_name = "dex-storage"
 
 # 🔧 Development environment configuration
 [env.development]
-vars = { NODE_ENV = "development" }
+[env.development.vars]
+NODE_ENV = "development"
+LOG_LEVEL = "debug"
+ENABLE_CONSOLE_LOGS = "true"
+ENABLE_STRUCTURED_LOGS = "true"
 # Development can use different RPC endpoints or test networks
 
 # 🔧 Staging environment configuration
 [env.staging]
-vars = { NODE_ENV = "staging" }
+[env.staging.vars]
+NODE_ENV = "staging"
+LOG_LEVEL = "info"
+ENABLE_CONSOLE_LOGS = "true"
+ENABLE_STRUCTURED_LOGS = "true"
 
 # ✅ Production environment configuration
 [env.production]
-vars = { NODE_ENV = "production" }
+[env.production.vars]
+NODE_ENV = "production"
+LOG_LEVEL = "warn"
+ENABLE_CONSOLE_LOGS = "false"
+ENABLE_STRUCTURED_LOGS = "true"

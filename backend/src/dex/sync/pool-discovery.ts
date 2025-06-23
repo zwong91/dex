@@ -8,12 +8,6 @@ import type { Env } from '../../index';
  * 池发现服务
  * 
  * 自动发现和添加新的流动性池到监控列表
- * 
- * 重要概念：
- * - 在 Trader Joe V2.2 中，每个池子由 (TokenX, TokenY, binStep) 三元组唯一确定
- * - 同一对代币可以有多个不同 binStep 的池子，每个都是独立的流动性池
- * - 每个池子都有唯一的合约地址，所以我们使用地址作为主要标识符
- * 
  * 支持：
  * - 扫描工厂合约的池创建事件
  * - 根据流动性阈值过滤池
@@ -209,7 +203,7 @@ export class PoolDiscoveryService {
       });
       console.log(`📊 ${chain}: ${totalPools} total pools in factory`);
 
-      // 获取已知池 - 使用地址作为唯一标识
+      // 获取已知池的最大索引
       const knownPools = await this.databaseService.getPools({ chain }, { limit: 1000 });
       const knownAddresses = new Set(
         knownPools.pools
@@ -234,7 +228,7 @@ export class PoolDiscoveryService {
           });
           
           if (knownAddresses.has(poolAddress.toLowerCase())) {
-            continue; // 已知池，跳过（每个地址对应一个唯一的池子）
+            continue; // 已知池，跳过
           }
 
           console.log(`🆕 Found new pool: ${poolAddress}`);
@@ -251,8 +245,7 @@ export class PoolDiscoveryService {
             console.log(`✅ Added pool: ${poolInfo.name} ($${poolInfo.liquidityUsd.toLocaleString()} liquidity)`);
           } else {
             this.metrics.poolsSkipped++;
-            const tokenPair = poolInfo ? poolInfo.name : 'Unknown/Unknown';
-            console.log(`⏭️  Skipped pool: ${tokenPair} - insufficient liquidity ($${poolInfo?.liquidityUsd.toLocaleString() || 0})`);
+            console.log(`⏭️  Skipped pool: insufficient liquidity`);
           }
 
           this.metrics.totalScanned++;
@@ -379,7 +372,7 @@ export class PoolDiscoveryService {
         tokenX: tokenX.toLowerCase(),
         tokenY: tokenY.toLowerCase(),
         binStep: Number(binStep),
-        name: `${tokenXInfo.symbol}/${tokenYInfo.symbol} (${Number(binStep)}bp)`,
+        name: `${tokenXInfo.symbol}/${tokenYInfo.symbol}`,
         liquidityUsd: estimatedLiquidityUsd,
         volume24h: 0, // 需要单独计算24小时交易量
         createdAt: Date.now(),
@@ -508,7 +501,7 @@ export class PoolDiscoveryService {
         throw new Error('Database not available');
       }
 
-      // 检查池是否已存在（每个地址对应一个唯一池子）
+      // 检查池是否已存在
       const existingPool = await db.prepare(`
         SELECT id FROM pools WHERE address = ? AND chain = ?
       `).bind(poolInfo.address.toLowerCase(), poolInfo.chain).first();
@@ -518,11 +511,10 @@ export class PoolDiscoveryService {
         return;
       }
 
-      // 生成唯一ID - 使用地址作为主要标识符，因为每个地址对应唯一的(TokenX, TokenY, binStep)组合
+      // 生成唯一ID
       const poolId = `${poolInfo.chain}-${poolInfo.address.toLowerCase()}`;
 
-      // 插入池信息 - token_x, token_y, bin_step 的组合唯一确定一个池子
-      // 每个这样的组合都对应一个唯一的合约地址，所以使用地址作为主键是安全的
+      // 插入池信息
       await db.prepare(`
         INSERT INTO pools (
           id, address, chain, token_x, token_y, bin_step, name, status, version
@@ -540,7 +532,6 @@ export class PoolDiscoveryService {
       ).run();
 
       console.log(`✅ Added pool to database: ${poolInfo.name} (${poolInfo.address})`);
-      console.log(`   📋 Pool details: ${poolInfo.tokenX.slice(0,6)}.../${poolInfo.tokenY.slice(0,6)}... | ${poolInfo.binStep}bp | ${poolInfo.chain}`);
 
     } catch (error) {
       console.error(`❌ Failed to add pool to database:`, error);
