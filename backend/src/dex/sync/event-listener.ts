@@ -496,21 +496,60 @@ export class EventListener {
   /**
    * 增量同步：从上次同步点继续同步
    */
+  /**
+   * 获取合约创建区块号（优先LBPairCreated事件，否则二分查找有code区块）
+   */
+  async getContractCreationBlock(contractAddress: string): Promise<bigint> {
+    try {
+      // 优先查LBPairCreated事件
+      const txList = await this.publicClient.getLogs({
+        address: contractAddress as Address,
+        fromBlock: 0n,
+        toBlock: 'latest',
+        event: TRADER_JOE_EVENTS.LBPairCreated,
+      });
+      if (txList.length > 0) {
+        return txList[0].blockNumber!;
+      }
+      // 没有LBPairCreated事件则二分查找有code区块
+      let low = 0n;
+      let high = await this.getLatestBlockNumber();
+      let creationBlock = high;
+      while (low <= high) {
+        const mid = (low + high) / 2n;
+        const code = await this.publicClient.getBytecode({ address: contractAddress as Address, blockNumber: mid });
+        if (code && code !== '0x') {
+          creationBlock = mid;
+          high = mid - 1n;
+        } else {
+          low = mid + 1n;
+        }
+      }
+      return creationBlock;
+    } catch (error) {
+      console.error('Failed to get contract creation block:', error);
+      // fallback: 回溯10000区块
+      return (await this.getLatestBlockNumber()) - 10000n;
+    }
+  }
+
+  /**
+   * 增量同步：从上次同步点继续同步（首次自动从合约创建区块）
+   */
   async incrementalSync(poolAddress: string): Promise<void> {
     try {
       const latestBlock = await this.getLatestBlockNumber();
-      
       // 获取Swap事件的同步进度
       const swapProgress = await this.getSyncProgress(poolAddress, 'swap');
-      const liquidityProgress = await this.getSyncProgress(poolAddress, 'liquidity');
-      
-      // 确定开始区块
-      const startBlock = swapProgress ? swapProgress.lastBlockNumber + 1n : latestBlock - 100n;
-      
+      let startBlock: bigint;
+      if (swapProgress) {
+        startBlock = swapProgress.lastBlockNumber + 1n;
+      } else {
+        startBlock = await this.getContractCreationBlock(poolAddress);
+      }
       if (startBlock <= latestBlock) {
         await this.syncEventsBatch(poolAddress, startBlock, latestBlock);
       }
-      
       console.log(`Incremental sync completed for pool ${poolAddress}`);
     } catch (error) {
       console.error('Failed to perform incremental sync:', error);
