@@ -354,7 +354,7 @@ export class EventListener {
     poolAddress: string,
     fromBlock: bigint,
     toBlock: bigint,
-    batchSize: bigint = 200n
+    batchSize: bigint = 500n
   ): Promise<void> {
     try {
       console.log(`🔄 Starting batch sync for pool ${poolAddress} from ${fromBlock} to ${toBlock} (${toBlock - fromBlock + 1n} blocks)`);

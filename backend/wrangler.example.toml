@@ -37,7 +37,7 @@ migrations_dir = "drizzle"
 # ✅ Scheduled jobs for data synchronization - Multiple cron triggers
 [triggers]
 crons = [
-    "*/2 * * * *",     # Every 2 minute - Frequent pool sync for blockchain scanning
+    "*/1 * * * *",     # Every 2 minute - Frequent pool sync for blockchain scanning
     "0 * * * *",      # Every hour - Hourly data updates  
     "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
 ]

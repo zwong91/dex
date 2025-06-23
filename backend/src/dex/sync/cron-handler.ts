@@ -25,7 +25,7 @@ export class CronHandler {
   async handleFrequentPoolSync(): Promise<void> {
     await this.retryHandler.executeWithRetry(
       'frequent-sync',
-      '*/2 * * * *',
+      '*/1 * * * *',
       async (execution) => {
         console.log('🔄 Starting frequent pool sync...');
         
@@ -357,7 +357,7 @@ export class CronHandler {
     const now = new Date();
     
     switch (cronExpression) {
-      case '*/2 * * * *': { // 每2分钟
+      case '*/1 * * * *': { // 每1分钟
         const nextTwoMin = new Date(now);
         nextTwoMin.setMinutes(Math.ceil(now.getMinutes() / 2) * 2, 0, 0);
         return nextTwoMin.toISOString();
