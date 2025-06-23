@@ -332,8 +332,34 @@ export class PoolDiscoveryService {
       ]);
 
       // 计算流动性 (简化计算，实际需要考虑价格)
-      const reserveXNumber = Number(reserves.reserveX) / Math.pow(10, tokenXInfo.decimals);
-      const reserveYNumber = Number(reserves.reserveY) / Math.pow(10, tokenYInfo.decimals);
+      // 验证储备和小数位数值的有效性
+      const reserveXRaw = reserves.reserveX || 0n;
+      const reserveYRaw = reserves.reserveY || 0n;
+      const decimalsX = tokenXInfo.decimals || 18;
+      const decimalsY = tokenYInfo.decimals || 18;
+      
+      // 安全地转换储备值
+      let reserveXNumber = 0;
+      let reserveYNumber = 0;
+      
+      try {
+        reserveXNumber = Number(reserveXRaw) / Math.pow(10, decimalsX);
+        reserveYNumber = Number(reserveYRaw) / Math.pow(10, decimalsY);
+        
+        // 验证结果是有效数字
+        if (!Number.isFinite(reserveXNumber)) {
+          console.warn(`⚠️  Invalid reserveX calculation: ${reserveXRaw} / 10^${decimalsX}`);
+          reserveXNumber = 0;
+        }
+        if (!Number.isFinite(reserveYNumber)) {
+          console.warn(`⚠️  Invalid reserveY calculation: ${reserveYRaw} / 10^${decimalsY}`);
+          reserveYNumber = 0;
+        }
+      } catch (error) {
+        console.warn(`⚠️  Error calculating reserves:`, error);
+        reserveXNumber = 0;
+        reserveYNumber = 0;
+      }
       
       // 简单估算 USD 流动性 (假设主要代币的价格)
       const estimatedLiquidityUsd = this.estimateLiquidityUsd(
@@ -418,29 +444,50 @@ export class PoolDiscoveryService {
       '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': 600,    // WBNB ≈ $600
       '0x55d398326f99059ff775485246999027b3197955': 1,      // USDT ≈ $1
       '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d': 1,      // USDC ≈ $1
-      '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c': 45000,  // BTCB ≈ $45000
+      '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c': 100000,  // BTC ≈ $100000
       '0x2170ed0880ac9a755fd29b2688956bd959f933f8': 3000,   // ETH ≈ $3000
       '0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3': 1,      // DAI ≈ $1
-      '0xe9e7cea3dedca5984780bafc599bd69add087d56': 1,      // BUSD ≈ $1
       '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82': 2,      // CAKE ≈ $2
     };
 
     const priceX = tokenPrices[tokenX.toLowerCase()] || 0;
     const priceY = tokenPrices[tokenY.toLowerCase()] || 0;
 
+    // 验证 reserveX 和 reserveY 是有效数字
+    if (!Number.isFinite(reserveX) || !Number.isFinite(reserveY) || reserveX < 0 || reserveY < 0) {
+      console.warn(`⚠️  Invalid reserves: X=${reserveX}, Y=${reserveY}`);
+      return 0;
+    }
+
     const valueX = reserveX * priceX;
     const valueY = reserveY * priceY;
 
-    // 如果其中一个代币有价格，使用该代币的价值 * 2 作为总流动性
-    if (priceX > 0 && priceY > 0) {
-      return valueX + valueY;
-    } else if (priceX > 0) {
-      return valueX * 2;
-    } else if (priceY > 0) {
-      return valueY * 2;
+    // 验证计算出的值是有效数字
+    if (!Number.isFinite(valueX) || !Number.isFinite(valueY)) {
+      console.warn(`⚠️  Invalid calculated values: valueX=${valueX}, valueY=${valueY}`);
+      return 0;
     }
 
-    // 如果都没有价格信息，返回0
+    // 如果其中一个代币有价格，使用该代币的价值 * 2 作为总流动性
+    if (priceX > 0 && priceY > 0) {
+      const totalLiquidity = valueX + valueY;
+      return Number.isFinite(totalLiquidity) ? totalLiquidity : 0;
+    } else if (priceX > 0) {
+      const estimatedLiquidity = valueX * 2;
+      return Number.isFinite(estimatedLiquidity) ? estimatedLiquidity : 0;
+    } else if (priceY > 0) {
+      const estimatedLiquidity = valueY * 2;
+      return Number.isFinite(estimatedLiquidity) ? estimatedLiquidity : 0;
+    }
+
+    // 如果都没有价格信息，但有储备，给一个最小估算值
+    // 这避免了完全跳过可能有价值的池子
+    if (reserveX > 0 || reserveY > 0) {
+      console.log(`💡 Unknown tokens, using minimal liquidity estimate for: ${tokenX.slice(0,6)}.../${tokenY.slice(0,6)}...`);
+      return 100; // 给一个最小的流动性估值，允许池子被发现
+    }
+
+    // 如果都没有价格信息和储备，返回0
     return 0;
   }
 

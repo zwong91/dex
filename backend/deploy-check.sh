@@ -24,11 +24,13 @@ log_error() { echo -e "${RED}❌ $1${NC}"; }
 # 检查 Cloudflare API Token
 check_api_token() {
     if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-        log_error "环境变量 CLOUDFLARE_API_TOKEN 未设置，无法调用 Cloudflare API。"
-        echo "   请 export CLOUDFLARE_API_TOKEN=你的CloudflareAPIToken"
-        exit 1
+        log_warning "环境变量 CLOUDFLARE_API_TOKEN 未设置"
+        echo "   注意：某些高级功能可能需要 API Token"
+        echo "   设置方法: export CLOUDFLARE_API_TOKEN=你的CloudflareAPIToken"
+        return 1
     fi
     log_success "Cloudflare API Token 已配置"
+    return 0
 }
 
 # 检查必要工具
@@ -136,118 +138,34 @@ check_dependencies() {
     fi
 }
 
-# API 请求函数
-api_request() {
-    local method=$1
-    local data=$2
+# 检查 wrangler 版本和可用命令
+check_wrangler_commands() {
+    log_info "检查 wrangler 版本和可用命令..."
     
-    local curl_args=(
-        -s -X "$method"
-        "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/scripts/$SCRIPT_NAME/schedules"
-        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
-        -H "Content-Type: application/json"
-    )
+    # 显示 wrangler 版本
+    local wrangler_version=$(npx wrangler --version 2>/dev/null | head -n1)
+    log_info "Wrangler 版本: $wrangler_version"
     
-    if [ -n "$data" ]; then
-        curl_args+=(--data "$data")
-    fi
-    
-    local response=$(curl "${curl_args[@]}")
-    
-    if [ $? -ne 0 ]; then
-        log_error "API 请求失败"
-        return 1
-    fi
-    
-    echo "$response"
-}
-
-# 检查当前定时器
-check_current_schedules() {
-    echo ""
-    log_info "检查 Cloudflare Worker cron 定时器..."
-    
-    if npx wrangler deployments list --json | grep -q '"id"'; then
-        if [ -n "$SCRIPT_NAME" ] && [ -n "$ACCOUNT_ID" ]; then
-            log_info "查询当前定时器..."
-            local response=$(api_request "GET")
-            
-            if [ $? -eq 0 ]; then
-                local success=$(echo "$response" | jq -r '.success // false')
-                if [ "$success" = "true" ]; then
-                    local schedules=$(echo "$response" | jq -r '.result.schedules[]?.cron // empty')
-                    if [ -n "$schedules" ]; then
-                        echo "📋 当前定时器:"
-                        echo "$schedules" | sed 's/^/   /'
-                    else
-                        log_warning "当前没有设置定时器"
-                    fi
-                else
-                    log_warning "获取定时器失败，稍后将在部署后设置"
-                fi
-            else
-                log_warning "API 请求失败，稍后将在部署后设置"
-            fi
-        else
-            log_warning "无法确定 script name 或 account id"
-        fi
+    # 检查 triggers 命令是否存在（新版本）
+    if npx wrangler triggers --help &>/dev/null; then
+        log_success "triggers 命令可用（新版本 wrangler）"
+        log_info "可用的 triggers 子命令:"
+        npx wrangler triggers --help 2>/dev/null | grep -E "^\s+(deploy)" | sed 's/^/   /' || true
     else
-        log_warning "无法列出部署，跳过定时器检查"
-    fi
-}
-
-# 设置定时器
-setup_cron_schedules() {
-    log_info "设置 Cron 定时器..."
-    
-    # 定义需要的定时器
-    local required_schedules=(
-        "*/5 * * * *"   # 每5分钟执行
-        "0 * * * *"     # 每小时执行
-        "0 2 * * 0"     # 每周日凌晨2点执行
-    )
-    
-    log_info "设置定时器: ${required_schedules[*]}"
-    
-    # 构建 JSON 数据，确保格式正确
-    local schedules_json
-    schedules_json=$(jq -n --argjson arr "$(printf '%s\n' "${required_schedules[@]}" | jq -R . | jq -s .)" '{schedules: [$arr[] | {cron: .}]}')
-
-    log_info "发送定时器配置到 Cloudflare API..."
-    local response=$(api_request "PUT" "$schedules_json")
-    
-    if [ $? -ne 0 ]; then
-        log_error "设置定时器失败"
-        return 1
+        log_warning "triggers 命令不可用"
     fi
     
-    # 检查响应
-    local success=$(echo "$response" | jq -r '.success // false')
-    if [ "$success" != "true" ]; then
-        log_error "设置定时器失败:"
-        echo "$response" | jq -r '.errors[]?.message // "未知错误"'
-        return 1
+    # 检查是否还有 schedules 命令（旧版本）
+    if npx wrangler schedules --help &>/dev/null; then
+        log_success "schedules 命令可用（旧版本 wrangler）"
+    else
+        log_info "schedules 命令不可用（使用新版本 triggers）"
     fi
     
-    log_success "定时器设置成功"
-    
-    # 验证设置
-    sleep 2
-    log_info "验证定时器设置..."
-    local verify_response=$(api_request "GET")
-    if [ $? -eq 0 ]; then
-        local verify_success=$(echo "$verify_response" | jq -r '.success // false')
-        if [ "$verify_success" = "true" ]; then
-            local current_schedules=$(echo "$verify_response" | jq -r '.result.schedules[]?.cron // empty')
-            if [ -n "$current_schedules" ]; then
-                echo "📋 当前生效的定时器:"
-                echo "$current_schedules" | sed 's/^/   /'
-                log_success "定时器验证通过"
-            else
-                log_warning "定时器验证失败：未找到设置的定时器"
-            fi
-        fi
-    fi
+    # 显示当前 Worker 信息
+    log_info "当前 Worker 信息:"
+    echo "   名称: $SCRIPT_NAME"
+    echo "   账户: ${ACCOUNT_ID:0:8}..."
 }
 
 # 部署函数
@@ -255,12 +173,26 @@ deploy_worker() {
     echo ""
     log_info "开始部署到 Cloudflare Workers..."
     
-    if npm run deploy; then
-        log_success "部署到 Cloudflare Workers 成功"
-        return 0
+    # 检查是否有 package.json 中的 deploy 脚本
+    if grep -q '"deploy"' package.json; then
+        log_info "使用 npm run deploy 部署..."
+        if npm run deploy; then
+            log_success "部署到 Cloudflare Workers 成功"
+            return 0
+        else
+            log_error "npm run deploy 失败"
+            return 1
+        fi
     else
-        log_error "部署失败"
-        return 1
+        # 直接使用 wrangler deploy
+        log_info "使用 npx wrangler deploy 部署..."
+        if npx wrangler deploy; then
+            log_success "部署到 Cloudflare Workers 成功"
+            return 0
+        else
+            log_error "wrangler deploy 失败"
+            return 1
+        fi
     fi
 }
 
@@ -308,7 +240,7 @@ show_post_deployment_info() {
     log_success "依赖安装完成"
     log_success "Worker 部署成功"
     log_success "数据库迁移完成"
-    log_success "定时器设置成功"
+    log_success "定时器配置完成"
     
     echo ""
     echo "📝 下一步操作:"
@@ -319,7 +251,19 @@ show_post_deployment_info() {
     echo "   npx wrangler tail"
     echo ""
     echo "3. 管理定时器:"
-    echo "   npx wrangler schedules list"
+    echo "   查看当前部署: npx wrangler deployments list"
+    echo "   重新部署: npx wrangler deploy"
+    echo ""
+    echo "   定时器配置在 wrangler.toml 中:"
+    echo '   [triggers]'
+    echo '   crons = ['
+    echo '     "*/5 * * * *",    # 每5分钟'
+    echo '     "0 * * * *",      # 每小时'
+    echo '     "0 2 * * 7"       # 每周日2点'
+    echo '   ]'
+    echo ""
+    echo "4. 测试定时任务:"
+    echo "   ./test-cron-jobs.sh"
     echo ""
     
     local local_status
@@ -341,7 +285,7 @@ show_post_deployment_info() {
 # 主函数
 main() {
     # 前置检查
-    check_api_token
+    check_api_token  # 不强制要求，但会给出提示
     check_tools
     check_config_files
     get_worker_config
@@ -349,8 +293,26 @@ main() {
     check_typescript
     check_dependencies
     
-    # 检查当前状态
-    check_current_schedules
+    # 检查定时器配置
+    log_info "检查定时器配置..."
+    if grep -q "\[triggers\]" wrangler.toml && grep -q "crons" wrangler.toml; then
+        local cron_count=$(grep -A 10 "\[triggers\]" wrangler.toml | grep -o '"[^"]*"' | wc -l)
+        log_success "定时器配置已存在 ($cron_count 个定时器)"
+        echo "📋 配置的定时器:"
+        grep -A 10 "\[triggers\]" wrangler.toml | grep '"' | sed 's/^/   /'
+    else
+        log_warning "未找到定时器配置"
+        echo "   请在 wrangler.toml 中添加以下配置："
+        echo '   [triggers]'
+        echo '   crons = ['
+        echo '     "*/5 * * * *",    # Every 5 minutes'
+        echo '     "0 * * * *",      # Every hour'
+        echo '     "0 2 * * 7"       # Every Sunday at 2 AM'
+        echo '   ]'
+    fi
+    
+    # 检查 wrangler 命令
+    check_wrangler_commands
     
     # 部署流程
     echo ""
@@ -358,18 +320,14 @@ main() {
     
     # 部署 Worker
     if ! deploy_worker; then
+        log_error "Worker 部署失败，停止执行"
         exit 1
     fi
     
     # 迁移数据库
     if ! migrate_database; then
+        log_error "数据库迁移失败，但 Worker 已部署"
         exit 1
-    fi
-    
-    # 设置定时器
-    if ! setup_cron_schedules; then
-        log_warning "定时器设置失败，但部署已完成"
-        echo "   你可以稍后手动设置定时器"
     fi
     
     # 检查本地服务器

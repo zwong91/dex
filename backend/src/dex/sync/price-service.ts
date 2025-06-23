@@ -47,8 +47,7 @@ export class PriceService {
     ['0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c', { symbol: 'WBNB', coincapId: 'binance-coin' }], // WBNB
     ['0x55d398326f99059ff775485246999027b3197955', { symbol: 'USDT', coincapId: 'tether' }], // BSC-USD
     ['0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d', { symbol: 'USDC', coincapId: 'usd-coin' }], // USDC
-    ['0xe9e7cea3dedca5984780bafc599bd69add087d56', { symbol: 'BUSD', coincapId: 'binance-usd' }], // BUSD
-    ['0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c', { symbol: 'BTCB', coincapId: 'bitcoin' }], // BTCB
+    ['0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c', { symbol: 'BTCB', coincapId: 'bitcoin' }], // BTCB (Bitcoin BEP20)
     ['0x2170ed0880ac9a755fd29b2688956bd959f933f8', { symbol: 'ETH', coincapId: 'ethereum' }], // ETH
     ['0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82', { symbol: 'CAKE', coincapId: 'pancakeswap-token' }], // CAKE
     // BSC测试网
@@ -169,17 +168,30 @@ export class PriceService {
    * 从外部API更新代币价格
    */
   async updateTokenPrices(tokenAddresses: string[]): Promise<void> {
-    console.log(`Updating prices for ${tokenAddresses.length} tokens...`);
+    // 过滤掉无效的代币地址
+    const validTokenAddresses = tokenAddresses.filter(
+      (address): address is string => 
+        address != null && 
+        typeof address === 'string' && 
+        address.trim().length > 0
+    );
+
+    console.log(`Updating prices for ${validTokenAddresses.length} tokens (filtered from ${tokenAddresses.length})...`);
+
+    if (validTokenAddresses.length === 0) {
+      console.log('No valid token addresses to update prices for');
+      return;
+    }
 
     const batchSize = 20;
-    for (let i = 0; i < tokenAddresses.length; i += batchSize) {
-      const batch = tokenAddresses.slice(i, i + batchSize);
+    for (let i = 0; i < validTokenAddresses.length; i += batchSize) {
+      const batch = validTokenAddresses.slice(i, i + batchSize);
       
       try {
         await this.updateBatchPrices(batch);
         
         // 添加延迟避免API限制
-        if (i + batchSize < tokenAddresses.length) {
+        if (i + batchSize < validTokenAddresses.length) {
           await this.sleep(1000);
         }
       } catch (error) {
@@ -196,6 +208,11 @@ export class PriceService {
   private async updateBatchPrices(tokenAddresses: string[]): Promise<void> {
     const pricePromises = tokenAddresses.map(async (address) => {
       try {
+        // 额外验证地址有效性
+        if (!address || typeof address !== 'string' || address.trim().length === 0) {
+          console.warn(`⚠️  Skipping invalid address in batch: ${address}`);
+          return null;
+        }
         return await this.fetchTokenPriceFromSources(address);
       } catch (error) {
         console.error(`Failed to fetch price for ${address}:`, error);
@@ -238,6 +255,12 @@ export class PriceService {
    * 从多个数据源获取代币价格
    */
   private async fetchTokenPriceFromSources(tokenAddress: string): Promise<PriceResponse | null> {
+    // 验证输入参数
+    if (!tokenAddress || typeof tokenAddress !== 'string' || tokenAddress.trim().length === 0) {
+      console.warn(`⚠️  Invalid token address provided to fetchTokenPriceFromSources: ${tokenAddress}`);
+      return null;
+    }
+
     const tokenMapping = this.tokenMappings.get(tokenAddress.toLowerCase());
     
     if (!tokenMapping) {

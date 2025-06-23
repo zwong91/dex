@@ -38,9 +38,10 @@ migrations_dir = "drizzle"
 [triggers]
 crons = [
     "*/5 * * * *",    # Every 5 minutes - Frequent pool sync
-    "0 * * * *",      # Every hour - Statistics sync  
-    "0 2 * * 0"       # Every Sunday at 2 AM - Data cleanup
+    "0 * * * *",      # Every hour - Hourly data updates  
+    "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (7 = Sunday)
 ]
+
 
 # ✅ Environment variables - Public configuration
 [vars]
