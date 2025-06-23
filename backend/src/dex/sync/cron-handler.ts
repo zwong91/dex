@@ -19,13 +19,13 @@ export class CronHandler {
   }
 
   /**
-   * 处理频繁池同步 (每5分钟)
+   * 处理频繁池同步 (每2分钟)
    * 同步最新的交易对数据、价格信息等高频更新数据
    */
   async handleFrequentPoolSync(): Promise<void> {
     await this.retryHandler.executeWithRetry(
       'frequent-sync',
-      '*/5 * * * *',
+      '*/2 * * * *',
       async (execution) => {
         console.log('🔄 Starting frequent pool sync...');
         
@@ -357,10 +357,10 @@ export class CronHandler {
     const now = new Date();
     
     switch (cronExpression) {
-      case '*/5 * * * *': { // 每5分钟
-        const nextFiveMin = new Date(now);
-        nextFiveMin.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
-        return nextFiveMin.toISOString();
+      case '*/2 * * * *': { // 每2分钟
+        const nextTwoMin = new Date(now);
+        nextTwoMin.setMinutes(Math.ceil(now.getMinutes() / 2) * 2, 0, 0);
+        return nextTwoMin.toISOString();
       }
         
       case '0 * * * *': { // 每小时

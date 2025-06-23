@@ -70,7 +70,7 @@ export type {
  * 默认的同步协调器配置
  */
 export const DEFAULT_COORDINATOR_CONFIG = {
-  syncInterval: 5 * 60 * 1000,      // 5分钟同步
+  syncInterval: 2 * 60 * 1000,      // 2分钟同步
   healthCheckInterval: 30 * 1000,    // 30秒健康检查
   maxRetries: 3,                     // 最大重试次数
   retryDelay: 5000,                  // 重试延迟

@@ -90,7 +90,7 @@ export class SyncCoordinator {
   constructor(
     private env: Env,
     private config: SyncCoordinatorConfig = {
-      syncInterval: 1 * 60 * 1000, // 1分钟
+      syncInterval: 2 * 60 * 1000, // 2分钟
       healthCheckInterval: 30 * 1000, // 30秒
       maxRetries: 3,
       retryDelay: 5000,
@@ -1081,7 +1081,7 @@ export class SyncCoordinator {
 
 // 导出默认配置
 export const DEFAULT_COORDINATOR_CONFIG: SyncCoordinatorConfig = {
-  syncInterval: 1 * 60 * 1000,        // 1分钟同步间隔
+  syncInterval: 2 * 60 * 1000,        // 2分钟同步间隔
   healthCheckInterval: 30 * 1000,      // 30秒健康检查
   maxRetries: 3,                       // 最大重试次数
   retryDelay: 5000,                    // 重试延迟5秒

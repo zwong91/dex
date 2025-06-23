@@ -602,7 +602,7 @@ export const DEFAULT_SYNC_CONFIG: SyncConfig = {
   poolAddresses: [], // 空数组，依赖池发现功能
   batchSize: 200,
   maxBlockRange: 10000,
-  syncInterval: 1 * 60 * 1000, // 1分钟
+  syncInterval: 2 * 60 * 1000, // 2分钟
   retryAttempts: 3,
   retryDelay: 1000 // 1秒
 };
