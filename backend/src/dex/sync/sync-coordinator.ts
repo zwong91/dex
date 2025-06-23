@@ -287,7 +287,7 @@ export class SyncCoordinator {
           'syncing_events': 15 * 60 * 1000,      // 15分钟 - 事件同步可能较慢
           'updating_stats': 5 * 60 * 1000,       // 5分钟  - 池统计更新
           'calculating_positions': 10 * 60 * 1000, // 10分钟 - 用户仓位计算
-          'updating_prices': 3 * 60 * 1000       // 3分钟  - 价格更新
+          'updating_prices': 1 * 60 * 1000       // 1分钟  - 价格更新
         };
         
         const maxTimeout = timeoutMap[status.currentPhase as keyof typeof timeoutMap] || 10 * 60 * 1000;
@@ -397,7 +397,7 @@ export class SyncCoordinator {
         'syncing_events': 15 * 60 * 1000,      // 15分钟
         'updating_stats': 5 * 60 * 1000,       // 5分钟
         'calculating_positions': 10 * 60 * 1000, // 10分钟
-        'updating_prices': 3 * 60 * 1000       // 3分钟
+        'updating_prices': 1 * 60 * 1000       // 1分钟
       };
       
       const maxTimeout = timeoutMap[status.currentPhase as keyof typeof timeoutMap] || 10 * 60 * 1000;
@@ -921,7 +921,7 @@ export class SyncCoordinator {
         'syncing_events': 15 * 60 * 1000,
         'updating_stats': 5 * 60 * 1000,
         'calculating_positions': 10 * 60 * 1000,
-        'updating_prices': 3 * 60 * 1000
+        'updating_prices': 1 * 60 * 1000
       };
       const maxTimeout = timeoutMap[status.currentPhase as keyof typeof timeoutMap] || 10 * 60 * 1000;
       const isStuck = status.currentPhase !== 'idle' && phaseDuration > maxTimeout;

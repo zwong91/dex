@@ -369,7 +369,7 @@ export class CronHandler {
         return nextHour.toISOString();
       }
         
-      case '0 2 * * 0': { // 每周日凌晨2点
+      case '0 2 * * 7': { // 每周日凌晨2点
         const nextSunday = new Date(now);
         const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
         nextSunday.setDate(now.getDate() + daysUntilSunday);

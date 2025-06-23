@@ -32,7 +32,7 @@ export class PriceService {
   private db: ReturnType<typeof drizzle>;
   private priceCache = new Map<string, TokenPrice>();
   private lastCacheUpdate = 0;
-  private readonly cacheExpiry = 5 * 60 * 1000; // 5分钟缓存
+  private readonly cacheExpiry = 1 * 60 * 1000; // 1分钟缓存
 
   // 价格数据源配置
   private readonly priceSources: PriceSource[] = [
