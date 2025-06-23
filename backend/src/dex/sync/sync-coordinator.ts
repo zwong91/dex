@@ -5,11 +5,7 @@ import { OnChainService } from './onchain-service';
 import { PriceService } from './price-service';
 import { PoolDiscoveryService } from './pool-discovery';
 import { 
-  TRADER_JOE_POOLS, 
-  getAllPoolAddresses, 
-  getHighPriorityPools, 
-  getInitialPoolsForDatabase,
-  DEFAULT_POOL_ADDRESSES
+  POOL_DISCOVERY_CONFIG
 } from './pool-config';
 import type { Env } from '../../index';
 
@@ -296,27 +292,33 @@ export class SyncCoordinator {
 
       const poolAddresses = pools.pools.map(pool => pool.address);
 
-      // 如果没有池，初始化默认池配置
+      // 如果没有池，启动池发现来初始化
       if (poolAddresses.length === 0) {
-        console.warn('⚠️  No pools found in database, initializing with default pools...');
+        console.warn('⚠️  No pools found in database, starting pool discovery...');
         
-        // 尝试初始化数据库池数据
-        await this.initializeDefaultPools();
+        // 触发池发现来填充初始池
+        await this.initializePoolDiscovery();
         
-        // 使用配置文件中的池地址
-        const configPools = getAllPoolAddresses();
+        // 重新检查数据库
+        const updatedPools = await this.databaseService.getPools(
+          { status: 'active' },
+          { limit: 100 }
+        );
         
-        if (configPools.length > 0) {
+        if (updatedPools.pools.length > 0) {
+          const discoveredAddresses = updatedPools.pools.map(pool => pool.address);
+          console.log(`📊 Pool discovery found ${discoveredAddresses.length} pools`);
           return {
-            poolAddresses: configPools,
-            totalPools: configPools.length
+            poolAddresses: discoveredAddresses,
+            totalPools: discoveredAddresses.length
           };
         } else {
-          // 最后的备选方案：使用硬编码的默认地址
-          console.log(`📊 Using ${DEFAULT_POOL_ADDRESSES.length} fallback pool addresses`);
+          // 如果池发现也没找到池，返回空列表让系统继续运行
+          console.log('📊 No pools discovered yet, starting with empty pool list');
+          console.log('🔍 Pool discovery service will continue scanning for pools');
           return {
-            poolAddresses: DEFAULT_POOL_ADDRESSES,
-            totalPools: DEFAULT_POOL_ADDRESSES.length
+            poolAddresses: [],
+            totalPools: 0
           };
         }
       }
@@ -333,47 +335,23 @@ export class SyncCoordinator {
   }
 
   /**
-   * 初始化默认池数据到数据库
+   * 初始化池发现
    */
-  private async initializeDefaultPools(): Promise<void> {
+  private async initializePoolDiscovery(): Promise<void> {
     try {
-      console.log('🔧 Initializing default pools in database...');
+      console.log('🔧 Initializing pool discovery...');
       
-      const poolsToInsert = getInitialPoolsForDatabase();
+      // 启动池发现服务来扫描网络上的池
+      await this.poolDiscoveryService.startDiscovery();
       
-      if (poolsToInsert.length === 0) {
-        console.warn('⚠️  No valid pool configurations found to initialize');
-        return;
-      }
+      // 给池发现一些时间来扫描
+      console.log('🔍 Starting initial pool scan...');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
       
-      // 批量插入池数据
-      for (const poolData of poolsToInsert) {
-        try {
-          // 检查池是否已存在
-          const existingPools = await this.databaseService.getPools(
-            { chain: poolData.chain },
-            { limit: 1 }
-          );
-          
-          const poolExists = existingPools.pools.some(
-            p => p.address.toLowerCase() === poolData.address.toLowerCase()
-          );
-          
-          if (!poolExists) {
-            // 这里需要添加实际的插入方法到 DatabaseService
-            console.log(`➕ Adding pool: ${poolData.name} (${poolData.address.slice(0, 8)}...)`);
-            // await this.databaseService.insertPool(poolData);
-          }
-        } catch (error) {
-          console.error(`❌ Failed to insert pool ${poolData.address}:`, error);
-          // 继续处理其他池，不抛出错误
-        }
-      }
-      
-      console.log(`✅ Pool initialization completed`);
+      console.log('✅ Pool discovery initialization completed');
     } catch (error) {
-      console.error('❌ Failed to initialize default pools:', error);
-      // 不抛出错误，继续使用配置文件中的地址
+      console.error('❌ Failed to initialize pool discovery:', error);
+      // 不抛出错误，让系统继续运行
     }
   }
 

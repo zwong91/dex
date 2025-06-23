@@ -3,13 +3,8 @@
  * 
  * 提供完整的 Trader Joe LiquiBook 合约数据同步功能，包括：
  * - 事件监听和数据抓取
- * - 高性能数  return new SyncCoordinator(env, {
-    syncInterval: 5 * 60 * 1000,      // 5分钟同步
-    healthCheckInterval: 30 * 1000,    // 30秒健康检查
-    maxRetries: 3,                     // 最大重试次数
-    retryDelay: 5000,                  // 重试延迟
-    enableAutoRestart: true,           // 启用自动恢复
-    enableMetrics: true               // 启用指标收集 * - 自动同步服务
+ * - 高性能数据库服务
+ * - 自动同步服务
  * - 链上数据验证
  * - 价格数据更新
  * - 工业级监控和恢复
@@ -24,27 +19,21 @@ export { PriceService } from './price-service';
 export { PoolDiscoveryService } from './pool-discovery';
 
 // 池配置
-export { 
-  TRADER_JOE_POOLS, 
-  DEFAULT_POOL_ADDRESSES,
-  POOL_DISCOVERY_CONFIG,
-  getAllPoolAddresses,
-  getHighPriorityPools,
-  getInitialPoolsForDatabase
+export {
+  POOL_DISCOVERY_CONFIG
 } from './pool-config';
 
-// 协调器和管理
-export { 
-  SyncCoordinator, 
-  DEFAULT_COORDINATOR_CONFIG 
+// 同步协调器
+export {
+  SyncCoordinator
 } from './sync-coordinator';
-export { 
-  handleSync, 
-  getSyncCoordinator, 
-  initializeSyncCoordinator 
+export {
+  handleSync,
+  getSyncCoordinator,
+  initializeSyncCoordinator
 } from './sync-handler';
 
-// Cron 作业处理
+// Cron 处理器
 export { CronHandler } from './cron-handler';
 
 // 类型定义
@@ -69,180 +58,45 @@ export type {
 
 export type {
   // 同步服务类型
-  SyncConfig,
-  SyncMetrics,
-  SyncStatus
+  SyncConfig
 } from './sync-service';
 
 export type {
-  // 链上服务类型
-  TokenInfo,
-  BinInfo,
-  UserPosition,
-  PoolReserves
-} from './onchain-service';
-
-export type {
-  // 价格服务类型
-  TokenPrice,
-  PriceSource,
-  PriceResponse
-} from './price-service';
-
-export type {
-  // 协调器类型
+  // 同步协调器类型
   SyncCoordinatorConfig,
-  SystemHealth
+  SystemHealth,
+  SyncMetrics
 } from './sync-coordinator';
 
 /**
- * 快速创建完整的同步系统
+ * 默认的同步协调器配置
  */
-export async function createDexSyncSystem(env: any) {
-  const { SyncCoordinator } = await import('./sync-coordinator');
+export const DEFAULT_COORDINATOR_CONFIG = {
+  syncInterval: 5 * 60 * 1000,      // 5分钟同步
+  healthCheckInterval: 30 * 1000,    // 30秒健康检查
+  maxRetries: 3,                     // 最大重试次数
+  retryDelay: 5000,                  // 重试延迟
+  enableAutoRestart: true,           // 启用自动恢复
+  enableMetrics: true               // 启用指标收集
+};
 
+import { SyncCoordinator } from './sync-coordinator';
+
+/**
+ * 创建同步协调器实例
+ */
+export function createSyncCoordinator(env: any, config?: any) {
   return new SyncCoordinator(env, {
-    syncInterval: 5 * 60 * 1000,      // 5分钟同步
-    healthCheckInterval: 30 * 1000,    // 30秒健康检查
-    maxRetries: 3,                     // 最大重试次数
-    retryDelay: 5000,                  // 重试延迟
-    enableAutoRestart: true,           // 启用自动恢复
-    enableMetrics: true                // 启用指标收集
+    ...DEFAULT_COORDINATOR_CONFIG,
+    ...config
   });
 }
 
 /**
- * 模块信息
+ * 初始化并启动同步服务
  */
-export const MODULE_INFO = {
-  name: 'DEX Sync Module',
-  version: '1.0.0',
-  description: 'DEX data synchronization system for Trader Joe LiquiBook',
-  features: [
-    '✅ Real-time event listening',
-    '✅ High-performance database queries',
-    '✅ Automatic sync scheduling',
-    '✅ Health monitoring & auto-recovery',
-    '✅ Price data aggregation',
-    '✅ User position tracking',
-    '✅ Analytics & metrics',
-    '✅ Error handling & retry logic'
-  ],
-  performance: {
-    'Response Time': '50-200ms (vs 2-5s without cache)',
-    'Improvement': '10-25x faster',
-    'Concurrent Users': 'High (database-backed)',
-    'Data Freshness': '5-minute intervals'
-  }
-};
-
-/**
- * 使用示例
- */
-export const USAGE_EXAMPLES = {
-  // 基本同步启动
-  basicUsage: `
-import { createDexSyncSystem } from './dex/sync';
-
-// 创建并启动同步系统
-const syncSystem = await createDexSyncSystem(env);
-await syncSystem.start();
-
-// 获取系统状态
-const status = await syncSystem.getSystemStatus();
-console.log('Sync Status:', status);
-`,
-
-  // 手动触发同步
-  manualSync: `
-import { getSyncCoordinator } from './dex/sync';
-
-const coordinator = getSyncCoordinator();
-if (coordinator) {
-  await coordinator.triggerFullSync();
+export async function initializeAndStartSync(env: any, config?: any) {
+  const coordinator = createSyncCoordinator(env, config);
+  await coordinator.start();
+  return coordinator;
 }
-`,
-
-  // 池配置管理
-  poolConfig: `
-import { 
-  getAllPoolAddresses, 
-  getHighPriorityPools,
-  DEFAULT_POOL_ADDRESSES
-} from './dex/sync';
-
-// 获取所有配置的池地址
-const allPools = getAllPoolAddresses();
-console.log('监控池数量:', allPools.length);
-
-// 获取高优先级池
-const priorityPools = getHighPriorityPools();
-console.log('高优先级池:', priorityPools);
-
-// 使用默认池地址
-console.log('默认池配置:', DEFAULT_POOL_ADDRESSES);
-`,
-
-  // 查询池数据
-  queryPools: `
-import { DatabaseService } from './dex/sync';
-
-const dbService = new DatabaseService(env);
-
-// 获取活跃池列表
-const pools = await dbService.getPools(
-  { chain: 'bsc', status: 'active' },
-  { page: 1, limit: 20, sortBy: 'liquidityUsd' }
-);
-
-// 获取池详情
-const poolDetails = await dbService.getPoolDetails(poolAddress, 'bsc');
-
-// 获取用户仓位
-const positions = await dbService.getUserPositions(
-  { userAddress: '0x...' },
-  { limit: 10 }
-);
-`,
-
-  // 健康检查API
-  healthCheck: `
-// GET /v1/api/admin/sync/health
-// 返回系统健康状态
-
-// GET /v1/api/admin/sync/status  
-// 返回详细同步状态
-
-// POST /v1/api/admin/sync/trigger
-// 手动触发完整同步
-
-// GET /v1/api/admin/sync/metrics
-// 获取性能指标和池发现统计
-`,
-
-  // 池发现功能
-  poolDiscovery: `
-import { PoolDiscoveryService } from './dex/sync';
-
-// 创建池发现服务
-const discovery = new PoolDiscoveryService(env);
-
-// 启动自动发现
-await discovery.startDiscovery();
-
-// 手动触发扫描
-const metrics = await discovery.performDiscoveryScan();
-console.log('发现结果:', metrics);
-
-// 获取发现指标
-const stats = discovery.getMetrics();
-console.log('总计扫描:', stats.totalScanned);
-console.log('发现新池:', stats.newPoolsFound);
-console.log('添加池数:', stats.poolsAdded);
-`
-};
-
-console.log('🚀 DEX Sync Module loaded successfully');
-console.log('📊 Features:', MODULE_INFO.features.join('\n'));
-console.log('⚡ Performance:', Object.entries(MODULE_INFO.performance)
-  .map(([k, v]) => `${k}: ${v}`).join('\n'));

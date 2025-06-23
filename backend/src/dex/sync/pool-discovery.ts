@@ -1,7 +1,7 @@
 import { createPublicClient, http, parseAbiItem, getContract } from 'viem';
 import { bsc, bscTestnet } from 'viem/chains';
 import { DatabaseService } from './database-service';
-import { POOL_DISCOVERY_CONFIG } from './pool-config';
+import { getPoolDiscoveryConfig } from './pool-config';
 import type { Env } from '../../index';
 
 /**
@@ -101,6 +101,7 @@ export class PoolDiscoveryService {
     await this.performDiscoveryScan();
 
     // 设置定期扫描
+    const config = getPoolDiscoveryConfig(this.env);
     setInterval(async () => {
       try {
         await this.performDiscoveryScan();
@@ -108,9 +109,9 @@ export class PoolDiscoveryService {
         console.error('❌ Pool discovery scan failed:', error);
         this.metrics.errors++;
       }
-    }, POOL_DISCOVERY_CONFIG.scanInterval);
+    }, config.scanInterval);
 
-    console.log(`✅ Pool discovery service started (${POOL_DISCOVERY_CONFIG.scanInterval / 1000}s interval)`);
+    console.log(`✅ Pool discovery service started (${config.scanInterval / 1000}s interval)`);
   }
 
   /**
@@ -144,7 +145,8 @@ export class PoolDiscoveryService {
     let totalNewPools = 0;
     let totalAdded = 0;
 
-    for (const [chain, factoryAddress] of Object.entries(POOL_DISCOVERY_CONFIG.factoryAddresses)) {
+    const config = getPoolDiscoveryConfig(this.env);
+    for (const [chain, factoryAddress] of Object.entries(config.factoryAddresses)) {
       if (!factoryAddress || factoryAddress === '0x...') {
         console.log(`⚠️  Skipping ${chain}: factory address not configured`);
         continue;
@@ -207,7 +209,8 @@ export class PoolDiscoveryService {
 
       let newPoolsFound = 0;
       let poolsAdded = 0;
-      const maxScan = Math.min(Number(totalPools), POOL_DISCOVERY_CONFIG.maxPoolsToScan);
+      const config = getPoolDiscoveryConfig(this.env);
+      const maxScan = Math.min(Number(totalPools), config.maxPoolsToScan);
 
       // 扫描池（从最新的开始，因为新池通常在末尾）
       for (let i = Math.max(0, Number(totalPools) - maxScan); i < totalPools; i++) {
@@ -229,7 +232,8 @@ export class PoolDiscoveryService {
           // 获取池详细信息
           const poolInfo = await this.getPoolDetails(poolAddress, chain, client);
           
-          if (poolInfo && poolInfo.liquidityUsd >= POOL_DISCOVERY_CONFIG.minLiquidityUsd) {
+          const config = getPoolDiscoveryConfig(this.env);
+          if (poolInfo && poolInfo.liquidityUsd >= config.minLiquidityUsd) {
             // 添加到数据库
             await this.addPoolToDatabase(poolInfo);
             poolsAdded++;
@@ -264,46 +268,162 @@ export class PoolDiscoveryService {
     client: any
   ): Promise<DiscoveredPool | null> {
     try {
-      // 这里需要实现具体的池信息获取逻辑
-      // 包括：tokenX, tokenY, binStep, 流动性等
-      // 由于这需要具体的池合约 ABI，这里提供基础框架
-
-      // 模拟池信息（实际应用中需要从链上获取）
-      // 使用一些真实的 BSC 代币地址作为示例
-      const tokenAddresses = [
-        '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
-        '0x55d398326f99059fF775485246999027B3197955', // USDT
-        '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // USDC
-        '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c', // BTCB
-        '0x2170Ed0880ac9A755fd29B2688956BD959F933F8', // ETH
-        '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3'  // DAI
+      // Trader Joe LB Pool ABI - 获取池的基本信息
+      const LB_POOL_ABI = [
+        parseAbiItem('function getTokenX() external view returns (address)'),
+        parseAbiItem('function getTokenY() external view returns (address)'),
+        parseAbiItem('function getBinStep() external view returns (uint256)'),
+        parseAbiItem('function getReserves() external view returns (uint128 reserveX, uint128 reserveY)'),
+        parseAbiItem('function getActiveId() external view returns (uint24)')
       ];
-      
-      const tokenX = tokenAddresses[Math.floor(Math.random() * tokenAddresses.length)];
-      let tokenY = tokenAddresses[Math.floor(Math.random() * tokenAddresses.length)];
-      // 确保tokenX和tokenY不相同
-      while (tokenY === tokenX) {
-        tokenY = tokenAddresses[Math.floor(Math.random() * tokenAddresses.length)];
-      }
 
-      const mockPoolInfo: DiscoveredPool = {
+      // 获取池的基本信息
+      const [tokenX, tokenY, binStep, reserves, activeId, blockNumber] = await Promise.all([
+        client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: LB_POOL_ABI,
+          functionName: 'getTokenX'
+        }),
+        client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: LB_POOL_ABI,
+          functionName: 'getTokenY'
+        }),
+        client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: LB_POOL_ABI,
+          functionName: 'getBinStep'
+        }),
+        client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: LB_POOL_ABI,
+          functionName: 'getReserves'
+        }).catch(() => ({ reserveX: 0n, reserveY: 0n })),
+        client.readContract({
+          address: poolAddress as `0x${string}`,
+          abi: LB_POOL_ABI,
+          functionName: 'getActiveId'
+        }).catch(() => 0),
+        client.getBlockNumber()
+      ]);
+
+      // 获取代币信息
+      const [tokenXInfo, tokenYInfo] = await Promise.all([
+        this.getTokenInfo(tokenX, client),
+        this.getTokenInfo(tokenY, client)
+      ]);
+
+      // 计算流动性 (简化计算，实际需要考虑价格)
+      const reserveXNumber = Number(reserves.reserveX) / Math.pow(10, tokenXInfo.decimals);
+      const reserveYNumber = Number(reserves.reserveY) / Math.pow(10, tokenYInfo.decimals);
+      
+      // 简单估算 USD 流动性 (假设主要代币的价格)
+      const estimatedLiquidityUsd = this.estimateLiquidityUsd(
+        tokenX, tokenY, reserveXNumber, reserveYNumber
+      );
+
+      const poolInfo: DiscoveredPool = {
         address: poolAddress.toLowerCase(),
         chain,
-        tokenX: tokenX || '0x0000000000000000000000000000000000000000',
-        tokenY: tokenY || '0x0000000000000000000000000000000000000000',
-        binStep: [10, 15, 20, 25, 50, 100][Math.floor(Math.random() * 6)] || 25, // 随机bin步长
-        name: `Pool-${poolAddress.slice(2, 8)}`, // 根据地址生成名称
-        liquidityUsd: Math.random() * 100000, // 需要计算实际流动性
-        volume24h: Math.random() * 50000, // 需要计算实际交易量
+        tokenX: tokenX.toLowerCase(),
+        tokenY: tokenY.toLowerCase(),
+        binStep: Number(binStep),
+        name: `${tokenXInfo.symbol}/${tokenYInfo.symbol}`,
+        liquidityUsd: estimatedLiquidityUsd,
+        volume24h: 0, // 需要单独计算24小时交易量
         createdAt: Date.now(),
-        blockNumber: 0 // 需要获取当前区块号
+        blockNumber: Number(blockNumber)
       };
 
-      return mockPoolInfo;
+      console.log(`📊 Pool details: ${poolInfo.name} - $${poolInfo.liquidityUsd.toLocaleString()} liquidity`);
+      
+      return poolInfo;
     } catch (error) {
       console.error(`❌ Failed to get pool details for ${poolAddress}:`, error);
       return null;
     }
+  }
+
+  /**
+   * 获取代币信息
+   */
+  private async getTokenInfo(tokenAddress: string, client: any): Promise<{
+    name: string;
+    symbol: string;
+    decimals: number;
+  }> {
+    try {
+      const [name, symbol, decimals] = await Promise.all([
+        client.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'name'
+        }).catch(() => 'Unknown'),
+        client.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'symbol'
+        }).catch(() => 'UNK'),
+        client.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'decimals'
+        }).catch(() => 18)
+      ]);
+
+      return {
+        name: name || 'Unknown',
+        symbol: symbol || 'UNK',
+        decimals: Number(decimals) || 18
+      };
+    } catch (error) {
+      console.error(`❌ Failed to get token info for ${tokenAddress}:`, error);
+      return {
+        name: 'Unknown',
+        symbol: 'UNK',
+        decimals: 18
+      };
+    }
+  }
+
+  /**
+   * 估算流动性的USD价值
+   */
+  private estimateLiquidityUsd(
+    tokenX: string, 
+    tokenY: string, 
+    reserveX: number, 
+    reserveY: number
+  ): number {
+    // 主要稳定币和主流代币的大概价格 (BSC)
+    const tokenPrices: { [key: string]: number } = {
+      '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': 600,    // WBNB ≈ $600
+      '0x55d398326f99059ff775485246999027b3197955': 1,      // USDT ≈ $1
+      '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d': 1,      // USDC ≈ $1
+      '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c': 45000,  // BTCB ≈ $45000
+      '0x2170ed0880ac9a755fd29b2688956bd959f933f8': 3000,   // ETH ≈ $3000
+      '0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3': 1,      // DAI ≈ $1
+      '0xe9e7cea3dedca5984780bafc599bd69add087d56': 1,      // BUSD ≈ $1
+      '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82': 2,      // CAKE ≈ $2
+    };
+
+    const priceX = tokenPrices[tokenX.toLowerCase()] || 0;
+    const priceY = tokenPrices[tokenY.toLowerCase()] || 0;
+
+    const valueX = reserveX * priceX;
+    const valueY = reserveY * priceY;
+
+    // 如果其中一个代币有价格，使用该代币的价值 * 2 作为总流动性
+    if (priceX > 0 && priceY > 0) {
+      return valueX + valueY;
+    } else if (priceX > 0) {
+      return valueX * 2;
+    } else if (priceY > 0) {
+      return valueY * 2;
+    }
+
+    // 如果都没有价格信息，返回0
+    return 0;
   }
 
   /**

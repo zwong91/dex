@@ -75,19 +75,19 @@ export async function handleSyncStatus(request: Request, env: Env): Promise<Resp
 }
 
 /**
- * 触发池发现
+ * 触发池发现扫描
  */
 export async function handlePoolDiscovery(request: Request, env: Env): Promise<Response> {
-  console.log('🔍 Triggering pool discovery...');
+  console.log('🔍 Triggering pool discovery scan...');
   
   try {
-    const discoveryService = new PoolDiscoveryService(env);
-    const result = await discoveryService.performDiscoveryScan();
+    const poolDiscovery = new PoolDiscoveryService(env);
+    const metrics = await poolDiscovery.performDiscoveryScan();
     
     return new Response(JSON.stringify({
       success: true,
-      result,
-      message: 'Pool discovery completed',
+      message: 'Pool discovery scan completed',
+      metrics: metrics,
       timestamp: new Date().toISOString()
     }), {
       headers: { 'Content-Type': 'application/json' }
@@ -101,6 +101,51 @@ export async function handlePoolDiscovery(request: Request, env: Env): Promise<R
       message: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * 测试池发现功能（无需认证）
+ */
+export async function handlePoolDiscoveryTest(request: Request, env: Env): Promise<Response> {
+  console.log('🧪 Testing pool discovery without authentication...');
+  
+  try {
+    const poolDiscovery = new PoolDiscoveryService(env);
+    
+    console.log('✅ Pool Discovery Service initialized');
+    console.log('🔍 Starting discovery scan...');
+    
+    const metrics = await poolDiscovery.performDiscoveryScan();
+    
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Pool discovery test completed',
+      results: {
+        totalScanned: metrics.totalScanned,
+        newPoolsFound: metrics.newPoolsFound,
+        poolsAdded: metrics.poolsAdded,
+        poolsSkipped: metrics.poolsSkipped,
+        scanDuration: `${metrics.scanDuration}ms`,
+        errors: metrics.errors
+      },
+      timestamp: new Date().toISOString()
+    }, null, 2), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    console.error('❌ Pool discovery test failed:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Pool discovery test failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    }, null, 2), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

@@ -1,7 +1,7 @@
-# 🚀 Quick Setup Guide for DEX API V2
+# 🚀 Quick Setup Guide for DEX API V1
 
 ## Prerequisites
-- Node.js 18+ 
+- Node.js 20+ 
 - Cloudflare account with Workers and D1 access
 - Wrangler CLI installed and authenticated
 
@@ -102,5 +102,3 @@ npm run test:unit
 2. **Authentication Testing**: Test API key validation with different permission levels  
 3. **Integration**: Connect frontend applications using the new authenticated endpoints
 4. **Production Deployment**: Deploy to Cloudflare Workers with production database
-
-For detailed API documentation, see `README-v2.md`.

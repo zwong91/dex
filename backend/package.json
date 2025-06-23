@@ -28,7 +28,7 @@
     "studio:local": "cross-env LOCAL_DB_PATH=$(find .wrangler/state/v3/d1/miniflare-D1DatabaseObject -type f -name '*.sqlite' -print -quit) drizzle-kit studio",
     "db:create": "wrangler d1 create d1-dex-database",
     "db:setup": "./setup-database.sh",
-    "db:init": "node scripts/init-database.js",
+    "db:init": "node scripts/init-database.ts",
     "db:query": "wrangler d1 execute d1-dex-database --local",
     "db:query:prod": "wrangler d1 execute d1-dex-database",
     "db:backup": "wrangler d1 export d1-dex-database --output=backup.sql",
@@ -63,7 +63,7 @@
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^2.2.2",
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^12.0.0",
     "cross-env": "^7.0.3",
     "drizzle-orm": "^0.44.2",
     "hono": "^4.8.1",

@@ -17,13 +17,11 @@ export const pools = sqliteTable("pools", {
 	version: text("version").default("v2.2"),
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		chainIdx: index("pools_chain_idx").on(table.chain),
-		addressIdx: index("pools_address_idx").on(table.address),
-		tokensIdx: index("pools_tokens_idx").on(table.tokenX, table.tokenY),
-	};
-});
+}, (table) => [
+	index("pools_chain_idx").on(table.chain),
+	index("pools_address_idx").on(table.address),
+	index("pools_tokens_idx").on(table.tokenX, table.tokenY),
+]);
 
 // 代币表
 export const tokens = sqliteTable("tokens", {
@@ -35,12 +33,10 @@ export const tokens = sqliteTable("tokens", {
 	decimals: integer("decimals").notNull(),
 	logoURI: text("logo_uri"),
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		addressChainIdx: index("tokens_address_chain_idx").on(table.address, table.chain),
-		symbolIdx: index("tokens_symbol_idx").on(table.symbol),
-	};
-});
+}, (table) => [
+	index("tokens_address_chain_idx").on(table.address, table.chain),
+	index("tokens_symbol_idx").on(table.symbol),
+]);
 
 // 池统计表（实时更新）
 export const poolStats = sqliteTable("pool_stats", {
@@ -59,13 +55,11 @@ export const poolStats = sqliteTable("pool_stats", {
 	blockNumber: integer("block_number").notNull(),
 	timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull(),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		poolIdx: index("pool_stats_pool_idx").on(table.poolAddress),
-		timestampIdx: index("pool_stats_timestamp_idx").on(table.timestamp),
-		blockIdx: index("pool_stats_block_idx").on(table.blockNumber),
-	};
-});
+}, (table) => [
+	index("pool_stats_pool_idx").on(table.poolAddress),
+	index("pool_stats_timestamp_idx").on(table.timestamp),
+	index("pool_stats_block_idx").on(table.blockNumber),
+]);
 
 // 交易事件表
 export const swapEvents = sqliteTable("swap_events", {
@@ -86,15 +80,13 @@ export const swapEvents = sqliteTable("swap_events", {
 	blockNumber: integer("block_number").notNull(),
 	logIndex: integer("log_index").notNull(),
 	timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull(),
-}, (table) => {
-	return {
-		txHashIdx: index("swap_events_tx_hash_idx").on(table.txHash),
-		poolIdx: index("swap_events_pool_idx").on(table.poolAddress),
-		senderIdx: index("swap_events_sender_idx").on(table.sender),
-		timestampIdx: index("swap_events_timestamp_idx").on(table.timestamp),
-		blockLogIdx: index("swap_events_block_log_idx").on(table.blockNumber, table.logIndex),
-	};
-});
+}, (table) => [
+	index("swap_events_tx_hash_idx").on(table.txHash),
+	index("swap_events_pool_idx").on(table.poolAddress),
+	index("swap_events_sender_idx").on(table.sender),
+	index("swap_events_timestamp_idx").on(table.timestamp),
+	index("swap_events_block_log_idx").on(table.blockNumber, table.logIndex),
+]);
 
 // 流动性事件表
 export const liquidityEvents = sqliteTable("liquidity_events", {
@@ -111,15 +103,13 @@ export const liquidityEvents = sqliteTable("liquidity_events", {
 	blockNumber: integer("block_number").notNull(),
 	logIndex: integer("log_index").notNull(),
 	timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull(),
-}, (table) => {
-	return {
-		txHashIdx: index("liquidity_events_tx_hash_idx").on(table.txHash),
-		poolIdx: index("liquidity_events_pool_idx").on(table.poolAddress),
-		userIdx: index("liquidity_events_user_idx").on(table.user),
-		timestampIdx: index("liquidity_events_timestamp_idx").on(table.timestamp),
-		typeIdx: index("liquidity_events_type_idx").on(table.eventType),
-	};
-});
+}, (table) => [
+	index("liquidity_events_tx_hash_idx").on(table.txHash),
+	index("liquidity_events_pool_idx").on(table.poolAddress),
+	index("liquidity_events_user_idx").on(table.user),
+	index("liquidity_events_timestamp_idx").on(table.timestamp),
+	index("liquidity_events_type_idx").on(table.eventType),
+]);
 
 // 用户流动性仓位表
 export const userPositions = sqliteTable("user_positions", {
@@ -132,13 +122,11 @@ export const userPositions = sqliteTable("user_positions", {
 	liquidityUsd: real("liquidity_usd"),
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		userPoolIdx: index("user_positions_user_pool_idx").on(table.userAddress, table.poolAddress),
-		userIdx: index("user_positions_user_idx").on(table.userAddress),
-		poolBinIdx: index("user_positions_pool_bin_idx").on(table.poolAddress, table.binId),
-	};
-});
+}, (table) => [
+	index("user_positions_user_pool_idx").on(table.userAddress, table.poolAddress),
+	index("user_positions_user_idx").on(table.userAddress),
+	index("user_positions_pool_bin_idx").on(table.poolAddress, table.binId),
+]);
 
 // 价格历史表
 export const priceHistory = sqliteTable("price_history", {
@@ -149,12 +137,10 @@ export const priceHistory = sqliteTable("price_history", {
 	volume24h: real("volume_24h"),
 	marketCap: real("market_cap"),
 	timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull(),
-}, (table) => {
-	return {
-		tokenChainIdx: index("price_history_token_chain_idx").on(table.tokenAddress, table.chain),
-		timestampIdx: index("price_history_timestamp_idx").on(table.timestamp),
-	};
-});
+}, (table) => [
+	index("price_history_token_chain_idx").on(table.tokenAddress, table.chain),
+	index("price_history_timestamp_idx").on(table.timestamp),
+]);
 
 // 事件处理状态表（用于跟踪同步进度）
 export const syncStatus = sqliteTable("sync_status", {
@@ -165,11 +151,9 @@ export const syncStatus = sqliteTable("sync_status", {
 	lastBlockNumber: integer("last_block_number").notNull(),
 	lastLogIndex: integer("last_log_index").notNull(),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		chainContractIdx: index("sync_status_chain_contract_idx").on(table.chain, table.contractAddress),
-	};
-});
+}, (table) => [
+	index("sync_status_chain_contract_idx").on(table.chain, table.contractAddress),
+]);
 
 // Relations
 export const poolsRelations = relations(pools, ({ many, one }) => ({
@@ -256,14 +240,12 @@ export const users = sqliteTable("users", {
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
 	lastLoginAt: integer("last_login_at", { mode: "timestamp_ms" }),
-}, (table) => {
-	return {
-		emailIdx: index("users_email_idx").on(table.email),
-		usernameIdx: index("users_username_idx").on(table.username),
-		walletIdx: index("users_wallet_idx").on(table.walletAddress),
-		statusIdx: index("users_status_idx").on(table.status),
-	};
-});
+}, (table) => [
+	index("users_email_idx").on(table.email),
+	index("users_username_idx").on(table.username),
+	index("users_wallet_idx").on(table.walletAddress),
+	index("users_status_idx").on(table.status),
+]);
 
 // API密钥表
 export const apiKeys = sqliteTable("api_keys", {
@@ -284,15 +266,13 @@ export const apiKeys = sqliteTable("api_keys", {
 	lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		userIdx: index("api_keys_user_idx").on(table.userId),
-		keyHashIdx: index("api_keys_hash_idx").on(table.keyHash),
-		statusIdx: index("api_keys_status_idx").on(table.status),
-		tierIdx: index("api_keys_tier_idx").on(table.tier),
-		expiresIdx: index("api_keys_expires_idx").on(table.expiresAt),
-	};
-});
+}, (table) => [
+	index("api_keys_user_idx").on(table.userId),
+	index("api_keys_hash_idx").on(table.keyHash),
+	index("api_keys_status_idx").on(table.status),
+	index("api_keys_tier_idx").on(table.tier),
+	index("api_keys_expires_idx").on(table.expiresAt),
+]);
 
 // API使用统计表
 export const apiUsage = sqliteTable("api_usage", {
@@ -311,16 +291,14 @@ export const apiUsage = sqliteTable("api_usage", {
 	errorMessage: text("error_message"), // 错误信息(如果有)
 	timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull(),
 	date: text("date").notNull(), // YYYY-MM-DD格式，用于按日期聚合
-}, (table) => {
-	return {
-		apiKeyIdx: index("api_usage_api_key_idx").on(table.apiKeyId),
-		userIdx: index("api_usage_user_idx").on(table.userId),
-		timestampIdx: index("api_usage_timestamp_idx").on(table.timestamp),
-		dateIdx: index("api_usage_date_idx").on(table.date),
-		endpointIdx: index("api_usage_endpoint_idx").on(table.endpoint),
-		statusIdx: index("api_usage_status_idx").on(table.statusCode),
-	};
-});
+}, (table) => [
+	index("api_usage_api_key_idx").on(table.apiKeyId),
+	index("api_usage_user_idx").on(table.userId),
+	index("api_usage_timestamp_idx").on(table.timestamp),
+	index("api_usage_date_idx").on(table.date),
+	index("api_usage_endpoint_idx").on(table.endpoint),
+	index("api_usage_status_idx").on(table.statusCode),
+]);
 
 // 权限定义表
 export const permissions = sqliteTable("permissions", {
@@ -331,13 +309,11 @@ export const permissions = sqliteTable("permissions", {
 	tier: text("tier", { enum: ["free", "basic", "pro", "enterprise"] }).notNull(), // 需要的最低tier
 	isActive: integer("is_active", { mode: "boolean" }).default(true),
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		nameIdx: index("permissions_name_idx").on(table.name),
-		categoryIdx: index("permissions_category_idx").on(table.category),
-		tierIdx: index("permissions_tier_idx").on(table.tier),
-	};
-});
+}, (table) => [
+	index("permissions_name_idx").on(table.name),
+	index("permissions_category_idx").on(table.category),
+	index("permissions_tier_idx").on(table.tier),
+]);
 
 // 用户申请记录表（API密钥申请）
 export const applications = sqliteTable("applications", {
@@ -354,14 +330,12 @@ export const applications = sqliteTable("applications", {
 	reviewComment: text("review_comment"),
 	submittedAt: integer("submitted_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
 	reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
-}, (table) => {
-	return {
-		userIdx: index("applications_user_idx").on(table.userId),
-		statusIdx: index("applications_status_idx").on(table.status),
-		typeIdx: index("applications_type_idx").on(table.type),
-		submittedIdx: index("applications_submitted_idx").on(table.submittedAt),
-	};
-});
+}, (table) => [
+	index("applications_user_idx").on(table.userId),
+	index("applications_status_idx").on(table.status),
+	index("applications_type_idx").on(table.type),
+	index("applications_submitted_idx").on(table.submittedAt),
+]);
 
 // 用户订阅/计费表
 export const subscriptions = sqliteTable("subscriptions", {
@@ -380,14 +354,12 @@ export const subscriptions = sqliteTable("subscriptions", {
 	cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		userIdx: index("subscriptions_user_idx").on(table.userId),
-		statusIdx: index("subscriptions_status_idx").on(table.status),
-		tierIdx: index("subscriptions_tier_idx").on(table.tier),
-		stripeIdx: index("subscriptions_stripe_idx").on(table.stripeSubscriptionId),
-	};
-});
+}, (table) => [
+	index("subscriptions_user_idx").on(table.userId),
+	index("subscriptions_status_idx").on(table.status),
+	index("subscriptions_tier_idx").on(table.tier),
+	index("subscriptions_stripe_idx").on(table.stripeSubscriptionId),
+]);
 
 // 每日使用量汇总表（用于计费和限制检查）
 export const dailyUsageSummary = sqliteTable("daily_usage_summary", {
@@ -405,13 +377,11 @@ export const dailyUsageSummary = sqliteTable("daily_usage_summary", {
 	peakHourUsage: integer("peak_hour_usage").default(0), // 峰值小时使用量
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => {
-	return {
-		userDateIdx: index("daily_usage_user_date_idx").on(table.userId, table.date),
-		apiKeyDateIdx: index("daily_usage_api_key_date_idx").on(table.apiKeyId, table.date),
-		dateIdx: index("daily_usage_date_idx").on(table.date),
-	};
-});
+}, (table) => [
+	index("daily_usage_user_date_idx").on(table.userId, table.date),
+	index("daily_usage_api_key_date_idx").on(table.apiKeyId, table.date),
+	index("daily_usage_date_idx").on(table.date),
+]);
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({

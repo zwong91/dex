@@ -2,7 +2,7 @@ import { EventListener } from './event-listener';
 import { DatabaseService } from './database-service';
 import { OnChainService } from './onchain-service';
 import { PriceService } from './price-service';
-import { DEFAULT_POOL_ADDRESSES } from './pool-config';
+import { POOL_DISCOVERY_CONFIG } from './pool-config';
 import type { Env } from '../../index';
 
 export interface SyncConfig {
@@ -502,7 +502,7 @@ export class SyncService {
 // 默认同步配置
 export const DEFAULT_SYNC_CONFIG: SyncConfig = {
   chains: ['bsc', 'bsc-testnet'],
-  poolAddresses: DEFAULT_POOL_ADDRESSES, // 使用默认池地址
+  poolAddresses: [], // 空数组，依赖池发现功能
   batchSize: 1000,
   maxBlockRange: 10000,
   syncInterval: 5 * 60 * 1000, // 5分钟

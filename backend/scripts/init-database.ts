@@ -6,7 +6,7 @@
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import * as schema from '../src/database/schema.js';
+import * as schema from '../src/database/schema.ts';
 
 // 权限数据
 const PERMISSIONS_DATA = [

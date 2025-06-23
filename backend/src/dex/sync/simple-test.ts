@@ -50,20 +50,51 @@ export async function handleSimpleTest(request: Request, env: Env): Promise<Resp
       
       case 'table-info':
         return await testTableInfo(env, corsHeaders, url);
-      
+
+      case 'discover':
+        return await testPoolDiscovery(env, corsHeaders);
+
       default:
         return new Response(JSON.stringify({
-          error: 'Unknown test type',
-          availableTypes: ['basic', 'tables', 'pools', 'insert', 'sync', 'cron', 'cleanup', 'blockchain', 'run-cron', 'run-cron-simple', 'table-info']
+          error: `Unknown test type: ${testType}. Available: basic, tables, pools, insert, sync, cron, cleanup, blockchain, run-cron, run-cron-simple, table-info, discover`
         }), {
           status: 400,
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
+      }
+    } catch (error) {
+      console.error('Simple test failed:', error);
+      return new Response(JSON.stringify({
+        error: 'Test failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
     }
-  } catch (error) {
-    console.error('Simple test failed:', error);
+}
+
+/**
+ * 测试自动发现池子功能
+ */
+async function testPoolDiscovery(env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+  console.log('🔍 Testing pool discovery...');
+  try {
+    const { PoolDiscoveryService } = await import('./pool-discovery');
+    const discovery = new PoolDiscoveryService(env);
+    const metrics = await discovery.performDiscoveryScan();
     return new Response(JSON.stringify({
-      error: 'Test failed',
+      success: true,
+      message: 'Pool discovery scan completed',
+      metrics
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  } catch (error) {
+    console.error('❌ Pool discovery test failed:', error);
+    return new Response(JSON.stringify({
+      error: 'Pool discovery test failed',
       details: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
