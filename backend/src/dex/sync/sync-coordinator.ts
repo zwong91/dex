@@ -80,6 +80,7 @@ export class SyncCoordinator {
   
   private isRunning = false;
   private startTime = 0;
+  private syncStartTime = 0; // 添加同步开始时间跟踪
   private healthCheckTimer?: number; // 使用 number 替代 NodeJS.Timeout 以兼容 Cloudflare Workers
   private lastHealthCheck: SystemHealth | null = null;
   private errorCount = 0;
@@ -240,12 +241,14 @@ export class SyncCoordinator {
 
   /**
    * 频繁同步调用（用于cron作业）
-   * 此方法专门设计用于频繁的自动化调用，提供更宽松的错误处理
+   * 此方法专门设计用于频繁的自动化调用，提供更宽松的错误处理和超时检测
    */
   async triggerFrequentSync(): Promise<{ 
-    status: 'completed' | 'skipped' | 'failed'; 
+    status: 'completed' | 'skipped' | 'failed' | 'timeout_reset'; 
     message: string; 
     duration?: number; 
+    syncPhase?: string;
+    monitorInfo?: Record<string, unknown>;
   }> {
     if (!this.syncService) {
       return {
@@ -257,33 +260,76 @@ export class SyncCoordinator {
     const startTime = Date.now();
 
     try {
+      // 获取详细的监控信息
+      const monitorInfo = await this.getSyncMonitorInfo();
+      
       // 检查同步服务状态
       const status = this.syncService.getStatus();
       
-      // 如果同步正在进行中，直接返回跳过状态而不是错误
-      if (status.currentPhase !== 'idle') {
+      // 检查同步是否卡住（超时检测）
+      const syncTimeoutResult = await this.checkAndHandleSyncTimeout(status as unknown as { currentPhase: string; [key: string]: unknown });
+      if (syncTimeoutResult) {
         return {
-          status: 'skipped',
-          message: `Sync already in progress (phase: ${status.currentPhase})`,
-          duration: Date.now() - startTime
+          ...syncTimeoutResult,
+          duration: Date.now() - startTime,
+          monitorInfo
         };
+      }
+      
+      // 如果同步正在进行中且未超时，检查是否应该等待
+      if (status.currentPhase !== 'idle') {
+        // 使用同步服务内置的阶段开始时间
+        const phaseStartTime = status.phaseStartTime || await this.getSyncStartTime();
+        const phaseDuration = Date.now() - phaseStartTime;
+        
+        // 设置不同阶段的超时时间（更精确的控制）
+        const timeoutMap = {
+          'syncing_events': 15 * 60 * 1000,      // 15分钟 - 事件同步可能较慢
+          'updating_stats': 5 * 60 * 1000,       // 5分钟  - 池统计更新
+          'calculating_positions': 10 * 60 * 1000, // 10分钟 - 用户仓位计算
+          'updating_prices': 3 * 60 * 1000       // 3分钟  - 价格更新
+        };
+        
+        const maxTimeout = timeoutMap[status.currentPhase as keyof typeof timeoutMap] || 10 * 60 * 1000;
+        
+        // 如果阶段时间不超过合理范围，则跳过
+        if (phaseDuration < maxTimeout) {
+          return {
+            status: 'skipped',
+            message: `Sync in progress (phase: ${status.currentPhase}, duration: ${Math.round(phaseDuration/1000)}s/${Math.round(maxTimeout/1000)}s)`,
+            duration: Date.now() - startTime,
+            syncPhase: status.currentPhase,
+            monitorInfo
+          };
+        }
       }
 
       // 执行同步
+      console.log('🔄 Starting new sync cycle...');
+      await this.setSyncStartTime(Date.now());
       await this.syncService.triggerSync();
+      await this.clearSyncStartTime();
+      
       const duration = Date.now() - startTime;
       
       this.totalSyncs++;
       this.totalSyncTime += duration;
       
+      console.log(`✅ Sync cycle completed in ${duration}ms`);
+      
       return {
         status: 'completed',
         message: `Sync completed successfully`,
-        duration
+        duration,
+        syncPhase: 'completed',
+        monitorInfo
       };
 
     } catch (error) {
       const duration = Date.now() - startTime;
+      
+      // 清除同步开始时间
+      await this.clearSyncStartTime().catch(() => {});
       
       // 对于"已在进行中"的错误，返回跳过状态而不是失败
       if (error instanceof Error && (
@@ -294,17 +340,144 @@ export class SyncCoordinator {
         return {
           status: 'skipped',
           message: 'Sync already in progress',
-          duration
+          duration,
+          syncPhase: 'blocked'
         };
       }
       
-      // 对于其他错误，增加错误计数但返回结构化响应
+      // 对于其他错误，增加错误计数
       this.errorCount++;
+      console.error(`❌ Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // 如果连续失败次数过多，运行诊断
+      if (this.errorCount >= 3) {
+        console.log('🔍 Multiple sync failures detected, running diagnosis...');
+        const diagnosis = await this.diagnoseSyncIssues().catch(() => null);
+        
+        if (diagnosis && diagnosis.issues.length > 0) {
+          console.log('🚨 Diagnosis found the following issues:');
+          diagnosis.issues.forEach((issue, index) => {
+            console.log(`   ${index + 1}. ${issue}`);
+          });
+          console.log('💡 Suggested solutions:');
+          diagnosis.suggestions.forEach((suggestion, index) => {
+            console.log(`   ${index + 1}. ${suggestion}`);
+          });
+        }
+      }
+      
       return {
         status: 'failed',
         message: error instanceof Error ? error.message : 'Unknown error',
-        duration
+        duration,
+        syncPhase: 'error'
       };
+    }
+  }
+
+  /**
+   * 检查并处理同步超时
+   */
+  private async checkAndHandleSyncTimeout(status: { currentPhase: string; [key: string]: unknown }): Promise<{
+    status: 'timeout_reset' | 'failed';
+    message: string;
+    syncPhase?: string;
+  } | null> {
+    // 只有在非idle状态下才需要检查超时
+    if (status.currentPhase === 'idle') {
+      return null;
+    }
+
+    try {
+      const syncStartTime = await this.getSyncStartTime();
+      const syncDuration = Date.now() - syncStartTime;
+      
+      // 设置不同阶段的超时时间
+      const timeoutMap = {
+        'syncing_events': 15 * 60 * 1000,      // 15分钟
+        'updating_stats': 5 * 60 * 1000,       // 5分钟
+        'calculating_positions': 10 * 60 * 1000, // 10分钟
+        'updating_prices': 3 * 60 * 1000       // 3分钟
+      };
+      
+      const maxTimeout = timeoutMap[status.currentPhase as keyof typeof timeoutMap] || 10 * 60 * 1000;
+      
+      if (syncDuration > maxTimeout) {
+        console.warn(`⚠️  Sync timeout detected: phase=${status.currentPhase}, duration=${Math.round(syncDuration/1000)}s`);
+        
+        // 尝试重置同步状态
+        const resetResult = await this.resetSyncState();
+        
+        return {
+          status: resetResult ? 'timeout_reset' : 'failed',
+          message: resetResult 
+            ? `Sync timeout reset (was stuck in ${status.currentPhase} for ${Math.round(syncDuration/1000)}s)`
+            : `Failed to reset stuck sync (phase: ${status.currentPhase})`,
+          syncPhase: status.currentPhase
+        };
+      }
+    } catch (syncTimeoutError) {
+      console.error('Error checking sync timeout:', syncTimeoutError);
+    }
+    
+    return null;
+  }
+
+  /**
+   * 重置同步状态
+   */
+  private async resetSyncState(): Promise<boolean> {
+    try {
+      console.log('🔄 Attempting to reset stuck sync state...');
+      
+      // 停止并重启同步服务
+      if (this.syncService) {
+        await this.syncService.stop();
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+        await this.syncService.start();
+      }
+      
+      // 清除同步开始时间
+      await this.clearSyncStartTime();
+      
+      console.log('✅ Sync state reset successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to reset sync state:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 获取同步开始时间
+   */
+  private async getSyncStartTime(): Promise<number> {
+    // 使用简单的内存存储作为备选方案
+    // 在生产环境中，这应该存储在数据库中
+    return this.syncStartTime || Date.now();
+  }
+
+  /**
+   * 设置同步开始时间
+   */
+  private async setSyncStartTime(time: number): Promise<void> {
+    try {
+      this.syncStartTime = time;
+      // 在生产环境中，这应该存储在数据库中
+    } catch (error) {
+      console.warn('Failed to set sync start time:', error);
+    }
+  }
+
+  /**
+   * 清除同步开始时间
+   */
+  private async clearSyncStartTime(): Promise<void> {
+    try {
+      this.syncStartTime = 0;
+      // 在生产环境中，这应该从数据库中删除
+    } catch (error) {
+      console.warn('Failed to clear sync start time:', error);
     }
   }
 
@@ -710,6 +883,198 @@ export class SyncCoordinator {
         coordinator: this.config,
         sync: this.syncService?.getConfig() as unknown as Record<string, unknown> || null
       }
+    };
+  }
+
+  /**
+   * 获取详细的同步监控信息
+   */
+  async getSyncMonitorInfo(): Promise<{
+    coordinator: {
+      isRunning: boolean;
+      uptime: number;
+      totalSyncs: number;
+      errorCount: number;
+      avgSyncTime: number;
+    };
+    syncService: {
+      currentPhase: string;
+      progress: number;
+      phaseStartTime?: number;
+      phaseDuration?: number;
+      lastUpdate?: number;
+      isStuck: boolean;
+    } | null;
+    healthStatus: SystemHealth | null;
+  }> {
+    const uptime = this.isRunning ? Date.now() - this.startTime : 0;
+    const avgSyncTime = this.totalSyncs > 0 ? this.totalSyncTime / this.totalSyncs : 0;
+
+    let syncServiceInfo = null;
+    if (this.syncService) {
+      const status = this.syncService.getStatus();
+      const phaseStartTime = status.phaseStartTime;
+      const phaseDuration = phaseStartTime ? Date.now() - phaseStartTime : 0;
+      
+      // 检查是否卡住
+      const timeoutMap = {
+        'syncing_events': 15 * 60 * 1000,
+        'updating_stats': 5 * 60 * 1000,
+        'calculating_positions': 10 * 60 * 1000,
+        'updating_prices': 3 * 60 * 1000
+      };
+      const maxTimeout = timeoutMap[status.currentPhase as keyof typeof timeoutMap] || 10 * 60 * 1000;
+      const isStuck = status.currentPhase !== 'idle' && phaseDuration > maxTimeout;
+
+      syncServiceInfo = {
+        currentPhase: status.currentPhase,
+        progress: status.progress,
+        phaseStartTime,
+        phaseDuration: phaseDuration > 0 ? phaseDuration : undefined,
+        lastUpdate: status.lastUpdate,
+        isStuck
+      };
+    }
+
+    return {
+      coordinator: {
+        isRunning: this.isRunning,
+        uptime,
+        totalSyncs: this.totalSyncs,
+        errorCount: this.errorCount,
+        avgSyncTime
+      },
+      syncService: syncServiceInfo,
+      healthStatus: this.lastHealthCheck
+    };
+  }
+
+  /**
+   * 诊断同步问题 - 检查配置、连接和数据状态
+   */
+  async diagnoseSyncIssues(): Promise<{
+    issues: string[];
+    suggestions: string[];
+    config: {
+      hasPoolAddresses: boolean;
+      poolCount: number;
+      chains: string[];
+      syncInterval: number;
+    };
+    connections: {
+      database: boolean;
+      rpc: Record<string, boolean>;
+    };
+    data: {
+      totalPools: number;
+      totalSwapEvents: number;
+      totalLiquidityEvents: number;
+      lastSyncTime?: number;
+    };
+  }> {
+    const issues: string[] = [];
+    const suggestions: string[] = [];
+    
+    console.log('🔍 Starting sync diagnosis...');
+
+    // 检查配置
+    const syncConfig = this.syncService?.getConfig();
+    const config = {
+      hasPoolAddresses: Boolean(syncConfig && Array.isArray(syncConfig.poolAddresses) && syncConfig.poolAddresses.length > 0),
+      poolCount: syncConfig?.poolAddresses?.length || 0,
+      chains: syncConfig?.chains || [],
+      syncInterval: syncConfig?.syncInterval || 0
+    };
+
+    if (!config.hasPoolAddresses) {
+      issues.push('No pool addresses configured for synchronization');
+      suggestions.push('Add pool addresses to the sync configuration or ensure pool discovery is working');
+    }
+
+    if (config.chains.length === 0) {
+      issues.push('No blockchain chains configured');
+      suggestions.push('Configure at least one blockchain chain (e.g., bsc, bsc-testnet)');
+    }
+
+    // 检查连接
+    const connections = {
+      database: false,
+      rpc: {} as Record<string, boolean>
+    };
+
+    try {
+      await this.databaseService.getPools({}, { limit: 1 });
+      connections.database = true;
+    } catch {
+      connections.database = false;
+      issues.push('Database connection failed');
+      suggestions.push('Check database configuration and network connectivity');
+    }
+
+    // 检查 RPC 连接
+    try {
+      const healthCheck = await this.onChainService.healthCheck();
+      if (healthCheck && typeof healthCheck === 'object' && 'chains' in healthCheck) {
+        connections.rpc = healthCheck.chains as Record<string, boolean>;
+        
+        const healthyChains = Object.values(connections.rpc).filter(Boolean).length;
+        if (healthyChains === 0) {
+          issues.push('No healthy RPC connections');
+          suggestions.push('Check RPC URLs and network connectivity');
+        }
+      }
+    } catch {
+      issues.push('RPC health check failed');
+      suggestions.push('Verify RPC configuration and endpoints');
+    }
+
+    // 检查数据状态
+    const data = {
+      totalPools: 0,
+      totalSwapEvents: 0,
+      totalLiquidityEvents: 0,
+      lastSyncTime: undefined as number | undefined
+    };
+
+    try {
+      const analytics = await this.databaseService.getPoolAnalytics();
+      data.totalPools = analytics.totalPools || 0;
+      data.totalSwapEvents = analytics.totalTransactions24h || 0; // 近似值
+      
+      // 获取最新的同步时间
+      if (this.syncService) {
+        const status = this.syncService.getStatus();
+        data.lastSyncTime = status.metrics.lastSyncTime;
+      }
+    } catch {
+      issues.push('Unable to retrieve data statistics');
+      suggestions.push('Check database schema and permissions');
+    }
+
+    // 分析数据问题
+    if (data.totalPools === 0) {
+      issues.push('No pools found in database');
+      suggestions.push('Run pool discovery or manually add pool addresses');
+    }
+
+    if (data.totalSwapEvents === 0 && data.totalLiquidityEvents === 0) {
+      issues.push('No events synchronized from blockchain');
+      suggestions.push('Check pool addresses, RPC connections, and event listener configuration');
+    }
+
+    if (data.lastSyncTime && Date.now() - data.lastSyncTime > 24 * 60 * 60 * 1000) {
+      issues.push('Last sync was more than 24 hours ago');
+      suggestions.push('Check if sync service is running and investigate any errors');
+    }
+
+    console.log(`🔍 Diagnosis completed: ${issues.length} issues found`);
+
+    return {
+      issues,
+      suggestions,
+      config,
+      connections,
+      data
     };
   }
 }

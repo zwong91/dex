@@ -2,7 +2,6 @@ import { EventListener } from './event-listener';
 import { DatabaseService } from './database-service';
 import { OnChainService } from './onchain-service';
 import { PriceService } from './price-service';
-import { getPoolDiscoveryConfig } from './pool-config';
 import type { Env } from '../../index';
 
 export interface SyncConfig {
@@ -31,6 +30,8 @@ export interface SyncStatus {
   progress: number; // 0-100
   error?: string;
   metrics: SyncMetrics;
+  phaseStartTime?: number; // 当前阶段开始时间
+  lastUpdate?: number; // 最后更新时间
 }
 
 export class SyncService {
@@ -59,6 +60,8 @@ export class SyncService {
       isRunning: false,
       currentPhase: 'idle',
       progress: 0,
+      phaseStartTime: Date.now(),
+      lastUpdate: Date.now(),
       metrics: {
         lastSyncTime: 0,
         totalSyncedBlocks: 0,
@@ -146,33 +149,28 @@ export class SyncService {
       console.log('Starting full sync...');
       
       // 阶段1: 同步事件
-      this.syncStatus.currentPhase = 'syncing_events';
-      this.syncStatus.progress = 10;
+      this.updateSyncPhase('syncing_events', 10);
 
       const eventStats = await this.syncAllEvents();
       totalEvents = eventStats.totalSwapEvents + eventStats.totalLiquidityEvents;
 
       // 阶段2: 更新池统计
-      this.syncStatus.currentPhase = 'updating_stats';
-      this.syncStatus.progress = 40;
+      this.updateSyncPhase('updating_stats', 40);
 
       await this.updateAllPoolStats();
 
       // 阶段3: 计算用户仓位
-      this.syncStatus.currentPhase = 'calculating_positions';
-      this.syncStatus.progress = 70;
+      this.updateSyncPhase('calculating_positions', 70);
 
       await this.updateUserPositions();
 
       // 阶段4: 更新价格数据
-      this.syncStatus.currentPhase = 'updating_prices';
-      this.syncStatus.progress = 90;
+      this.updateSyncPhase('updating_prices', 90);
 
       await this.updatePriceData();
 
       // 完成
-      this.syncStatus.currentPhase = 'idle';
-      this.syncStatus.progress = 100;
+      this.updateSyncPhase('idle', 100);
 
       // 更新指标
       const syncTime = Date.now() - startTime;
@@ -199,11 +197,22 @@ export class SyncService {
     let totalSwapEvents = 0;
     let totalLiquidityEvents = 0;
 
+    console.log(`🔄 Starting event sync for ${this.config.chains.length} chains and ${this.config.poolAddresses.length} pools`);
+
     for (const chain of this.config.chains) {
       const eventListener = this.eventListeners.get(chain);
-      if (!eventListener) continue;
+      if (!eventListener) {
+        console.warn(`⚠️  No event listener found for chain: ${chain}`);
+        continue;
+      }
 
-      console.log(`Syncing events for chain: ${chain}`);
+      console.log(`📡 Syncing events for chain: ${chain}`);
+
+      // 检查是否有有效的池地址
+      if (this.config.poolAddresses.length === 0) {
+        console.warn(`⚠️  No pool addresses configured for chain: ${chain}`);
+        continue;
+      }
 
       for (const poolAddress of this.config.poolAddresses) {
         // 跳过无效的池地址
@@ -213,29 +222,80 @@ export class SyncService {
         }
         
         try {
+          console.log(`🏊 Starting sync for pool: ${poolAddress} on ${chain}`);
+          
+          // 获取同步前的事件计数（用于验证同步是否成功）
+          const beforeSwaps = await this.databaseService.getSwapEvents(
+            { poolAddress, chain },
+            { limit: 1 }
+          );
+          const beforeLiquidity = await this.databaseService.getLiquidityEvents(
+            { poolAddress, chain },
+            { limit: 1 }
+          );
+
+          console.log(`📊 Before sync - Pool ${poolAddress}: ${beforeSwaps.total} swaps, ${beforeLiquidity.total} liquidity events`);
+          
           // 增量同步每个池
           await eventListener.incrementalSync(poolAddress);
           
-          // 获取最近事件数量用于统计
-          const recentSwaps = await this.databaseService.getSwapEvents(
+          // 获取同步后的事件计数
+          const afterSwaps = await this.databaseService.getSwapEvents(
             { poolAddress, chain },
             { limit: 1000 }
           );
-          const recentLiquidity = await this.databaseService.getLiquidityEvents(
+          const afterLiquidity = await this.databaseService.getLiquidityEvents(
             { poolAddress, chain },
             { limit: 1000 }
           );
 
-          totalSwapEvents += recentSwaps.total;
-          totalLiquidityEvents += recentLiquidity.total;
+          const newSwaps = afterSwaps.total - beforeSwaps.total;
+          const newLiquidity = afterLiquidity.total - beforeLiquidity.total;
+          
+          console.log(`📈 After sync - Pool ${poolAddress}: +${newSwaps} new swaps, +${newLiquidity} new liquidity events`);
+          console.log(`📊 Total for pool ${poolAddress}: ${afterSwaps.total} swaps, ${afterLiquidity.total} liquidity events`);
+
+          totalSwapEvents += afterSwaps.total;
+          totalLiquidityEvents += afterLiquidity.total;
+
+          // 如果没有新事件，记录警告
+          if (newSwaps === 0 && newLiquidity === 0) {
+            console.warn(`⚠️  No new events found for pool ${poolAddress} - this might indicate:
+              1. Pool has no recent activity
+              2. Sync progress is already up to date
+              3. RPC connection issues
+              4. Pool address is incorrect`);
+          }
 
           // 添加延迟避免过载
           await this.sleep(100);
         } catch (error) {
-          console.error(`Failed to sync events for pool ${poolAddress} on ${chain}:`, error);
+          console.error(`❌ Failed to sync events for pool ${poolAddress} on ${chain}:`, error);
+          
+          // 检查是否是 RPC 相关错误
+          if (error instanceof Error) {
+            if (error.message.includes('timeout') || error.message.includes('network')) {
+              console.error(`🌐 Network/RPC error for pool ${poolAddress} - this may cause missing data`);
+            } else if (error.message.includes('address') || error.message.includes('contract')) {
+              console.error(`📍 Contract address error for pool ${poolAddress} - check if address is valid`);
+            }
+          }
+          
           // 继续处理其他池，不抛出错误
         }
       }
+    }
+
+    console.log(`✅ Event sync completed - Total: ${totalSwapEvents} swap events, ${totalLiquidityEvents} liquidity events across all pools`);
+
+    // 如果没有同步到任何事件，记录详细警告
+    if (totalSwapEvents === 0 && totalLiquidityEvents === 0) {
+      console.warn(`🚨 WARNING: No events were synchronized! This could indicate:
+        1. All pools have no activity
+        2. RPC connection issues
+        3. Incorrect pool addresses
+        4. Database write permissions
+        5. Event listener configuration issues`);
     }
 
     return { totalSwapEvents, totalLiquidityEvents };
@@ -377,7 +437,7 @@ export class SyncService {
   /**
    * 更新指标
    */
-  private updateMetrics(syncTime: number, eventStats: any): void {
+  private updateMetrics(syncTime: number, eventStats: { totalSwapEvents: number; totalLiquidityEvents: number }): void {
     const metrics = this.syncStatus.metrics;
     
     metrics.lastSyncTime = Date.now();
@@ -452,7 +512,16 @@ export class SyncService {
    */
   async healthCheck(): Promise<{
     status: 'healthy' | 'degraded' | 'unhealthy';
-    details: any;
+    details: {
+      isRunning: boolean;
+      currentPhase: string;
+      timeSinceLastSync: number;
+      errorRate: number;
+      dbHealthy: boolean;
+      metrics: SyncMetrics;
+      phaseStartTime?: number;
+      lastUpdate?: number;
+    } | { error: string };
   }> {
     try {
       const now = Date.now();
@@ -487,7 +556,9 @@ export class SyncService {
           timeSinceLastSync,
           errorRate,
           dbHealthy,
-          metrics: this.syncStatus.metrics
+          metrics: this.syncStatus.metrics,
+          phaseStartTime: this.syncStatus.phaseStartTime,
+          lastUpdate: this.syncStatus.lastUpdate
         }
       };
     } catch (error) {
@@ -512,6 +583,16 @@ export class SyncService {
       console.error('Database health check failed:', error);
       return false;
     }
+  }
+
+  /**
+   * 更新同步阶段
+   */
+  private updateSyncPhase(phase: 'idle' | 'syncing_events' | 'updating_stats' | 'calculating_positions' | 'updating_prices', progress: number): void {
+    this.syncStatus.currentPhase = phase;
+    this.syncStatus.progress = progress;
+    this.syncStatus.phaseStartTime = Date.now();
+    this.syncStatus.lastUpdate = Date.now();
   }
 }
 

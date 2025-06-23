@@ -357,54 +357,86 @@ export class EventListener {
     batchSize: bigint = 100n
   ): Promise<void> {
     try {
-      console.log(`Starting batch sync for pool ${poolAddress} from ${fromBlock} to ${toBlock}`);
+      console.log(`🔄 Starting batch sync for pool ${poolAddress} from ${fromBlock} to ${toBlock} (${toBlock - fromBlock + 1n} blocks)`);
       
       let currentFromBlock = fromBlock;
+      let totalSwapEvents = 0;
+      let totalLiquidityEvents = 0;
       
       while (currentFromBlock <= toBlock) {
         const currentToBlock = currentFromBlock + batchSize > toBlock 
           ? toBlock 
           : currentFromBlock + batchSize;
 
-        console.log(`Syncing batch: ${currentFromBlock} to ${currentToBlock}`);
+        console.log(`📦 Syncing batch: ${currentFromBlock} to ${currentToBlock} (${currentToBlock - currentFromBlock + 1n} blocks)`);
 
-        // 同步Swap事件
-        const swapEvents = await this.listenToSwapEvents(
-          poolAddress,
-          currentFromBlock,
-          currentToBlock
-        );
+        try {
+          // 同步Swap事件
+          const swapEvents = await this.listenToSwapEvents(
+            poolAddress,
+            currentFromBlock,
+            currentToBlock
+          );
 
-        // 同步流动性事件
-        const liquidityEvents = await this.listenToLiquidityEvents(
-          poolAddress,
-          currentFromBlock,
-          currentToBlock
-        );
+          // 同步流动性事件
+          const liquidityEvents = await this.listenToLiquidityEvents(
+            poolAddress,
+            currentFromBlock,
+            currentToBlock
+          );
 
-        // 保存事件到数据库
-        if (swapEvents.length > 0) {
-          await this.saveSwapEvents(swapEvents);
+          console.log(`📊 Found ${swapEvents.length} swap events and ${liquidityEvents.length} liquidity events in batch`);
+
+          // 保存事件到数据库
+          if (swapEvents.length > 0) {
+            console.log(`💾 Saving ${swapEvents.length} swap events to database...`);
+            await this.saveSwapEvents(swapEvents);
+            totalSwapEvents += swapEvents.length;
+            console.log(`✅ Successfully saved ${swapEvents.length} swap events`);
+          }
+
+          if (liquidityEvents.length > 0) {
+            console.log(`💾 Saving ${liquidityEvents.length} liquidity events to database...`);
+            await this.saveLiquidityEvents(liquidityEvents);
+            totalLiquidityEvents += liquidityEvents.length;
+            console.log(`✅ Successfully saved ${liquidityEvents.length} liquidity events`);
+          }
+
+          // 更新同步进度
+          console.log(`📈 Updating sync progress to block ${currentToBlock}...`);
+          await this.updateSyncProgress(
+            poolAddress,
+            'swap',
+            currentToBlock,
+            0
+          );
+
+          await this.updateSyncProgress(
+            poolAddress,
+            'liquidity',
+            currentToBlock,
+            0
+          );
+          console.log(`✅ Sync progress updated to block ${currentToBlock}`);
+
+        } catch (batchError) {
+          console.error(`❌ Failed to process batch ${currentFromBlock}-${currentToBlock}:`, batchError);
+          
+          // 检查是否是数据库错误
+          if (batchError instanceof Error && batchError.message.includes('database')) {
+            console.error(`🗄️  Database error in batch processing - this will cause missing data`);
+          }
+          
+          // 对于批次错误，我们仍然更新进度以避免重复处理相同区块
+          await this.updateSyncProgress(
+            poolAddress,
+            'swap',
+            currentToBlock,
+            0
+          ).catch(progressError => {
+            console.error(`❌ Failed to update progress after batch error:`, progressError);
+          });
         }
-
-        if (liquidityEvents.length > 0) {
-          await this.saveLiquidityEvents(liquidityEvents);
-        }
-
-        // 更新同步进度
-        await this.updateSyncProgress(
-          poolAddress,
-          'swap',
-          currentToBlock,
-          0
-        );
-
-        await this.updateSyncProgress(
-          poolAddress,
-          'liquidity',
-          currentToBlock,
-          0
-        );
 
         currentFromBlock = currentToBlock + 1n;
         
@@ -412,9 +444,19 @@ export class EventListener {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      console.log(`Batch sync completed for pool ${poolAddress}`);
+      console.log(`✅ Batch sync completed for pool ${poolAddress}`);
+      console.log(`📊 Total events saved: ${totalSwapEvents} swap events, ${totalLiquidityEvents} liquidity events`);
+      
+      if (totalSwapEvents === 0 && totalLiquidityEvents === 0) {
+        console.warn(`⚠️  No events found for pool ${poolAddress} in ${toBlock - fromBlock + 1n} blocks. This could indicate:
+          1. Pool has no activity in this block range
+          2. Incorrect pool address
+          3. RPC connection issues
+          4. Event signature mismatch`);
+      }
+      
     } catch (error) {
-      console.error('Failed to sync events batch:', error);
+      console.error(`❌ Failed to sync events batch for pool ${poolAddress}:`, error);
       throw error;
     }
   }
@@ -423,7 +465,14 @@ export class EventListener {
    * 保存Swap事件到数据库
    */
   private async saveSwapEvents(events: ParsedSwapEvent[]): Promise<void> {
+    if (events.length === 0) {
+      console.log(`ℹ️  No swap events to save`);
+      return;
+    }
+
     try {
+      console.log(`💾 Preparing to save ${events.length} swap events to database...`);
+      
       // 批量插入swap事件
       const swapRecords = events.map(event => ({
         txHash: event.txHash,
@@ -441,12 +490,31 @@ export class EventListener {
         timestamp: new Date(event.timestamp)
       }));
 
-      if (swapRecords.length > 0) {
-        await this.db.insert(schema.swapEvents).values(swapRecords);
-        console.log(`Saved ${swapRecords.length} swap events`);
-      }
+      console.log(`🔗 Sample swap event data:`, {
+        txHash: swapRecords[0]?.txHash,
+        poolAddress: swapRecords[0]?.poolAddress,
+        chain: swapRecords[0]?.chain,
+        blockNumber: swapRecords[0]?.blockNumber,
+        timestamp: swapRecords[0]?.timestamp
+      });
+
+      await this.db.insert(schema.swapEvents).values(swapRecords);
+      console.log(`✅ Successfully saved ${swapRecords.length} swap events to database`);
+      
     } catch (error) {
-      console.error('Failed to save swap events:', error);
+      console.error(`❌ Failed to save ${events.length} swap events to database:`, error);
+      
+      // 提供更详细的错误信息
+      if (error instanceof Error) {
+        if (error.message.includes('UNIQUE constraint')) {
+          console.error(`🔄 Duplicate event detected - some events may have been already processed`);
+        } else if (error.message.includes('database')) {
+          console.error(`🗄️  Database connection or schema issue`);
+        } else if (error.message.includes('permission')) {
+          console.error(`🔒 Database permission issue`);
+        }
+      }
+      
       throw error;
     }
   }
@@ -455,7 +523,14 @@ export class EventListener {
    * 保存流动性事件到数据库
    */
   private async saveLiquidityEvents(events: ParsedLiquidityEvent[]): Promise<void> {
+    if (events.length === 0) {
+      console.log(`ℹ️  No liquidity events to save`);
+      return;
+    }
+
     try {
+      console.log(`💾 Preparing to save ${events.length} liquidity events to database...`);
+      
       const liquidityRecords = events.map(event => ({
         txHash: event.txHash,
         poolAddress: event.poolAddress,
@@ -470,12 +545,32 @@ export class EventListener {
         timestamp: new Date(event.timestamp)
       }));
 
-      if (liquidityRecords.length > 0) {
-        await this.db.insert(schema.liquidityEvents).values(liquidityRecords);
-        console.log(`Saved ${liquidityRecords.length} liquidity events`);
-      }
+      console.log(`🔗 Sample liquidity event data:`, {
+        txHash: liquidityRecords[0]?.txHash,
+        poolAddress: liquidityRecords[0]?.poolAddress,
+        chain: liquidityRecords[0]?.chain,
+        eventType: liquidityRecords[0]?.eventType,
+        blockNumber: liquidityRecords[0]?.blockNumber,
+        timestamp: liquidityRecords[0]?.timestamp
+      });
+
+      await this.db.insert(schema.liquidityEvents).values(liquidityRecords);
+      console.log(`✅ Successfully saved ${liquidityRecords.length} liquidity events to database`);
+      
     } catch (error) {
-      console.error('Failed to save liquidity events:', error);
+      console.error(`❌ Failed to save ${events.length} liquidity events to database:`, error);
+      
+      // 提供更详细的错误信息
+      if (error instanceof Error) {
+        if (error.message.includes('UNIQUE constraint')) {
+          console.error(`🔄 Duplicate event detected - some events may have been already processed`);
+        } else if (error.message.includes('database')) {
+          console.error(`🗄️  Database connection or schema issue`);
+        } else if (error.message.includes('permission')) {
+          console.error(`🔒 Database permission issue`);
+        }
+      }
+      
       throw error;
     }
   }
@@ -538,21 +633,35 @@ export class EventListener {
    */
   async incrementalSync(poolAddress: string): Promise<void> {
     try {
+      console.log(`🚀 Starting incremental sync for pool ${poolAddress} on ${this.chain}`);
+      
       const latestBlock = await this.getLatestBlockNumber();
+      console.log(`📊 Latest block number: ${latestBlock}`);
+      
       // 获取Swap事件的同步进度
       const swapProgress = await this.getSyncProgress(poolAddress, 'swap');
       let startBlock: bigint;
+      
       if (swapProgress) {
         startBlock = swapProgress.lastBlockNumber + 1n;
+        console.log(`📈 Found existing sync progress - resuming from block ${startBlock}`);
       } else {
         startBlock = await this.getContractCreationBlock(poolAddress);
+        console.log(`🆕 No existing sync progress - starting from contract creation block ${startBlock}`);
       }
+      
       if (startBlock <= latestBlock) {
+        const blocksToSync = latestBlock - startBlock + 1n;
+        console.log(`🔄 Syncing ${blocksToSync} blocks (${startBlock} to ${latestBlock}) for pool ${poolAddress}`);
+        
         await this.syncEventsBatch(poolAddress, startBlock, latestBlock);
+        
+        console.log(`✅ Incremental sync completed for pool ${poolAddress}`);
+      } else {
+        console.log(`ℹ️  Pool ${poolAddress} is already up to date (start: ${startBlock}, latest: ${latestBlock})`);
       }
-      console.log(`Incremental sync completed for pool ${poolAddress}`);
     } catch (error) {
-      console.error('Failed to perform incremental sync:', error);
+      console.error(`❌ Failed to perform incremental sync for pool ${poolAddress}:`, error);
       throw error;
     }
   }
