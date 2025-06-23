@@ -223,7 +223,11 @@ export class SyncCoordinator {
       console.log(`✅ Manual sync completed in ${duration}ms`);
     } catch (error) {
       // 如果错误是"同步已在进行中"，将其视为正常跳过而非错误
-      if (error instanceof Error && error.message === 'Sync is already in progress') {
+      if (error instanceof Error && (
+        error.message === 'Sync is already in progress' ||
+        error.message.includes('already in progress') ||
+        error.message.includes('already running')
+      )) {
         console.log(`ℹ️ Sync already in progress, skipping this run`);
         return;
       }
@@ -231,6 +235,76 @@ export class SyncCoordinator {
       this.errorCount++;
       console.error('❌ Manual sync failed:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 频繁同步调用（用于cron作业）
+   * 此方法专门设计用于频繁的自动化调用，提供更宽松的错误处理
+   */
+  async triggerFrequentSync(): Promise<{ 
+    status: 'completed' | 'skipped' | 'failed'; 
+    message: string; 
+    duration?: number; 
+  }> {
+    if (!this.syncService) {
+      return {
+        status: 'failed',
+        message: 'Sync service not initialized'
+      };
+    }
+
+    const startTime = Date.now();
+
+    try {
+      // 检查同步服务状态
+      const status = this.syncService.getStatus();
+      
+      // 如果同步正在进行中，直接返回跳过状态而不是错误
+      if (status.currentPhase !== 'idle') {
+        return {
+          status: 'skipped',
+          message: `Sync already in progress (phase: ${status.currentPhase})`,
+          duration: Date.now() - startTime
+        };
+      }
+
+      // 执行同步
+      await this.syncService.triggerSync();
+      const duration = Date.now() - startTime;
+      
+      this.totalSyncs++;
+      this.totalSyncTime += duration;
+      
+      return {
+        status: 'completed',
+        message: `Sync completed successfully`,
+        duration
+      };
+
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      // 对于"已在进行中"的错误，返回跳过状态而不是失败
+      if (error instanceof Error && (
+        error.message === 'Sync is already in progress' ||
+        error.message.includes('already in progress') ||
+        error.message.includes('already running')
+      )) {
+        return {
+          status: 'skipped',
+          message: 'Sync already in progress',
+          duration
+        };
+      }
+      
+      // 对于其他错误，增加错误计数但返回结构化响应
+      this.errorCount++;
+      return {
+        status: 'failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        duration
+      };
     }
   }
 
