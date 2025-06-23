@@ -62,18 +62,18 @@ export class OnChainService {
   
   constructor(private env: Env) {
     // 初始化BSC客户端
-    if (env.BSC_RPC_URL) {
+    if (env.BSC_INFURA_URL) {
       this.publicClients.set('bsc', createPublicClient({
         chain: bsc,
-        transport: http(env.BSC_RPC_URL)
+        transport: http(env.BSC_INFURA_URL)
       }));
     }
     
     // 初始化BSC测试网客户端
-    if (env.BSCTEST_RPC_URL) {
+    if (env.BSC_TEST_INFURA_URL) {
       this.publicClients.set('bsc-testnet', createPublicClient({
         chain: bscTestnet,
-        transport: http(env.BSCTEST_RPC_URL)
+        transport: http(env.BSC_TEST_INFURA_URL)
       }));
     }
   }

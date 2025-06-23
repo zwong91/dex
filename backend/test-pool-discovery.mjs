@@ -18,8 +18,8 @@ const mockEnv = {
   },
   
   // BSC RPC URLs
-  BSC_RPC_URL: 'https://bsc-dataseed1.binance.org/',
-  BSCTEST_RPC_URL: 'https://data-seed-prebsc-1-s1.binance.org:8545/'
+  BSC_INFURA_URL: 'https://bsc-dataseed1.binance.org/',
+  BSC_TEST_INFURA_URL: 'https://data-seed-prebsc-1-s1.binance.org:8545/'
 };
 
 async function testPoolDiscovery() {

@@ -231,8 +231,8 @@ export class SyncCoordinator {
   private checkRequiredEnvVars(): void {
     const required = [
       'D1_DATABASE',
-      'BSC_RPC_URL',
-      'BSCTEST_RPC_URL'
+      'BSC_INFURA_URL',
+      'BSC_TEST_INFURA_URL'
     ];
 
     const missing = required.filter(key => !this.env[key as keyof Env]);

@@ -36,7 +36,6 @@ export class PriceService {
 
   // 价格数据源配置
   private readonly priceSources: PriceSource[] = [
-    { name: 'coincap', url: 'https://api.coincap.io/v2', weight: 0.4 },
     { name: 'coinmarketcap', url: 'https://pro-api.coinmarketcap.com/v1', weight: 0.3 },
     { name: 'binance', url: 'https://api.binance.com/api/v3', weight: 0.2 },
     { name: 'pancakeswap', url: 'https://api.pancakeswap.info/api/v2', weight: 0.1 }
@@ -247,7 +246,6 @@ export class PriceService {
     }
 
     const pricePromises: Promise<PriceResponse | null>[] = [
-      this.fetchFromCoinCap(tokenMapping.coincapId),
       this.fetchFromPancakeSwap(tokenAddress),
       this.fetchFromBinance(tokenMapping.symbol)
     ];
@@ -269,36 +267,7 @@ export class PriceService {
     return this.aggregatePrices(validPrices, tokenAddress);
   }
 
-  /**
-   * Fetch price from CoinCap
-   */
-  private async fetchFromCoinCap(assetId: string): Promise<PriceResponse | null> {
-    try {
-      if (!assetId) return null;
-      const url = `https://api.coincap.io/v2/assets/${assetId}`;
-      const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
-      if (!response.ok) {
-        throw new Error(`CoinCap API error: ${response.status}`);
-      }
-      const data = await response.json() as any;
-      if (!data.data) return null;
-      return {
-        address: '',
-        price: parseFloat(data.data.priceUsd) || 0,
-        volume24h: parseFloat(data.data.volumeUsd24Hr) || undefined,
-        marketCap: parseFloat(data.data.marketCapUsd) || undefined,
-        timestamp: Date.now(),
-        source: 'coincap'
-      };
-    } catch (error) {
-      console.error('CoinCap fetch error:', error);
-      return null;
-    }
-  }
+
 
   /**
    * 从PancakeSwap获取价格

@@ -15,8 +15,8 @@ export interface Env {
 	KEY: string;
 	NODE_ENV?: string;
 	// RPC URLs
-	BSC_RPC_URL?: string;
-	BSCTEST_RPC_URL?: string;
+	BSC_INFURA_URL?: string;
+	BSC_TEST_INFURA_URL?: string;
 	// Contract addresses
 	LB_FACTORY_BSC?: string;
 	LB_FACTORY_BSCTEST?: string;

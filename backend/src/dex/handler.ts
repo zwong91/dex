@@ -246,7 +246,7 @@ function handleHealthCheck(env: any, corsHeaders: CorsHeaders): Response {
     database: env.D1_DATABASE ? 'connected' : 'disconnected',
     services: {
       database: env.D1_DATABASE ? 'online' : 'offline',
-      blockchain_rpc: env.BSC_RPC_URL ? 'configured' : 'missing',
+      blockchain_rpc: env.BSC_INFURA_URL ? 'configured' : 'missing',
       price_api: env.PRICE_API_URL ? 'configured' : 'missing'
     }
   }), {

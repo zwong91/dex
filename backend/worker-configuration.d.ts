@@ -5,8 +5,8 @@ declare namespace Cloudflare {
 	interface Env {
 		KEY: "YOUR_SECRET_KEY_HERE";
 		NODE_ENV: "development";
-		BSC_RPC_URL: "https://bsc-dataseed1.binance.org/";
-		BSCTEST_RPC_URL: "https://data-seed-prebsc-1-s1.binance.org:8545/";
+		BSC_INFURA_URL: "https://bsc-dataseed1.binance.org/";
+		BSC_TEST_INFURA_URL: "https://data-seed-prebsc-1-s1.binance.org:8545/";
 		LB_FACTORY_BSC: "0x7D73A6eFB91C89502331b2137c2803408838218b";
 		LB_FACTORY_BSCTEST: "0x7D73A6eFB91C89502331b2137c2803408838218b";
 		LB_ROUTER_BSC: "0xe98efCE22A8Ec0dd5dDF6C1A81B6ADD740176E98";
@@ -24,7 +24,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "KEY" | "NODE_ENV" | "BSC_RPC_URL" | "BSCTEST_RPC_URL" | "LB_FACTORY_BSC" | "LB_FACTORY_BSCTEST" | "LB_ROUTER_BSC" | "LB_ROUTER_BSCTEST" | "LB_QUOTER_BSC" | "LB_QUOTER_BSCTEST" | "PRICE_API_URL" | "PRICE_API_KEY" | "API_RATE_LIMIT">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "KEY" | "NODE_ENV" | "BSC_INFURA_URL" | "BSC_TEST_INFURA_URL" | "LB_FACTORY_BSC" | "LB_FACTORY_BSCTEST" | "LB_ROUTER_BSC" | "LB_ROUTER_BSCTEST" | "LB_QUOTER_BSC" | "LB_QUOTER_BSCTEST" | "PRICE_API_URL" | "PRICE_API_KEY" | "API_RATE_LIMIT">> {}
 }
 
 // Begin runtime types

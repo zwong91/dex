@@ -59,8 +59,8 @@ export function createMockEnv(): Env {
     R2: {} as any,
     
     // Environment variables  
-    BSC_RPC_URL: 'https://bsc-dataseed1.binance.org/',
-    BSCTEST_RPC_URL: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
+    BSC_INFURA_URL: 'https://bsc-dataseed1.binance.org/',
+    BSC_TEST_INFURA_URL: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
     LB_FACTORY_BSC: '0x8e42f2F4101563bF679975178e880FD87d3eFd4e',
     LB_FACTORY_BSCTEST: '0x8e42f2F4101563bF679975178e880FD87d3eFd4e',
     LB_ROUTER_BSC: '0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30',

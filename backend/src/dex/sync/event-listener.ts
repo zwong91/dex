@@ -74,7 +74,7 @@ export class EventListener {
     this.chain = chain;
     
     // 创建公共客户端
-    const rpcUrl = chain === 'bsc' ? env.BSC_RPC_URL : env.BSCTEST_RPC_URL;
+    const rpcUrl = chain === 'bsc' ? env.BSC_INFURA_URL : env.BSC_TEST_INFURA_URL;
     const chainConfig = chain === 'bsc' ? bsc : bscTestnet;
     
     if (!rpcUrl) {

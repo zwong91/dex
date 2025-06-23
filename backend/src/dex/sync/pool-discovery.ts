@@ -75,18 +75,18 @@ export class PoolDiscoveryService {
    */
   private initializeClients(): void {
     // BSC 主网
-    if (this.env.BSC_RPC_URL) {
+    if (this.env.BSC_INFURA_URL) {
       this.publicClients.set('bsc', createPublicClient({
         chain: bsc,
-        transport: http(this.env.BSC_RPC_URL)
+        transport: http(this.env.BSC_INFURA_URL)
       }));
     }
 
     // BSC 测试网
-    if (this.env.BSCTEST_RPC_URL) {
+    if (this.env.BSC_TEST_INFURA_URL) {
       this.publicClients.set('bsc-testnet', createPublicClient({
         chain: bscTestnet,
-        transport: http(this.env.BSCTEST_RPC_URL)
+        transport: http(this.env.BSC_TEST_INFURA_URL)
       }));
     }
   }

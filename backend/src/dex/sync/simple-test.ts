@@ -436,8 +436,8 @@ async function testBlockchainConnection(env: Env, corsHeaders: Record<string, st
   try {
     // 检查环境变量
     const rpcUrls = {
-      BSC_RPC_URL: env.BSC_RPC_URL,
-      BSCTEST_RPC_URL: env.BSCTEST_RPC_URL
+      BSC_INFURA_URL: env.BSC_INFURA_URL,
+      BSC_TEST_INFURA_URL: env.BSC_TEST_INFURA_URL
     };
     
     const contractAddresses = {
@@ -449,8 +449,8 @@ async function testBlockchainConnection(env: Env, corsHeaders: Record<string, st
     
     // 简单的配置验证（不进行实际网络调用以避免超时）
     let rpcTestResult = {
-      bscTestUrlValid: !!env.BSCTEST_RPC_URL && env.BSCTEST_RPC_URL.startsWith('http'),
-      bscUrlValid: !!env.BSC_RPC_URL && env.BSC_RPC_URL.startsWith('http'),
+      bscTestUrlValid: !!env.BSC_TEST_INFURA_URL && env.BSC_TEST_INFURA_URL.startsWith('http'),
+      bscUrlValid: !!env.BSC_INFURA_URL && env.BSC_INFURA_URL.startsWith('http'),
       factoryAddressValid: !!env.LB_FACTORY_BSCTEST && env.LB_FACTORY_BSCTEST.startsWith('0x'),
       routerAddressValid: !!env.LB_ROUTER_BSCTEST && env.LB_ROUTER_BSCTEST.startsWith('0x'),
       note: 'Skipping actual RPC calls to avoid timeout issues'

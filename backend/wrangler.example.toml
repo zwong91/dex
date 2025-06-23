@@ -49,8 +49,9 @@ NODE_ENV = "production"
 API_RATE_LIMIT = "100"
 
 # Blockchain RPC endpoints
-BSC_RPC_URL = "https://bsc-dataseed1.binance.org/"
-BSCTEST_RPC_URL = "https://data-seed-prebsc-1-s1.binance.org:8545/"
+# 用 wrangler secret 管理 key，URL 保留 Infura 格式，key 用 secret 注入
+BSC_TEST_INFURA_URL = "https://bsc-testnet.infura.io/v3/${BSC_TEST_INFURA_KEY}"
+BSC_INFURA_URL = "https://bsc-mainnet.infura.io/v3/${BSC_INFURA_KEY}"
 
 # Contract addresses
 LB_FACTORY_BSC = "0x7D73A6eFB91C89502331b2137c2803408838218b"

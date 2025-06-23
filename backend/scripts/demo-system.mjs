@@ -17,8 +17,8 @@ import {
 // 模拟环境变量
 const mockEnv = {
   D1_DATABASE: { exec: () => Promise.resolve({ results: [] }) },
-  BSC_RPC_URL: 'https://bsc-dataseed1.binance.org/',
-  BSCTEST_RPC_URL: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
+  BSC_INFURA_URL: 'https://bsc-dataseed1.binance.org/',
+  BSC_TEST_INFURA_URL: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
 };
 
 console.log('🎉 DEX 同步系统演示\n');
