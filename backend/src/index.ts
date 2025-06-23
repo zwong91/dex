@@ -168,7 +168,7 @@ export default {
 
 			// 根据 cron 表达式执行相应的任务
 			switch (controller.cron) {
-				case "*/5 * * * *": // sync-pools-frequent - 每5分钟
+				case "*/2 * * * *": // sync-pools-frequent - 每5分钟
 					await cronHandler.handleFrequentPoolSync();
 					break;
 
