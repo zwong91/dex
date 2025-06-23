@@ -4,9 +4,7 @@ import { EventListener } from './event-listener';
 import { OnChainService } from './onchain-service';
 import { PriceService } from './price-service';
 import { PoolDiscoveryService } from './pool-discovery';
-import { 
-  POOL_DISCOVERY_CONFIG
-} from './pool-config';
+import { getPoolDiscoveryConfig } from './pool-config';
 import type { Env } from '../../index';
 
 export interface SyncCoordinatorConfig {
@@ -48,7 +46,7 @@ export interface SyncMetrics {
 }
 
 /**
- * 工业级同步协调器
+ * 同步协调器
  * 
  * 负责管理和协调所有同步服务，提供：
  * - 自动故障恢复

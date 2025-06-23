@@ -2,7 +2,7 @@ import { EventListener } from './event-listener';
 import { DatabaseService } from './database-service';
 import { OnChainService } from './onchain-service';
 import { PriceService } from './price-service';
-import { POOL_DISCOVERY_CONFIG } from './pool-config';
+import { getPoolDiscoveryConfig } from './pool-config';
 import type { Env } from '../../index';
 
 export interface SyncConfig {

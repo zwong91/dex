@@ -316,7 +316,7 @@ export class PoolDiscoveryService {
           client.getBlockNumber()
         ]);
       } catch (err) {
-        console.warn(`⏭️  ${poolAddress} is not a valid LB pool, skipping. Reason:`, err?.message || err);
+        console.warn(`⏭️  ${poolAddress} is not a valid LB pool, skipping. Reason:`, (err && typeof err === 'object' && 'message' in err) ? (err as any).message : String(err));
         return null;
       }
 

@@ -7,7 +7,7 @@
  * - 自动同步服务
  * - 链上数据验证
  * - 价格数据更新
- * - 工业级监控和恢复
+ * - 监控和恢复
  */
 
 // 核心服务
@@ -19,9 +19,7 @@ export { PriceService } from './price-service';
 export { PoolDiscoveryService } from './pool-discovery';
 
 // 池配置
-export {
-  POOL_DISCOVERY_CONFIG
-} from './pool-config';
+export { getPoolDiscoveryConfig } from './pool-config';
 
 // 同步协调器
 export {
