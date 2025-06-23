@@ -600,9 +600,9 @@ export class SyncService {
 export const DEFAULT_SYNC_CONFIG: SyncConfig = {
   chains: [/*'bsc', */'bsc-testnet'],
   poolAddresses: [], // 空数组，依赖池发现功能
-  batchSize: 100,
+  batchSize: 200,
   maxBlockRange: 10000,
-  syncInterval: 5 * 60 * 1000, // 5分钟
+  syncInterval: 1 * 60 * 1000, // 1分钟
   retryAttempts: 3,
   retryDelay: 1000 // 1秒
 };
