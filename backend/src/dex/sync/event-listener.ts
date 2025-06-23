@@ -354,7 +354,7 @@ export class EventListener {
     poolAddress: string,
     fromBlock: bigint,
     toBlock: bigint,
-    batchSize: bigint = 1000n
+    batchSize: bigint = 100n
   ): Promise<void> {
     try {
       console.log(`Starting batch sync for pool ${poolAddress} from ${fromBlock} to ${toBlock}`);
@@ -505,7 +505,7 @@ export class EventListener {
       const liquidityProgress = await this.getSyncProgress(poolAddress, 'liquidity');
       
       // 确定开始区块
-      const startBlock = swapProgress ? swapProgress.lastBlockNumber + 1n : latestBlock - 10000n;
+      const startBlock = swapProgress ? swapProgress.lastBlockNumber + 1n : latestBlock - 100n;
       
       if (startBlock <= latestBlock) {
         await this.syncEventsBatch(poolAddress, startBlock, latestBlock);

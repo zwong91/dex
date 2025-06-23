@@ -268,6 +268,13 @@ export class PoolDiscoveryService {
     client: any
   ): Promise<DiscoveredPool | null> {
     try {
+      // 先判断是否为合约
+      const code = await client.getBytecode({ address: poolAddress as `0x${string}` });
+      if (!code || code === '0x') {
+        console.warn(`⏭️  ${poolAddress} is not a contract, skipping`);
+        return null;
+      }
+
       // Trader Joe LB Pool ABI - 获取池的基本信息
       const LB_POOL_ABI = [
         parseAbiItem('function getTokenX() external view returns (address)'),
@@ -278,34 +285,40 @@ export class PoolDiscoveryService {
       ];
 
       // 获取池的基本信息
-      const [tokenX, tokenY, binStep, reserves, activeId, blockNumber] = await Promise.all([
-        client.readContract({
-          address: poolAddress as `0x${string}`,
-          abi: LB_POOL_ABI,
-          functionName: 'getTokenX'
-        }),
-        client.readContract({
-          address: poolAddress as `0x${string}`,
-          abi: LB_POOL_ABI,
-          functionName: 'getTokenY'
-        }),
-        client.readContract({
-          address: poolAddress as `0x${string}`,
-          abi: LB_POOL_ABI,
-          functionName: 'getBinStep'
-        }),
-        client.readContract({
-          address: poolAddress as `0x${string}`,
-          abi: LB_POOL_ABI,
-          functionName: 'getReserves'
-        }).catch(() => ({ reserveX: 0n, reserveY: 0n })),
-        client.readContract({
-          address: poolAddress as `0x${string}`,
-          abi: LB_POOL_ABI,
-          functionName: 'getActiveId'
-        }).catch(() => 0),
-        client.getBlockNumber()
-      ]);
+      let tokenX, tokenY, binStep, reserves, activeId, blockNumber;
+      try {
+        [tokenX, tokenY, binStep, reserves, activeId, blockNumber] = await Promise.all([
+          client.readContract({
+            address: poolAddress as `0x${string}`,
+            abi: LB_POOL_ABI,
+            functionName: 'getTokenX'
+          }),
+          client.readContract({
+            address: poolAddress as `0x${string}`,
+            abi: LB_POOL_ABI,
+            functionName: 'getTokenY'
+          }),
+          client.readContract({
+            address: poolAddress as `0x${string}`,
+            abi: LB_POOL_ABI,
+            functionName: 'getBinStep'
+          }),
+          client.readContract({
+            address: poolAddress as `0x${string}`,
+            abi: LB_POOL_ABI,
+            functionName: 'getReserves'
+          }).catch(() => ({ reserveX: 0n, reserveY: 0n })),
+          client.readContract({
+            address: poolAddress as `0x${string}`,
+            abi: LB_POOL_ABI,
+            functionName: 'getActiveId'
+          }).catch(() => 0),
+          client.getBlockNumber()
+        ]);
+      } catch (err) {
+        console.warn(`⏭️  ${poolAddress} is not a valid LB pool, skipping. Reason:`, err?.message || err);
+        return null;
+      }
 
       // 获取代币信息
       const [tokenXInfo, tokenYInfo] = await Promise.all([

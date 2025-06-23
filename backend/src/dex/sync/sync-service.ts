@@ -501,9 +501,9 @@ export class SyncService {
 
 // 默认同步配置
 export const DEFAULT_SYNC_CONFIG: SyncConfig = {
-  chains: ['bsc', 'bsc-testnet'],
+  chains: [/*'bsc', */'bsc-testnet'],
   poolAddresses: [], // 空数组，依赖池发现功能
-  batchSize: 1000,
+  batchSize: 100,
   maxBlockRange: 10000,
   syncInterval: 5 * 60 * 1000, // 5分钟
   retryAttempts: 3,
