@@ -24,7 +24,7 @@ export function getPoolDiscoveryConfig(env: any) {
       'bsc-testnet': env.LB_FACTORY_BSCTEST
     },
     // 最小流动性阈值（USD）
-    minLiquidityUsd: 10000,
+    minLiquidityUsd: 0,
     // 扫描的最大池数量（每次扫描）
     maxPoolsToScan: 100,
     // 扫描间隔（毫秒）

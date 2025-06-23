@@ -21,12 +21,13 @@ cp wrangler.example.toml wrangler.toml
 ### 2. Database Setup
 ```bash
 # Create new D1 database
+export CLOUDFLARE_API_TOKEN=<api token>
 wrangler d1 create d1-dex-database
 
 # Apply migrations
 npm run migrate:local
 
-# Initialize with sample data
+# Initialize with privilege
 npm run db:init
 ```
 
