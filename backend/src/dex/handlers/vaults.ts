@@ -1,98 +1,140 @@
 import { createApiResponse, createErrorResponse, parseQueryParams, getRequestContext } from '../utils';
+import { subgraphClient, isSubgraphHealthy } from '../graphql/client';
 import type { VaultInfo, PaginationInfo } from '../types';
 
 // Handler for vaults list
 export async function handleVaultsList(request: Request, env: any): Promise<Response> {
-  const url = new URL(request.url);
-  const page = parseInt(url.searchParams.get('page') || '1');
-  const limit = parseInt(url.searchParams.get('limit') || '20');
-  const status = url.searchParams.get('status') || 'all'; // active, paused, deprecated
-  const sortBy = url.searchParams.get('sortBy') || 'tvl'; // tvl, apy, name
+  try {
+    const url = new URL(request.url);
+    const { page, limit } = parseQueryParams(url);
+    const { corsHeaders } = getRequestContext(env);
+    
+    const status = url.searchParams.get('status') || 'all';
+    const sortBy = url.searchParams.get('sortBy') || 'totalValueLockedUSD';
+    const offset = (page - 1) * limit;
+    
+    // Check subgraph health
+    const subgraphHealth = await isSubgraphHealthy();
+    
+    if (!subgraphHealth.healthy) {
+      return createErrorResponse(
+        'Subgraph unavailable',
+        'SUBGRAPH_ERROR',
+        corsHeaders,
+        503
+      );
+    }
 
-  const mockVaultsList = {
-    pagination: {
-      page: page,
-      limit: limit,
-      total: 45,
-      hasMore: page * limit < 45
-    },
-    filters: {
-      status: status,
-      sortBy: sortBy
-    },
-    vaults: [
-      {
-        vaultId: "vault_001",
-        vaultAddress: "0xvault1234567890abcdef1234567890abcdef12345",
-        name: "High Yield ETH-USDC Vault",
-        description: "Automated yield farming for ETH-USDC liquidity",
-        chain: "bsc",
-        poolAddress: "0x1234567890abcdef1234567890abcdef12345678",
-        strategy: "auto_compound",
-        riskLevel: "medium",
+    console.log('🔗 Fetching vaults from subgraph...');
+    
+    // Get pools data that can act as "vaults" (pools with significant liquidity)
+    const pools = await subgraphClient.getPools(limit, offset, sortBy, 'desc');
+    
+    // Transform pools to vault format
+    const vaults = pools
+      .filter(pool => parseFloat(pool.totalValueLockedUSD || '0') > 10000) // Minimum TVL for vaults
+      .map(pool => ({
+        vaultId: pool.id,
+        vaultAddress: pool.id,
+        name: `${pool.tokenX.symbol}/${pool.tokenY.symbol} Auto-Compound Vault`,
+        description: `Automated yield farming for ${pool.tokenX.symbol}-${pool.tokenY.symbol} liquidity`,
+        chain: 'bsc-testnet',
+        poolAddress: pool.id,
+        strategy: 'auto_compound',
+        riskLevel: calculateRiskLevel(pool),
         tokenX: {
-          symbol: "ETH",
-          name: "Ethereum",
-          address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+          symbol: pool.tokenX.symbol,
+          name: pool.tokenX.name,
+          address: pool.tokenX.id
         },
         tokenY: {
-          symbol: "USDC",
-          name: "USD Coin",
-          address: "0xA0b86a33E6441C1a40Fb9BB1b3F3C3b8F79e0d10"
+          symbol: pool.tokenY.symbol,
+          name: pool.tokenY.name,
+          address: pool.tokenY.id
         },
-        tvl: "5100000.0",
-        apy: 18.5,
-        totalShares: "75000.0",
-        sharePrice: "68.0",
+        tvl: pool.totalValueLockedUSD,
+        apy: calculateAPY(pool),
+        totalShares: calculateTotalShares(pool),
+        sharePrice: calculateSharePrice(pool),
         managementFee: 0.5,
         performanceFee: 10.0,
-        status: "active",
-        createdAt: "2024-01-15T00:00:00Z",
-        lastUpdate: Math.floor(Date.now() / 1000) - 300
-      },
-      {
-        vaultId: "vault_002",
-        vaultAddress: "0xvault2abcdef1234567890abcdef1234567890abcd",
-        name: "Stable Yield BNB-BUSD Vault",
-        description: "Conservative yield strategy for BNB-BUSD",
-        chain: "bsc",
-        poolAddress: "0xabcdef1234567890abcdef1234567890abcdef12",
-        strategy: "yield_optimization",
-        riskLevel: "low",
-        tokenX: {
-          symbol: "BNB",
-          name: "Binance Coin",
-          address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
-        },
-        tokenY: {
-          symbol: "BUSD",
-          name: "Binance USD",
-          address: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"
-        },
-        tvl: "2250000.0",
-        apy: 12.3,
-        totalShares: "45000.0",
-        sharePrice: "50.0",
-        managementFee: 0.3,
-        performanceFee: 8.0,
-        status: "active",
-        createdAt: "2024-02-01T00:00:00Z",
-        lastUpdate: Math.floor(Date.now() / 1000) - 600
-      }
-    ],
-    summary: {
-      totalVaults: 45,
-      totalTvl: "15750000.0",
-      averageApy: 15.8,
-      activeVaults: 42,
-      pausedVaults: 2,
-      deprecatedVaults: 1
-    }
-  };
+        status: pool.liquidityProviderCount > 0 ? 'active' : 'inactive',
+        createdAt: new Date(pool.timestamp * 1000).toISOString(),
+        lastUpdate: pool.timestamp
+      }));
 
-  return new Response(JSON.stringify(mockVaultsList), {
-    headers: { 'Content-Type': 'application/json' }
-  });
+    const total = vaults.length;
+    const pagination = {
+      page,
+      limit,
+      total,
+      hasMore: page * limit < total
+    };
+
+    const summary = {
+      totalVaults: total,
+      totalTvl: vaults.reduce((sum, vault) => sum + parseFloat(vault.tvl || '0'), 0).toString(),
+      averageApy: vaults.length > 0 ? vaults.reduce((sum, vault) => sum + vault.apy, 0) / vaults.length : 0,
+      activeVaults: vaults.filter(v => v.status === 'active').length,
+      pausedVaults: vaults.filter(v => v.status === 'paused').length,
+      deprecatedVaults: vaults.filter(v => v.status === 'deprecated').length
+    };
+
+    const response = {
+      pagination,
+      filters: { status, sortBy },
+      vaults,
+      summary
+    };
+
+    return createApiResponse(response, corsHeaders);
+    
+  } catch (error) {
+    console.error('❌ Error fetching vaults:', error);
+    const { corsHeaders } = getRequestContext(env);
+    return createErrorResponse(
+      'Failed to fetch vaults data',
+      'GRAPHQL_ERROR',
+      corsHeaders,
+      500
+    );
+  }
+}
+
+// Helper functions for vault calculations
+function calculateRiskLevel(pool: any): 'low' | 'medium' | 'high' {
+  const tvl = parseFloat(pool.totalValueLockedUSD || '0');
+  const volume24h = parseFloat(pool.volumeUSD || '0');
+  
+  if (tvl > 1000000 && volume24h / tvl < 0.1) return 'low';
+  if (tvl > 100000 && volume24h / tvl < 0.5) return 'medium';
+  return 'high';
+}
+
+function calculateAPY(pool: any): number {
+  const tvl = parseFloat(pool.totalValueLockedUSD || '0');
+  const fees24h = parseFloat(pool.feesUSD || '0');
+  
+  if (tvl === 0) return 0;
+  
+  // Annualized APY based on 24h fees
+  const dailyReturn = fees24h / tvl;
+  const apy = ((1 + dailyReturn) ** 365 - 1) * 100;
+  
+  return Math.min(apy, 500); // Cap at 500% APY
+}
+
+function calculateTotalShares(pool: any): string {
+  const tvl = parseFloat(pool.totalValueLockedUSD || '0');
+  const sharePrice = 50; // Base share price
+  return (tvl / sharePrice).toFixed(2);
+}
+
+function calculateSharePrice(pool: any): string {
+  // Simple share price calculation based on TVL and performance
+  const basePricei = 50;
+  const performanceMultiplier = 1 + (calculateAPY(pool) / 100 / 365 * 30); // Monthly growth
+  return (basePricei * performanceMultiplier).toFixed(2);
 }
 
 // Handler for vaults by chain

@@ -1,8 +1,13 @@
 /**
  * DEX API Routing Module
  * Centralized routing logic for all DEX endpoints
+ * Updated to use GraphQL-only handlers as the primary implementation
  */
 
+// Export GraphQL-only routes as the main routes
+export * from './graphql-routes';
+
+// Legacy imports (kept for backward compatibility if needed)
 import { handlePoolsList, handleTokensList, handleDexAnalytics, handlePoolsByChain, handlePoolDetails } from '../handlers/pools';
 import { handleUserRewards, handleBatchRewardsProof, handleClaimableRewards, handleRewardsHistory } from '../handlers/rewards';
 import { handleUserBinIds, handleUserPoolIds, handlePoolUserBalances, handleUserHistory, handleUserFeesEarned, handleUserLifetimeStats } from '../handlers/users';

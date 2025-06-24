@@ -1,12 +1,12 @@
 /**
- * DEX API Main Handler (Refactored)
+ * DEX API Main Handler (Pure GraphQL)
  * 
- * This is the refactored main handler that uses the modular components.
- * All business logic has been moved to specialized modules for better maintainability.
+ * Updated to use GraphQL-only routes and handlers.
+ * All data comes from the subgraph - no database dependencies.
  */
 
 import { validateApiKey, hasPermission, checkRateLimit, trackApiUsage } from './auth';
-import { matchRoute, extractRouteParams } from './routing';
+import { matchGraphQLRoute, extractRouteParams } from './routing/graphql-routes';
 import type { CorsHeaders } from './types';
 
 /**
@@ -99,8 +99,8 @@ export async function createDexHandler(env: any) {
         });
       }
 
-      // Find matching route
-      const route = matchRoute(url.pathname, request.method);
+      // Find matching route using GraphQL-only routes
+      const route = matchGraphQLRoute(url.pathname, request.method);
       if (!route) {
         return new Response(JSON.stringify({
           error: 'Endpoint not found',
