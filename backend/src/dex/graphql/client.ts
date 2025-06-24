@@ -182,6 +182,51 @@ export class SubgraphClient {
   }
 
   /**
+   * Check subgraph health and availability
+   */
+  async checkHealth(): Promise<{ healthy: boolean; blockNumber?: number; hasIndexingErrors?: boolean; error?: string }> {
+    try {
+      const meta = await this.getMeta();
+      if (!meta) {
+        return { healthy: false, error: 'No metadata available' };
+      }
+
+      if (meta.hasIndexingErrors) {
+        return { 
+          healthy: false, 
+          error: 'Subgraph has indexing errors',
+          hasIndexingErrors: true,
+          blockNumber: meta.block.number
+        };
+      }
+
+      // Check if the subgraph is reasonably up to date (within last hour)
+      const currentTime = Date.now() / 1000;
+      const timeDiff = currentTime - meta.block.timestamp;
+      
+      if (timeDiff > 3600) { // More than 1 hour behind
+        return { 
+          healthy: false, 
+          error: `Subgraph is ${Math.floor(timeDiff / 60)} minutes behind`,
+          blockNumber: meta.block.number,
+          hasIndexingErrors: false
+        };
+      }
+
+      return { 
+        healthy: true, 
+        blockNumber: meta.block.number,
+        hasIndexingErrors: false
+      };
+    } catch (error) {
+      return { 
+        healthy: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
    * Get all pools with basic information
    */
   async getPools(
@@ -517,6 +562,27 @@ export class SubgraphClient {
  * Create a singleton instance of the subgraph client
  */
 export const subgraphClient = new SubgraphClient();
+
+/**
+ * Factory function to create a subgraph client instance
+ * This allows for better testing and environment-specific configuration
+ */
+export function createSubgraphClient(env?: any): SubgraphClient {
+  const client = new SubgraphClient();
+  
+  // Set environment-specific configuration if provided
+  if (env?.SUBGRAPH_URL) {
+    // In a real implementation, you might want to configure the client URL here
+    console.log('Using subgraph URL from environment:', env.SUBGRAPH_URL);
+  }
+  
+  return client;
+}
+
+/**
+ * Default client instance for backward compatibility
+ */
+export { subgraphClient as default };
 
 /**
  * Utility function to check if the subgraph is available and synced

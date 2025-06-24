@@ -1,393 +1,368 @@
 /**
- * Pure GraphQL Farms Handlers
- * 
- * This module provides handlers for farm-related API endpoints using only GraphQL subgraph data.
- * Farms are derived from high-yield pools with additional reward mechanisms.
+ * DEX Farms Handlers - Pure GraphQL Implementation with Hono
+ * Farms are pools with additional reward mechanisms
  */
 
-import { createApiResponse, createErrorResponse, parseQueryParams, getRequestContext } from '../utils';
-import { subgraphClient, isSubgraphHealthy } from '../graphql/client';
+import type { Context } from 'hono';
+import { createSubgraphClient } from '../graphql/client';
+import type { Env } from '../../index';
 
-// Farm status based on pool metrics
-function calculateFarmStatus(pool: any): 'active' | 'paused' | 'ended' {
-  const tvl = parseFloat(pool.totalValueLockedUSD || '0');
-  const volume = parseFloat(pool.volumeUSD || '0');
-  
-  if (tvl > 10000 && volume > 1000) return 'active';
-  if (tvl > 1000) return 'paused';
-  return 'ended';
+/**
+ * Create farms handler factory
+ */
+export function createFarmsHandler(action: string) {
+	return async function farmsHandler(c: Context<{ Bindings: Env }>) {
+		try {
+			const subgraphClient = createSubgraphClient(c.env);
+			
+			// Check if subgraph is available and healthy
+			const subgraphHealth = await subgraphClient.checkHealth();
+			
+			if (!subgraphHealth.healthy) {
+				return c.json({
+					success: false,
+					error: 'Subgraph unavailable',
+					message: 'SUBGRAPH_ERROR',
+					timestamp: new Date().toISOString()
+				}, 503);
+			}
+
+			switch (action) {
+				case 'list':
+					return await handleFarmsList(c, subgraphClient);
+				case 'userFarms':
+					return await handleUserFarms(c, subgraphClient);
+				case 'userFarmDetails':
+					return await handleUserFarmDetails(c, subgraphClient);
+				default:
+					return c.json({
+						error: 'Invalid action',
+						timestamp: new Date().toISOString()
+					}, 400);
+			}
+
+		} catch (error) {
+			console.error('Farms handler error:', error);
+			return c.json({
+				error: 'Internal server error',
+				message: error instanceof Error ? error.message : 'Unknown error',
+				timestamp: new Date().toISOString()
+			}, 500);
+		}
+	};
 }
 
-// Calculate farm APR (including LP fees + estimated rewards)
+/**
+ * Get list of all farms (pools with reward mechanisms)
+ */
+async function handleFarmsList(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	const page = parseInt(c.req.query('page') || '1');
+	const limit = Math.min(parseInt(c.req.query('limit') || '50'), 100);
+	const minTvl = parseFloat(c.req.query('minTvl') || '5000'); // Minimum TVL for farm eligibility
+	
+	console.log('🔗 Fetching farm-eligible pools from subgraph...');
+	
+	// Get pools sorted by TVL to identify farm candidates
+	const pools = await subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc');
+	
+	// Filter pools that qualify as farms (decent TVL, active)
+	const farmEligiblePools = pools.filter((pool: any) => 
+		parseFloat(pool.totalValueLockedUSD || '0') >= minTvl &&
+		parseInt(pool.liquidityProviderCount || '0') > 0 &&
+		parseFloat(pool.volumeUSD24h || '0') > 1000 // Some trading activity
+	);
+
+	// Transform pools to farm format
+	const farms = farmEligiblePools.slice((page - 1) * limit, page * limit).map((pool: any) => 
+		transformPoolToFarm(pool)
+	);
+
+	const pagination = {
+		page,
+		limit,
+		total: farmEligiblePools.length,
+		totalPages: Math.ceil(farmEligiblePools.length / limit),
+		hasNext: page * limit < farmEligiblePools.length,
+		hasPrev: page > 1,
+	};
+
+	return c.json({
+		success: true,
+		data: farms,
+		pagination,
+		timestamp: new Date().toISOString()
+	});
+}
+
+/**
+ * Get user's farm positions
+ */
+async function handleUserFarms(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	const userAddress = c.req.param('address');
+	
+	if (!userAddress || !isValidAddress(userAddress)) {
+		return c.json({
+			error: 'Valid user address is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
+
+	console.log('🔗 Fetching user farm positions from subgraph...', userAddress);
+	
+	const userPositions = await subgraphClient.getUserPositions(userAddress);
+	
+	// Filter positions that are in farm-eligible pools
+	const farmPositions = userPositions.filter((position: any) => 
+		parseFloat(position.pool.totalValueLockedUSD || '0') >= 5000 &&
+		parseFloat(position.pool.volumeUSD24h || '0') > 1000
+	);
+
+	// Transform to farm position format
+	const userFarms = farmPositions.map((position: any) => ({
+		farmId: `farm_${position.pool.id}`,
+		farmAddress: position.pool.id,
+		name: `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol} Farm`,
+		poolAddress: position.pool.id,
+		strategy: 'liquidity_mining',
+		tokenX: {
+			address: position.pool.tokenX.id,
+			symbol: position.pool.tokenX.symbol,
+			name: position.pool.tokenX.name,
+			decimals: position.pool.tokenX.decimals,
+		},
+		tokenY: {
+			address: position.pool.tokenY.id,
+			symbol: position.pool.tokenY.symbol,
+			name: position.pool.tokenY.name,
+			decimals: position.pool.tokenY.decimals,
+		},
+		userPosition: {
+			shares: position.liquidity || '0',
+			valueUsd: position.liquidityUSD || '0',
+			depositedAt: position.createdAtTimestamp ? 
+				parseInt(position.createdAtTimestamp) * 1000 : Date.now(),
+			lastHarvest: position.updatedAtTimestamp ? 
+				parseInt(position.updatedAtTimestamp) * 1000 : Date.now(),
+		},
+		rewards: calculateUserRewards(position),
+		apy: calculateFarmAPY(position.pool),
+		tvl: position.pool.totalValueLockedUSD || '0',
+		status: 'active',
+	}));
+
+	return c.json({
+		success: true,
+		data: {
+			userAddress,
+			farms: userFarms,
+			totalFarms: userFarms.length,
+			totalValueUsd: userFarms.reduce((sum: number, farm: any) => 
+				sum + parseFloat(farm.userPosition.valueUsd), 0).toString(),
+		},
+		timestamp: new Date().toISOString()
+	});
+}
+
+/**
+ * Get specific user farm details
+ */
+async function handleUserFarmDetails(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	const userAddress = c.req.param('address');
+	const farmId = c.req.param('farmId');
+	
+	if (!userAddress || !isValidAddress(userAddress)) {
+		return c.json({
+			error: 'Valid user address is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
+
+	if (!farmId) {
+		return c.json({
+			error: 'Farm ID is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
+
+	// Extract pool ID from farm ID (format: farm_<poolId>)
+	const poolId = farmId.replace('farm_', '');
+	
+	console.log('🔗 Fetching user farm details from subgraph...', userAddress, poolId);
+	
+	const userPositions = await subgraphClient.getUserPositionsInPool(userAddress, poolId);
+	
+	if (!userPositions || userPositions.length === 0) {
+		return c.json({
+			error: 'User farm position not found',
+			farmId,
+			userAddress,
+			timestamp: new Date().toISOString()
+		}, 404);
+	}
+
+	// Get pool details
+	const pool = await subgraphClient.getPoolById(poolId);
+	
+	if (!pool) {
+		return c.json({
+			error: 'Farm pool not found',
+			farmId,
+			timestamp: new Date().toISOString()
+		}, 404);
+	}
+
+	// Aggregate user positions in this farm
+	const totalLiquidity = userPositions.reduce((sum: number, pos: any) => 
+		sum + parseFloat(pos.liquidity || '0'), 0);
+	
+	const totalLiquidityUSD = userPositions.reduce((sum: number, pos: any) => 
+		sum + parseFloat(pos.liquidityUSD || '0'), 0);
+
+	const farmDetails = {
+		farmId,
+		farmAddress: poolId,
+		name: `${pool.tokenX.symbol}/${pool.tokenY.symbol} Farm`,
+		description: `Liquidity mining farm for ${pool.tokenX.symbol}/${pool.tokenY.symbol} pair`,
+		poolAddress: poolId,
+		strategy: 'liquidity_mining',
+		tokenX: {
+			address: pool.tokenX.id,
+			symbol: pool.tokenX.symbol,
+			name: pool.tokenX.name,
+			decimals: pool.tokenX.decimals,
+		},
+		tokenY: {
+			address: pool.tokenY.id,
+			symbol: pool.tokenY.symbol,
+			name: pool.tokenY.name,
+			decimals: pool.tokenY.decimals,
+		},
+		userPosition: {
+			shares: totalLiquidity.toString(),
+			valueUsd: totalLiquidityUSD.toString(),
+			positionCount: userPositions.length,
+			positions: userPositions.map((pos: any) => ({
+				binId: pos.binId,
+				liquidity: pos.liquidity,
+				liquidityUSD: pos.liquidityUSD,
+				tokenXBalance: pos.tokenXBalance || '0',
+				tokenYBalance: pos.tokenYBalance || '0',
+			})),
+			depositedAt: userPositions.length > 0 ? 
+				Math.min(...userPositions.map((pos: any) => parseInt(pos.createdAtTimestamp || '0'))) * 1000 : 
+				Date.now(),
+			lastHarvest: userPositions.length > 0 ? 
+				Math.max(...userPositions.map((pos: any) => parseInt(pos.updatedAtTimestamp || '0'))) * 1000 : 
+				Date.now(),
+		},
+		rewards: calculateUserRewards({ pool, liquidity: totalLiquidity.toString(), liquidityUSD: totalLiquidityUSD.toString() }),
+		farmInfo: {
+			apy: calculateFarmAPY(pool),
+			tvl: pool.totalValueLockedUSD || '0',
+			volume24h: pool.volumeUSD24h || '0',
+			fees24h: pool.feesUSD24h || '0',
+			totalUsers: parseInt(pool.liquidityProviderCount || '0'),
+		},
+		status: 'active',
+	};
+
+	return c.json({
+		success: true,
+		data: farmDetails,
+		timestamp: new Date().toISOString()
+	});
+}
+
+// Helper functions
+function transformPoolToFarm(pool: any) {
+	return {
+		farmId: `farm_${pool.id}`,
+		farmAddress: pool.id,
+		name: `${pool.tokenX.symbol}/${pool.tokenY.symbol} Farm`,
+		description: `Earn rewards by providing liquidity to ${pool.tokenX.symbol}/${pool.tokenY.symbol} pair`,
+		poolAddress: pool.id,
+		strategy: 'liquidity_mining',
+		rewardTokens: [
+			{
+				symbol: pool.tokenX.symbol,
+				address: pool.tokenX.id,
+				rewardRate: '0.1', // Mock reward rate
+			},
+			{
+				symbol: pool.tokenY.symbol,
+				address: pool.tokenY.id,
+				rewardRate: '0.1', // Mock reward rate
+			}
+		],
+		tokenX: {
+			address: pool.tokenX.id,
+			symbol: pool.tokenX.symbol,
+			name: pool.tokenX.name,
+			decimals: pool.tokenX.decimals,
+		},
+		tokenY: {
+			address: pool.tokenY.id,
+			symbol: pool.tokenY.symbol,
+			name: pool.tokenY.name,
+			decimals: pool.tokenY.decimals,
+		},
+		apy: calculateFarmAPY(pool),
+		apr: calculateFarmAPR(pool),
+		tvl: pool.totalValueLockedUSD || '0',
+		volume24h: pool.volumeUSD24h || '0',
+		totalUsers: parseInt(pool.liquidityProviderCount || '0'),
+		status: 'active',
+		createdAt: pool.createdAtTimestamp ? 
+			new Date(parseInt(pool.createdAtTimestamp) * 1000).toISOString() : new Date().toISOString(),
+	};
+}
+
+function calculateFarmAPY(pool: any): number {
+	// Calculate base APY from fees
+	const baseAPY = calculatePoolAPY(pool);
+	
+	// Add estimated reward APY (mock calculation)
+	const rewardAPY = Math.random() * 20; // 0-20% additional rewards
+	
+	return baseAPY + rewardAPY;
+}
+
 function calculateFarmAPR(pool: any): number {
-  const tvl = parseFloat(pool.totalValueLockedUSD || '0');
-  const fees = parseFloat(pool.feesUSD || '0');
-  const volume = parseFloat(pool.volumeUSD || '0');
-  
-  if (tvl === 0) return 0;
-  
-  // Base APR from fees
-  const feeRate = pool.binStep * 0.0001;
-  const baseAPR = volume * 365 * feeRate / tvl * 100;
-  
-  // Additional reward APR (estimated based on pool performance)
-  const rewardMultiplier = tvl > 100000 ? 1.5 : tvl > 10000 ? 1.2 : 1.0;
-  const totalAPR = baseAPR * rewardMultiplier;
-  
-  return Math.min(totalAPR, 1000); // Cap at 1000% APR
+	// Convert APY to APR
+	const apy = calculateFarmAPY(pool);
+	return apy * 0.95; // Slightly lower than APY
 }
 
-// Transform pool to farm format
-function transformPoolToFarm(pool: any): any {
-  const apr = calculateFarmAPR(pool);
-  const status = calculateFarmStatus(pool);
-  const tvl = parseFloat(pool.totalValueLockedUSD || '0');
-  
-  return {
-    farmId: `farm_${pool.id}`,
-    poolId: pool.id,
-    name: `${pool.tokenX.symbol}/${pool.tokenY.symbol} Farm`,
-    description: `Liquidity mining for ${pool.tokenX.symbol}-${pool.tokenY.symbol} pair`,
-    pair: {
-      tokenX: {
-        address: pool.tokenX.id,
-        symbol: pool.tokenX.symbol,
-        name: pool.tokenX.name,
-        decimals: pool.tokenX.decimals
-      },
-      tokenY: {
-        address: pool.tokenY.id,
-        symbol: pool.tokenY.symbol,
-        name: pool.tokenY.name,
-        decimals: pool.tokenY.decimals
-      }
-    },
-    status,
-    apr: parseFloat(apr.toFixed(2)),
-    tvl: tvl.toFixed(2),
-    totalStaked: pool.reserveX && pool.reserveY 
-      ? (parseFloat(pool.reserveX) + parseFloat(pool.reserveY)).toFixed(2)
-      : '0',
-    rewardTokens: [
-      {
-        address: pool.tokenX.id,
-        symbol: pool.tokenX.symbol,
-        emissionRate: '100', // Mock emission rate
-        totalRewards: (tvl * 0.1).toFixed(2) // Mock total rewards
-      }
-    ],
-    stakingInfo: {
-      minStake: '1.0',
-      lockupPeriod: '0', // No lockup for LP farms
-      withdrawalFee: '0.1',
-      earlyWithdrawalPenalty: '0'
-    },
-    performance: {
-      dailyAPR: apr / 365,
-      weeklyAPR: apr / 52,
-      monthlyAPR: apr / 12,
-      totalValueStaked: tvl.toFixed(2),
-      totalRewardsDistributed: (tvl * 0.05).toFixed(2) // Mock historical rewards
-    },
-    binStep: pool.binStep,
-    activeId: pool.activeId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
+function calculatePoolAPY(pool: any): number {
+	const tvl = parseFloat(pool.totalValueLockedUSD || '0');
+	const fees24h = parseFloat(pool.feesUSD24h || '0');
+	
+	if (tvl === 0) return 0;
+	
+	const dailyAPR = (fees24h / tvl) * 100;
+	const apr = dailyAPR * 365;
+	
+	// Convert APR to APY (compound daily)
+	return ((1 + apr / 100 / 365) ** 365 - 1) * 100;
 }
 
-// Handler for user farms
-export async function handleUserFarms(request: Request, env: any): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const pathSegments = url.pathname.split('/').filter(Boolean);
-    const userAddress = pathSegments[3]; // Extract from /api/dex/user/:userAddress/farms
-    const { corsHeaders } = getRequestContext(env);
-    
-    if (!userAddress) {
-      return createErrorResponse('User address is required', 'MISSING_ADDRESS', corsHeaders, 400);
-    }
-    
-    // Check subgraph health
-    const subgraphHealth = await isSubgraphHealthy();
-    
-    if (!subgraphHealth.healthy) {
-      return createErrorResponse(
-        'Subgraph unavailable - cannot fetch user farms',
-        'SUBGRAPH_ERROR',
-        corsHeaders,
-        503
-      );
-    }
-
-    console.log(`🚜 Fetching farms for user ${userAddress}...`);
-    
-    // Get user's liquidity positions
-    const userPositions = await subgraphClient.getUserPositions(userAddress);
-    
-    // Get pools data for farms
-    const pools = await subgraphClient.getPools(50, 0, 'totalValueLockedUSD', 'desc');
-    
-    // Match user positions with farm pools
-    const userFarms = userPositions
-      .map(position => {
-        const pool = pools.find(p => p.id === position.pair.id);
-        if (!pool) return null;
-        
-        const farm = transformPoolToFarm(pool);
-        const stakedAmount = parseFloat(position.valueUSD || '0');
-        const shares = stakedAmount / parseFloat(farm.tvl) * 100;
-        
-        return {
-          ...farm,
-          userPosition: {
-            stakedAmount: stakedAmount.toFixed(2),
-            stakedAmountUSD: stakedAmount.toFixed(2),
-            shares: shares.toFixed(6),
-            pendingRewards: (stakedAmount * 0.001).toFixed(6), // Mock pending rewards
-            claimableRewards: (stakedAmount * 0.0005).toFixed(6), // Mock claimable rewards
-            stakingTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Mock staking time
-            lastClaimTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            estimatedDailyRewards: (stakedAmount * farm.apr / 365 / 100).toFixed(6)
-          }
-        };
-      })
-      .filter(Boolean);
-
-    // Calculate summary
-    const totalStakedUSD = userFarms.reduce((sum, farm) => 
-      sum + parseFloat(farm.userPosition.stakedAmount), 0
-    );
-    
-    const totalPendingRewards = userFarms.reduce((sum, farm) => 
-      sum + parseFloat(farm.userPosition.pendingRewards), 0
-    );
-    
-    const averageAPR = userFarms.length > 0 
-      ? userFarms.reduce((sum, farm) => sum + farm.apr, 0) / userFarms.length
-      : 0;
-
-    return createApiResponse({
-      userAddress,
-      farms: userFarms,
-      summary: {
-        totalFarms: userFarms.length,
-        totalStakedUSD: totalStakedUSD.toFixed(2),
-        totalPendingRewards: totalPendingRewards.toFixed(6),
-        averageAPR: parseFloat(averageAPR.toFixed(2)),
-        estimatedDailyEarnings: (totalStakedUSD * averageAPR / 365 / 100).toFixed(6)
-      }
-    }, corsHeaders);
-
-  } catch (error) {
-    console.error('❌ Error in handleUserFarms:', error);
-    const { corsHeaders } = getRequestContext(env);
-    
-    return createErrorResponse(
-      'Failed to fetch user farms from subgraph',
-      'FETCH_ERROR',
-      corsHeaders
-    );
-  }
+function calculateUserRewards(position: any) {
+	const liquidityUSD = parseFloat(position.liquidityUSD || '0');
+	const poolTvl = parseFloat(position.pool?.totalValueLockedUSD || '1');
+	
+	// Simple reward calculation based on user's share of pool
+	const userShare = liquidityUSD / poolTvl;
+	const dailyRewards = userShare * 100; // Mock daily rewards
+	const totalEarned = dailyRewards * 30; // Mock 30 days of rewards
+	
+	return {
+		pending: (dailyRewards * 7).toFixed(6), // 7 days pending
+		pendingUsd: (dailyRewards * 7 * 1.5).toFixed(2), // Mock USD value
+		totalEarned: totalEarned.toFixed(6),
+		totalEarnedUsd: (totalEarned * 1.5).toFixed(2), // Mock USD value
+	};
 }
 
-// Handler for user farm details
-export async function handleUserFarmDetails(request: Request, env: any): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const pathSegments = url.pathname.split('/').filter(Boolean);
-    const userAddress = pathSegments[3]; // /api/dex/user/:userAddress/farms/:farmId
-    const farmId = pathSegments[5];
-    const { corsHeaders } = getRequestContext(env);
-    
-    if (!userAddress || !farmId) {
-      return createErrorResponse('User address and farm ID are required', 'MISSING_PARAMS', corsHeaders, 400);
-    }
-    
-    // Extract pool ID from farm ID
-    const poolId = farmId.replace('farm_', '');
-    
-    // Check subgraph health
-    const subgraphHealth = await isSubgraphHealthy();
-    
-    if (!subgraphHealth.healthy) {
-      return createErrorResponse(
-        'Subgraph unavailable - cannot fetch farm details',
-        'SUBGRAPH_ERROR',
-        corsHeaders,
-        503
-      );
-    }
-
-    console.log(`🚜 Fetching farm details for ${farmId} and user ${userAddress}...`);
-    
-    // Get user's positions for this specific pool
-    const userPositions = await subgraphClient.getUserPositions(userAddress);
-    const userPosition = userPositions.find(pos => pos.pair.id === poolId);
-    
-    if (!userPosition) {
-      return createErrorResponse(
-        `User has no position in farm ${farmId}`,
-        'NO_POSITION',
-        corsHeaders,
-        404
-      );
-    }
-    
-    // Get pool data
-    const pools = await subgraphClient.getPools(1, 0, 'totalValueLockedUSD', 'desc');
-    const pool = pools.find(p => p.id === poolId);
-    
-    if (!pool) {
-      return createErrorResponse(
-        `Farm ${farmId} not found`,
-        'FARM_NOT_FOUND',
-        corsHeaders,
-        404
-      );
-    }
-    
-    const farm = transformPoolToFarm(pool);
-    const stakedAmount = parseFloat(userPosition.valueUSD || '0');
-    
-    // Enhanced farm details with user position
-    const farmDetails = {
-      ...farm,
-      userPosition: {
-        stakedAmount: stakedAmount.toFixed(2),
-        stakedAmountUSD: stakedAmount.toFixed(2),
-        shares: (stakedAmount / parseFloat(farm.tvl) * 100).toFixed(6),
-        binPositions: userPosition.binIds?.map((binId: string) => ({
-          binId: parseInt(binId),
-          liquidity: (stakedAmount / (userPosition.binIds?.length || 1)).toFixed(6),
-          priceRange: {
-            lower: parseInt(binId) - 1,
-            upper: parseInt(binId) + 1
-          }
-        })) || [],
-        rewards: {
-          pending: (stakedAmount * 0.001).toFixed(6),
-          claimable: (stakedAmount * 0.0005).toFixed(6),
-          totalEarned: (stakedAmount * 0.01).toFixed(6),
-          lastClaimTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-        },
-        performance: {
-          stakingTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          currentValue: stakedAmount.toFixed(2),
-          initialValue: (stakedAmount * 0.95).toFixed(2), // Mock initial value
-          pnl: (stakedAmount * 0.05).toFixed(2),
-          pnlPercentage: 5.0,
-          estimatedAPR: farm.apr
-        }
-      },
-      farmHistory: [
-        // Mock historical data
-        { date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), tvl: parseFloat(farm.tvl) * 0.9, apr: farm.apr * 0.95 },
-        { date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(), tvl: parseFloat(farm.tvl) * 0.92, apr: farm.apr * 0.97 },
-        { date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), tvl: parseFloat(farm.tvl) * 0.95, apr: farm.apr * 0.99 },
-        { date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), tvl: parseFloat(farm.tvl) * 0.98, apr: farm.apr * 1.01 },
-        { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), tvl: parseFloat(farm.tvl) * 0.99, apr: farm.apr * 1.02 },
-        { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), tvl: parseFloat(farm.tvl) * 1.01, apr: farm.apr * 1.0 },
-        { date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), tvl: parseFloat(farm.tvl) * 1.02, apr: farm.apr * 0.98 },
-        { date: new Date().toISOString(), tvl: parseFloat(farm.tvl), apr: farm.apr }
-      ]
-    };
-
-    return createApiResponse(farmDetails, corsHeaders);
-
-  } catch (error) {
-    console.error('❌ Error in handleUserFarmDetails:', error);
-    const { corsHeaders } = getRequestContext(env);
-    
-    return createErrorResponse(
-      'Failed to fetch farm details from subgraph',
-      'FETCH_ERROR',
-      corsHeaders
-    );
-  }
-}
-
-// Handler for all available farms
-export async function handleFarmsList(request: Request, env: any): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const { page, limit } = parseQueryParams(url);
-    const { corsHeaders } = getRequestContext(env);
-    
-    const status = url.searchParams.get('status') || 'all';
-    const sortBy = url.searchParams.get('sortBy') || 'apr';
-    const minTvl = parseFloat(url.searchParams.get('minTvl') || '1000');
-    const offset = (page - 1) * limit;
-    
-    // Check subgraph health
-    const subgraphHealth = await isSubgraphHealthy();
-    
-    if (!subgraphHealth.healthy) {
-      return createErrorResponse(
-        'Subgraph unavailable - cannot fetch farms',
-        'SUBGRAPH_ERROR',
-        corsHeaders,
-        503
-      );
-    }
-
-    console.log(`🚜 Fetching farms list (page ${page}, limit ${limit})...`);
-    
-    // Get pools data
-    const pools = await subgraphClient.getPools(limit * 2, 0, 'totalValueLockedUSD', 'desc');
-    
-    // Transform pools to farms and apply filters
-    let farms = pools
-      .filter(pool => parseFloat(pool.totalValueLockedUSD || '0') >= minTvl)
-      .map(transformPoolToFarm);
-    
-    // Apply status filter
-    if (status !== 'all') {
-      farms = farms.filter(farm => farm.status === status);
-    }
-    
-    // Sort farms
-    if (sortBy === 'apr') {
-      farms.sort((a, b) => b.apr - a.apr);
-    } else if (sortBy === 'tvl') {
-      farms.sort((a, b) => parseFloat(b.tvl) - parseFloat(a.tvl));
-    }
-    
-    // Apply pagination
-    const totalFarms = farms.length;
-    const paginatedFarms = farms.slice(offset, offset + limit);
-
-    return createApiResponse({
-      pagination: {
-        page,
-        limit,
-        total: totalFarms,
-        pages: Math.ceil(totalFarms / limit)
-      },
-      filters: {
-        status,
-        sortBy,
-        minTvl: minTvl.toString()
-      },
-      farms: paginatedFarms,
-      summary: {
-        totalFarms,
-        activeFarms: farms.filter(f => f.status === 'active').length,
-        totalTVL: farms.reduce((sum, f) => sum + parseFloat(f.tvl), 0).toFixed(2),
-        averageAPR: farms.length > 0 
-          ? (farms.reduce((sum, f) => sum + f.apr, 0) / farms.length).toFixed(2)
-          : '0'
-      }
-    }, corsHeaders);
-
-  } catch (error) {
-    console.error('❌ Error in handleFarmsList:', error);
-    const { corsHeaders } = getRequestContext(env);
-    
-    return createErrorResponse(
-      'Failed to fetch farms from subgraph',
-      'FETCH_ERROR',
-      corsHeaders
-    );
-  }
+function isValidAddress(address: string): boolean {
+	return /^0x[a-fA-F0-9]{40}$/.test(address);
 }

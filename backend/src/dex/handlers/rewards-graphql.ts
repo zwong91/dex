@@ -1,440 +1,412 @@
 /**
- * Pure GraphQL Rewards Handlers
- * 
- * This module provides handlers for reward-related API endpoints using only GraphQL subgraph data.
- * Rewards are calculated from user positions and pool performance.
+ * DEX Rewards Handlers - Pure GraphQL Implementation with Hono
+ * Rewards are calculated from user positions and pool performance
  */
 
-import { createApiResponse, createErrorResponse, parseQueryParams, getRequestContext } from '../utils';
-import { subgraphClient, isSubgraphHealthy } from '../graphql/client';
+import type { Context } from 'hono';
+import { createSubgraphClient } from '../graphql/client';
+import type { Env } from '../../index';
 
-// Calculate rewards based on user position and pool performance
-function calculatePositionRewards(position: any, pool: any): any {
-  const positionValue = parseFloat(position.valueUSD || '0');
-  const poolTVL = parseFloat(pool.totalValueLockedUSD || '0');
-  const poolFees = parseFloat(pool.feesUSD || '0');
-  
-  // Calculate user's share of pool fees
-  const userShare = poolTVL > 0 ? positionValue / poolTVL : 0;
-  const earnedFees = poolFees * userShare;
-  
-  // Estimate different types of rewards
-  const baseRewards = earnedFees * 0.7; // 70% from LP fees
-  const bonusRewards = earnedFees * 0.2; // 20% bonus rewards
-  const stakingRewards = earnedFees * 0.1; // 10% staking rewards
-  
-  return {
-    totalRewards: (baseRewards + bonusRewards + stakingRewards).toFixed(6),
-    baseRewards: baseRewards.toFixed(6),
-    bonusRewards: bonusRewards.toFixed(6),
-    stakingRewards: stakingRewards.toFixed(6),
-    pendingRewards: (earnedFees * 0.3).toFixed(6), // 30% pending
-    claimableRewards: (earnedFees * 0.7).toFixed(6), // 70% claimable
-    earnedFees: earnedFees.toFixed(6)
-  };
+/**
+ * Create rewards handler factory
+ */
+export function createRewardsHandler(action: string) {
+	return async function rewardsHandler(c: Context<{ Bindings: Env }>) {
+		try {
+			const subgraphClient = createSubgraphClient(c.env);
+			
+			// Check if subgraph is available and healthy
+			const subgraphHealth = await subgraphClient.checkHealth();
+			
+			if (!subgraphHealth.healthy) {
+				return c.json({
+					success: false,
+					error: 'Subgraph unavailable',
+					message: 'SUBGRAPH_ERROR',
+					timestamp: new Date().toISOString()
+				}, 503);
+			}
+
+			switch (action) {
+				case 'userRewards':
+					return await handleUserRewards(c, subgraphClient);
+				case 'claimableRewards':
+					return await handleClaimableRewards(c, subgraphClient);
+				case 'rewardsHistory':
+					return await handleRewardsHistory(c, subgraphClient);
+				case 'batchProof':
+					return await handleBatchProof(c, subgraphClient);
+				default:
+					return c.json({
+						error: 'Invalid action',
+						timestamp: new Date().toISOString()
+					}, 400);
+			}
+
+		} catch (error) {
+			console.error('Rewards handler error:', error);
+			return c.json({
+				error: 'Internal server error',
+				message: error instanceof Error ? error.message : 'Unknown error',
+				timestamp: new Date().toISOString()
+			}, 500);
+		}
+	};
 }
 
-// Handler for user rewards
-export async function handleUserRewards(request: Request, env: any): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const pathSegments = url.pathname.split('/').filter(Boolean);
-    const userAddress = pathSegments[3]; // Extract from /api/dex/user/:userAddress/rewards
-    const { corsHeaders } = getRequestContext(env);
-    
-    if (!userAddress) {
-      return createErrorResponse('User address is required', 'MISSING_ADDRESS', corsHeaders, 400);
-    }
-    
-    // Check subgraph health
-    const subgraphHealth = await isSubgraphHealthy();
-    
-    if (!subgraphHealth.healthy) {
-      return createErrorResponse(
-        'Subgraph unavailable - cannot fetch user rewards',
-        'SUBGRAPH_ERROR',
-        corsHeaders,
-        503
-      );
-    }
+/**
+ * Get user's overall rewards summary
+ */
+async function handleUserRewards(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	const userAddress = c.req.param('address');
+	
+	if (!userAddress || !isValidAddress(userAddress)) {
+		return c.json({
+			error: 'Valid user address is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
 
-    console.log(`🎁 Fetching rewards for user ${userAddress}...`);
-    
-    // Get user's liquidity positions
-    const userPositions = await subgraphClient.getUserPositions(userAddress);
-    
-    // Get pools data for reward calculations
-    const pools = await subgraphClient.getPools(100, 0, 'totalValueLockedUSD', 'desc');
-    
-    // Calculate rewards for each position
-    const positionRewards = userPositions.map(position => {
-      const pool = pools.find(p => p.id === position.pair.id);
-      if (!pool) return null;
-      
-      const rewards = calculatePositionRewards(position, pool);
-      
-      return {
-        poolId: pool.id,
-        poolName: `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
-        tokenX: {
-          symbol: pool.tokenX.symbol,
-          address: pool.tokenX.id
-        },
-        tokenY: {
-          symbol: pool.tokenY.symbol,
-          address: pool.tokenY.id
-        },
-        positionValue: position.valueUSD,
-        rewards,
-        binIds: position.binIds || [],
-        lastUpdate: new Date().toISOString()
-      };
-    }).filter(Boolean);
+	console.log('🔗 Fetching user rewards from subgraph...', userAddress);
+	
+	const [userPositions, userTransactions] = await Promise.all([
+		subgraphClient.getUserPositions(userAddress),
+		subgraphClient.getUserTransactions(userAddress, 1000, 0)
+	]);
 
-    // Calculate total rewards across all positions
-    const totalRewards = positionRewards.reduce((sum, pos) => 
-      sum + parseFloat(pos.rewards.totalRewards), 0
-    );
-    
-    const totalPending = positionRewards.reduce((sum, pos) => 
-      sum + parseFloat(pos.rewards.pendingRewards), 0
-    );
-    
-    const totalClaimable = positionRewards.reduce((sum, pos) => 
-      sum + parseFloat(pos.rewards.claimableRewards), 0
-    );
+	// Calculate rewards from each position
+	const positionRewards = userPositions.map((position: any) => {
+		const rewards = calculatePositionRewards(position);
+		return {
+			poolId: position.pool.id,
+			poolName: `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol}`,
+			position: {
+				binId: position.binId,
+				liquidity: position.liquidity,
+				liquidityUSD: position.liquidityUSD,
+			},
+			rewards,
+		};
+	});
 
-    return createApiResponse({
-      userAddress,
-      positions: positionRewards,
-      summary: {
-        totalPositions: positionRewards.length,
-        totalRewards: totalRewards.toFixed(6),
-        totalPendingRewards: totalPending.toFixed(6),
-        totalClaimableRewards: totalClaimable.toFixed(6),
-        estimatedDailyRewards: (totalRewards * 0.01).toFixed(6), // 1% daily estimate
-        lastCalculated: new Date().toISOString()
-      }
-    }, corsHeaders);
+	// Calculate total rewards
+	const totalEarned = positionRewards.reduce((sum: number, pr: any) => 
+		sum + parseFloat(pr.rewards.totalEarned), 0);
+	
+	const totalClaimable = positionRewards.reduce((sum: number, pr: any) => 
+		sum + parseFloat(pr.rewards.claimable), 0);
+	
+	const totalPending = positionRewards.reduce((sum: number, pr: any) => 
+		sum + parseFloat(pr.rewards.pending), 0);
 
-  } catch (error) {
-    console.error('❌ Error in handleUserRewards:', error);
-    const { corsHeaders } = getRequestContext(env);
-    
-    return createErrorResponse(
-      'Failed to fetch user rewards from subgraph',
-      'FETCH_ERROR',
-      corsHeaders
-    );
-  }
+	// Get fee rewards from transaction history
+	const feeRewards = calculateFeeRewards(userTransactions);
+
+	const userRewards = {
+		userAddress,
+		totalRewards: (totalEarned + feeRewards.totalFees).toString(),
+		claimableRewards: totalClaimable.toString(),
+		pendingRewards: totalPending.toString(),
+		feeRewards: feeRewards.totalFees.toString(),
+		breakdown: {
+			liquidityMining: totalEarned.toString(),
+			tradingFees: feeRewards.totalFees.toString(),
+			referralBonus: '0', // Not implemented yet
+			stakingRewards: '0', // Not implemented yet
+		},
+		rewardsByPool: positionRewards,
+		rewardsHistory: generateRewardsHistory(positionRewards, feeRewards),
+		lastUpdate: new Date().toISOString(),
+	};
+
+	return c.json({
+		success: true,
+		data: userRewards,
+		timestamp: new Date().toISOString()
+	});
 }
 
-// Handler for claimable rewards
-export async function handleClaimableRewards(request: Request, env: any): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const pathSegments = url.pathname.split('/').filter(Boolean);
-    const userAddress = pathSegments[3]; // Extract from /api/dex/user/:userAddress/claimable-rewards
-    const { corsHeaders } = getRequestContext(env);
-    
-    if (!userAddress) {
-      return createErrorResponse('User address is required', 'MISSING_ADDRESS', corsHeaders, 400);
-    }
-    
-    // Check subgraph health
-    const subgraphHealth = await isSubgraphHealthy();
-    
-    if (!subgraphHealth.healthy) {
-      return createErrorResponse(
-        'Subgraph unavailable - cannot fetch claimable rewards',
-        'SUBGRAPH_ERROR',
-        corsHeaders,
-        503
-      );
-    }
+/**
+ * Get user's claimable rewards
+ */
+async function handleClaimableRewards(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	const userAddress = c.req.param('address');
+	
+	if (!userAddress || !isValidAddress(userAddress)) {
+		return c.json({
+			error: 'Valid user address is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
 
-    console.log(`💰 Fetching claimable rewards for user ${userAddress}...`);
-    
-    // Get user's liquidity positions
-    const userPositions = await subgraphClient.getUserPositions(userAddress);
-    
-    // Get pools data
-    const pools = await subgraphClient.getPools(100, 0, 'totalValueLockedUSD', 'desc');
-    
-    // Calculate only claimable rewards
-    const claimableRewards = userPositions.map(position => {
-      const pool = pools.find(p => p.id === position.pair.id);
-      if (!pool) return null;
-      
-      const rewards = calculatePositionRewards(position, pool);
-      
-      return {
-        poolId: pool.id,
-        poolName: `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
-        claimableAmount: rewards.claimableRewards,
-        rewardTokens: [
-          {
-            address: pool.tokenX.id,
-            symbol: pool.tokenX.symbol,
-            amount: (parseFloat(rewards.claimableRewards) * 0.5).toFixed(6)
-          },
-          {
-            address: pool.tokenY.id,
-            symbol: pool.tokenY.symbol,
-            amount: (parseFloat(rewards.claimableRewards) * 0.5).toFixed(6)
-          }
-        ],
-        binIds: position.binIds || [],
-        canClaim: parseFloat(rewards.claimableRewards) > 0.001 // Minimum claim threshold
-      };
-    }).filter(Boolean);
+	console.log('🔗 Fetching claimable rewards from subgraph...', userAddress);
+	
+	const userPositions = await subgraphClient.getUserPositions(userAddress);
 
-    // Filter only claimable positions
-    const claimablePositions = claimableRewards.filter(reward => reward.canClaim);
-    
-    const totalClaimable = claimablePositions.reduce((sum, pos) => 
-      sum + parseFloat(pos.claimableAmount), 0
-    );
+	// Calculate claimable rewards for each position
+	const claimableByPool = userPositions.map((position: any) => {
+		const rewards = calculatePositionRewards(position);
+		return {
+			poolId: position.pool.id,
+			poolName: `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol}`,
+			tokens: [
+				{
+					address: position.pool.tokenX.id,
+					symbol: position.pool.tokenX.symbol,
+					amount: (parseFloat(rewards.claimable) * 0.5).toFixed(6), // Split between tokens
+					amountUSD: (parseFloat(rewards.claimableUSD) * 0.5).toFixed(2),
+				},
+				{
+					address: position.pool.tokenY.id,
+					symbol: position.pool.tokenY.symbol,
+					amount: (parseFloat(rewards.claimable) * 0.5).toFixed(6),
+					amountUSD: (parseFloat(rewards.claimableUSD) * 0.5).toFixed(2),
+				},
+			],
+			totalClaimableUSD: rewards.claimableUSD,
+		};
+	});
 
-    return createApiResponse({
-      userAddress,
-      claimablePositions,
-      summary: {
-        totalClaimablePositions: claimablePositions.length,
-        totalClaimableAmount: totalClaimable.toFixed(6),
-        minimumClaimThreshold: '0.001',
-        estimatedGasCost: '0.01', // Mock gas cost
-        canClaimAll: totalClaimable > 0.001
-      },
-      claimInstructions: {
-        batchClaimAvailable: claimablePositions.length > 1,
-        maxBatchSize: 10,
-        recommendedGasLimit: '300000'
-      }
-    }, corsHeaders);
+	const totalClaimableUSD = claimableByPool.reduce((sum: number, pool: any) => 
+		sum + parseFloat(pool.totalClaimableUSD), 0);
 
-  } catch (error) {
-    console.error('❌ Error in handleClaimableRewards:', error);
-    const { corsHeaders } = getRequestContext(env);
-    
-    return createErrorResponse(
-      'Failed to fetch claimable rewards from subgraph',
-      'FETCH_ERROR',
-      corsHeaders
-    );
-  }
+	return c.json({
+		success: true,
+		data: {
+			userAddress,
+			totalClaimableUSD: totalClaimableUSD.toString(),
+			claimableByPool,
+			claimCount: claimableByPool.length,
+			estimatedGasCost: '0.01', // Mock gas estimate
+		},
+		timestamp: new Date().toISOString()
+	});
 }
 
-// Handler for rewards history
-export async function handleRewardsHistory(request: Request, env: any): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const pathSegments = url.pathname.split('/').filter(Boolean);
-    const userAddress = pathSegments[3]; // Extract from /api/dex/user/:userAddress/rewards/history
-    const { page, limit } = parseQueryParams(url);
-    const { corsHeaders } = getRequestContext(env);
-    
-    if (!userAddress) {
-      return createErrorResponse('User address is required', 'MISSING_ADDRESS', corsHeaders, 400);
-    }
-    
-    const timeRange = url.searchParams.get('timeRange') || '30d';
-    const poolId = url.searchParams.get('poolId');
-    
-    // Check subgraph health
-    const subgraphHealth = await isSubgraphHealthy();
-    
-    if (!subgraphHealth.healthy) {
-      return createErrorResponse(
-        'Subgraph unavailable - cannot fetch rewards history',
-        'SUBGRAPH_ERROR',
-        corsHeaders,
-        503
-      );
-    }
+/**
+ * Get user's rewards history
+ */
+async function handleRewardsHistory(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	const userAddress = c.req.param('address');
+	const page = parseInt(c.req.query('page') || '1');
+	const limit = Math.min(parseInt(c.req.query('limit') || '50'), 100);
+	
+	if (!userAddress || !isValidAddress(userAddress)) {
+		return c.json({
+			error: 'Valid user address is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
 
-    console.log(`📊 Fetching rewards history for user ${userAddress} (${timeRange})...`);
-    
-    // Get user's transaction history (as a proxy for rewards history)
-    const userSwaps = await subgraphClient.getUserSwaps(userAddress, limit, 0);
-    
-    // Mock rewards history based on swap activity
-    // In a real implementation, this would query reward claim events from the subgraph
-    const rewardsHistory = userSwaps.map((swap, index) => ({
-      id: `reward_${index + 1}`,
-      transactionHash: `0x${Math.random().toString(16).substr(2, 64)}`, // Mock tx hash
-      poolId: swap.pair.id,
-      poolName: `${swap.pair.tokenX.symbol}/${swap.pair.tokenY.symbol}`,
-      type: index % 3 === 0 ? 'claim' : index % 3 === 1 ? 'auto_compound' : 'farming_reward',
-      amount: (parseFloat(swap.amountUSD || '0') * 0.01).toFixed(6), // 1% of swap as reward
-      amountUSD: (parseFloat(swap.amountUSD || '0') * 0.01).toFixed(2),
-      rewardTokens: [
-        {
-          address: swap.pair.tokenX.id,
-          symbol: swap.pair.tokenX.symbol,
-          amount: (parseFloat(swap.amountUSD || '0') * 0.005).toFixed(6)
-        },
-        {
-          address: swap.pair.tokenY.id,
-          symbol: swap.pair.tokenY.symbol,
-          amount: (parseFloat(swap.amountUSD || '0') * 0.005).toFixed(6)
-        }
-      ],
-      timestamp: Math.floor(Date.now() / 1000) - index * 3600, // Spread over hours
-      blockNumber: 1000000 + index,
-      status: 'completed'
-    }));
+	console.log('🔗 Fetching rewards history from subgraph...', userAddress);
+	
+	const offset = (page - 1) * limit;
+	const transactions = await subgraphClient.getUserTransactions(userAddress, limit, offset);
 
-    // Apply pool filter if specified
-    const filteredHistory = poolId 
-      ? rewardsHistory.filter(reward => reward.poolId === poolId)
-      : rewardsHistory;
+	// Generate rewards history from transactions
+	const rewardsHistory = transactions
+		.filter((tx: any) => tx.type !== 'swap') // Only LP-related transactions
+		.map((tx: any) => ({
+			id: tx.id,
+			type: getRewardType(tx),
+			timestamp: parseInt(tx.timestamp) * 1000,
+			pool: {
+				id: tx.pool?.id,
+				name: tx.pool ? `${tx.pool.tokenX.symbol}/${tx.pool.tokenY.symbol}` : 'Unknown',
+			},
+			reward: {
+				amount: calculateTxReward(tx),
+				amountUSD: (parseFloat(calculateTxReward(tx)) * 1.5).toFixed(2), // Mock USD conversion
+				token: tx.pool?.tokenX?.symbol || 'UNKNOWN',
+			},
+			status: 'earned',
+			txHash: tx.transaction?.id,
+		}));
 
-    // Calculate pagination
-    const offset = (page - 1) * limit;
-    const paginatedHistory = filteredHistory.slice(offset, offset + limit);
-    
-    // Calculate summary statistics
-    const totalRewardsClaimed = filteredHistory.reduce((sum, reward) => 
-      sum + parseFloat(reward.amountUSD), 0
-    );
-    
-    const uniquePools = new Set(filteredHistory.map(r => r.poolId)).size;
+	const pagination = {
+		page,
+		limit,
+		total: rewardsHistory.length,
+		hasNext: rewardsHistory.length === limit,
+		hasPrev: page > 1,
+	};
 
-    return createApiResponse({
-      userAddress,
-      timeRange,
-      poolFilter: poolId,
-      pagination: {
-        page,
-        limit,
-        total: filteredHistory.length,
-        pages: Math.ceil(filteredHistory.length / limit)
-      },
-      history: paginatedHistory,
-      summary: {
-        totalRewardsClaimed: totalRewardsClaimed.toFixed(2),
-        totalTransactions: filteredHistory.length,
-        uniquePools,
-        averageRewardPerClaim: filteredHistory.length > 0 
-          ? (totalRewardsClaimed / filteredHistory.length).toFixed(2)
-          : '0',
-        periodStart: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        periodEnd: new Date().toISOString()
-      }
-    }, corsHeaders);
-
-  } catch (error) {
-    console.error('❌ Error in handleRewardsHistory:', error);
-    const { corsHeaders } = getRequestContext(env);
-    
-    return createErrorResponse(
-      'Failed to fetch rewards history from subgraph',
-      'FETCH_ERROR',
-      corsHeaders
-    );
-  }
+	return c.json({
+		success: true,
+		data: {
+			userAddress,
+			rewardsHistory,
+		},
+		pagination,
+		timestamp: new Date().toISOString()
+	});
 }
 
-// Handler for batch rewards proof (for claiming multiple rewards)
-export async function handleBatchRewardsProof(request: Request, env: any): Promise<Response> {
-  try {
-    const { corsHeaders } = getRequestContext(env);
-    
-    // Parse request body
-    const body = await request.json();
-    const { userAddress, poolIds, binIds } = body;
-    
-    if (!userAddress) {
-      return createErrorResponse('User address is required', 'MISSING_ADDRESS', corsHeaders, 400);
-    }
-    
-    // Check subgraph health
-    const subgraphHealth = await isSubgraphHealthy();
-    
-    if (!subgraphHealth.healthy) {
-      return createErrorResponse(
-        'Subgraph unavailable - cannot generate batch proof',
-        'SUBGRAPH_ERROR',
-        corsHeaders,
-        503
-      );
-    }
+/**
+ * Generate batch proof for claiming multiple rewards
+ */
+async function handleBatchProof(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	const { userAddress, poolIds } = await c.req.json();
+	
+	if (!userAddress || !isValidAddress(userAddress)) {
+		return c.json({
+			error: 'Valid user address is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
 
-    console.log(`🧾 Generating batch rewards proof for user ${userAddress}...`);
-    
-    // Get user's positions for the specified pools/bins
-    const userPositions = await subgraphClient.getUserPositions(userAddress);
-    
-    // Filter positions by requested pools and bins
-    const filteredPositions = userPositions.filter(position => {
-      const poolMatch = !poolIds || poolIds.includes(position.pair.id);
-      const binMatch = !binIds || binIds.some((binId: string) => 
-        position.binIds?.includes(binId)
-      );
-      return poolMatch && binMatch;
-    });
-    
-    // Generate mock proof data for batch claiming
-    const proofData = {
-      userAddress,
-      batchId: `batch_${Date.now()}`,
-      merkleRoot: `0x${Math.random().toString(16).substr(2, 64)}`, // Mock merkle root
-      totalClaimableAmount: '0',
-      proofs: filteredPositions.map((position, index) => {
-        const claimableAmount = (parseFloat(position.valueUSD || '0') * 0.01).toFixed(6);
-        
-        return {
-          poolId: position.pair.id,
-          binIds: position.binIds || [],
-          claimableAmount,
-          merkleProof: [
-            `0x${Math.random().toString(16).substr(2, 64)}`,
-            `0x${Math.random().toString(16).substr(2, 64)}`,
-            `0x${Math.random().toString(16).substr(2, 64)}`
-          ],
-          leafIndex: index,
-          rewardTokens: [
-            {
-              address: position.pair.tokenX.id,
-              symbol: position.pair.tokenX.symbol,
-              amount: (parseFloat(claimableAmount) * 0.5).toFixed(6)
-            },
-            {
-              address: position.pair.tokenY.id,
-              symbol: position.pair.tokenY.symbol,
-              amount: (parseFloat(claimableAmount) * 0.5).toFixed(6)
-            }
-          ]
-        };
-      }),
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-      generatedAt: new Date().toISOString()
-    };
+	if (!poolIds || !Array.isArray(poolIds) || poolIds.length === 0) {
+		return c.json({
+			error: 'Pool IDs array is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
 
-    // Calculate total claimable amount
-    proofData.totalClaimableAmount = proofData.proofs
-      .reduce((sum, proof) => sum + parseFloat(proof.claimableAmount), 0)
-      .toFixed(6);
+	console.log('🔗 Generating batch proof for rewards claim...', userAddress, poolIds);
+	
+	// Get user positions for specified pools
+	const userPositions = await subgraphClient.getUserPositions(userAddress);
+	const relevantPositions = userPositions.filter((pos: any) => 
+		poolIds.includes(pos.pool.id)
+	);
 
-    return createApiResponse({
-      ...proofData,
-      claimInstructions: {
-        contractAddress: '0x1234567890123456789012345678901234567890', // Mock contract
-        methodName: 'batchClaim',
-        gasEstimate: '400000',
-        warning: 'Proof expires in 24 hours. Use immediately for best results.'
-      }
-    }, corsHeaders);
+	if (relevantPositions.length === 0) {
+		return c.json({
+			error: 'No eligible positions found for the specified pools',
+			timestamp: new Date().toISOString()
+		}, 404);
+	}
 
-  } catch (error) {
-    console.error('❌ Error in handleBatchRewardsProof:', error);
-    const { corsHeaders } = getRequestContext(env);
-    
-    return createErrorResponse(
-      'Failed to generate batch rewards proof',
-      'PROOF_ERROR',
-      corsHeaders
-    );
-  }
+	// Generate merkle proofs for batch claiming
+	const proofs = relevantPositions.map((position: any) => {
+		const rewards = calculatePositionRewards(position);
+		return {
+			poolId: position.pool.id,
+			userAddress,
+			amount: rewards.claimable,
+			proof: generateMockMerkleProof(userAddress, position.pool.id, rewards.claimable),
+		};
+	});
+
+	const totalAmount = proofs.reduce((sum: number, proof: any) => 
+		sum + parseFloat(proof.amount), 0);
+
+	return c.json({
+		success: true,
+		data: {
+			userAddress,
+			batchProof: {
+				merkleRoot: generateMockMerkleRoot(),
+				totalAmount: totalAmount.toString(),
+				proofs,
+				validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+				nonce: Date.now().toString(),
+			},
+		},
+		timestamp: new Date().toISOString()
+	});
+}
+
+// Helper functions
+function calculatePositionRewards(position: any) {
+	const liquidityUSD = parseFloat(position.liquidityUSD || '0');
+	const poolTvl = parseFloat(position.pool?.totalValueLockedUSD || '1');
+	const poolFees24h = parseFloat(position.pool?.feesUSD24h || '0');
+	
+	// Calculate user's share of pool
+	const userShare = liquidityUSD / poolTvl;
+	
+	// Estimate rewards based on fees and time
+	const dailyFeeShare = poolFees24h * userShare;
+	const estimatedDaysActive = 30; // Mock 30 days
+	
+	const totalEarned = dailyFeeShare * estimatedDaysActive;
+	const claimable = totalEarned * 0.7; // 70% claimable
+	const pending = totalEarned * 0.3; // 30% pending
+	
+	return {
+		totalEarned: totalEarned.toFixed(6),
+		claimable: claimable.toFixed(6),
+		claimableUSD: (claimable * 1.5).toFixed(2), // Mock USD conversion
+		pending: pending.toFixed(6),
+		pendingUSD: (pending * 1.5).toFixed(2),
+		dailyRate: dailyFeeShare.toFixed(6),
+		apy: ((dailyFeeShare * 365) / liquidityUSD * 100).toFixed(2),
+	};
+}
+
+function calculateFeeRewards(transactions: any[]) {
+	const feeTransactions = transactions.filter(tx => 
+		tx.type === 'swap' && parseFloat(tx.fee || '0') > 0
+	);
+	
+	const totalFees = feeTransactions.reduce((sum: number, tx: any) => 
+		sum + parseFloat(tx.feeUSD || '0'), 0);
+	
+	return {
+		totalFees,
+		transactionCount: feeTransactions.length,
+		averageFee: feeTransactions.length > 0 ? totalFees / feeTransactions.length : 0,
+	};
+}
+
+function generateRewardsHistory(positionRewards: any[], feeRewards: any) {
+	// Generate mock historical data
+	const history = [];
+	const now = Date.now();
+	
+	// Add position rewards over time
+	for (let i = 0; i < 30; i++) {
+		const date = new Date(now - i * 24 * 60 * 60 * 1000);
+		const dailyReward = positionRewards.reduce((sum: number, pr: any) => 
+			sum + parseFloat(pr.rewards.dailyRate || '0'), 0);
+		
+		if (dailyReward > 0) {
+			history.push({
+				date: date.toISOString().split('T')[0],
+				type: 'liquidity_mining',
+				amount: dailyReward.toFixed(6),
+				amountUSD: (dailyReward * 1.5).toFixed(2),
+			});
+		}
+	}
+	
+	return history.slice(0, 7); // Return last 7 days
+}
+
+function getRewardType(tx: any): string {
+	if (tx.type === 'add_liquidity') return 'liquidity_mining';
+	if (tx.type === 'remove_liquidity') return 'harvest';
+	if (tx.type === 'swap') return 'trading_fee';
+	return 'other';
+}
+
+function calculateTxReward(tx: any): string {
+	const feeUSD = parseFloat(tx.feeUSD || '0');
+	// Mock reward calculation: 10% of fees as rewards
+	return (feeUSD * 0.1).toFixed(6);
+}
+
+function generateMockMerkleProof(userAddress: string, poolId: string, amount: string): string[] {
+	// Generate mock merkle proof using TextEncoder for Cloudflare Workers compatibility
+	const encoder = new TextEncoder();
+	
+	const hash1 = `0x${Array.from(encoder.encode(`${userAddress}${poolId}${amount}`))
+		.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 64)}`;
+	const hash2 = `0x${Array.from(encoder.encode(`proof2_${userAddress}`))
+		.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 64)}`;
+	const hash3 = `0x${Array.from(encoder.encode(`proof3_${poolId}`))
+		.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 64)}`;
+	
+	return [hash1, hash2, hash3];
+}
+
+function generateMockMerkleRoot(): string {
+	const encoder = new TextEncoder();
+	return `0x${Array.from(encoder.encode(`merkle_root_${Date.now()}`))
+		.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 64)}`;
+}
+
+function isValidAddress(address: string): boolean {
+	return /^0x[a-fA-F0-9]{40}$/.test(address);
 }

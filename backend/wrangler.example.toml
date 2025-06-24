@@ -13,10 +13,6 @@
 # Setup Instructions:
 # 1. Copy this file to wrangler.toml
 # 2. Replace YOUR_*_HERE placeholders with actual values
-# 3. Create D1 databases: wrangler d1 create d1-dex-database
-# 4. Run migrations: npm run migrate:local
-# 5. Initialize data: npm run db:init
-# 6. Set secrets: wrangler secret put KEY && wrangler secret put PRICE_API_KEY
 # ==================================================
 
 name = "dex-backend-serverless"
@@ -37,7 +33,7 @@ migrations_dir = "drizzle"
 # ✅ Scheduled jobs for data synchronization - Multiple cron triggers
 [triggers]
 crons = [
-    "*/1 * * * *",     # Every 2 minute - Frequent pool sync for blockchain scanning
+    "*/1 * * * *",    # Every 1 minute - Frequent pool sync for blockchain scanning
     "0 * * * *",      # Every hour - Hourly data updates  
     "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
 ]
@@ -72,13 +68,10 @@ LB_ROUTER_BSCTEST = "0xe98efCE22A8Ec0dd5dDF6C1A81B6ADD740176E98"
 LB_QUOTER_BSC = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
 LB_QUOTER_BSCTEST = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
 
-# Price API configuration
-PRICE_API_URL = "https://api.coingecko.com/api/v3"
 
-# ⚠️ Sensitive information should use secrets instead of vars
-# Run these commands to set secrets:
-# wrangler secret put KEY
-# wrangler secret put PRICE_API_KEY
+# GraphQL configuration
+SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb"
+SUBGRAPH_HEALTH_URL = "http://localhost:8000"
 
 # 🔧 Production AI binding - Enabled for AI functionality
 [ai]

@@ -61,51 +61,112 @@ if (health.healthy) {
 }
 ```
 
-## API 端点集成
+## API 端点集成 - Hono 框架
 
-### 已集成的端点
+### ✅ 已完成集成的端点 (Hono + GraphQL)
 
-以下 API 端点已经集成了 GraphQL 查询：
+以下 API 端点已经使用 Hono 框架完全集成了 GraphQL 查询：
 
-#### 1. 池相关端点
+#### 1. 池相关端点 (4个)
 
 - `GET /v1/api/dex/pools` - 池列表
 - `GET /v1/api/dex/pools/{poolId}` - 池详情
+- `GET /v1/api/dex/tokens` - 代币列表
+- `GET /v1/api/dex/analytics` - 分析数据
 
-#### 2. 用户相关端点
+#### 2. 用户相关端点 (6个)
 
+- `GET /v1/api/dex/user/{userAddress}/bin-ids` - 用户 Bin ID 列表
 - `GET /v1/api/dex/user/{userAddress}/pool-ids` - 用户池 ID 列表
+- `GET /v1/api/dex/user/{userAddress}/history` - 用户历史记录
+- `GET /v1/api/dex/user/{userAddress}/lifetime-stats` - 用户终身统计
+- `GET /v1/api/dex/user/{userAddress}/fees-earned` - 用户费用收益
+- `GET /v1/api/dex/pool/{poolId}/user/{userAddress}/balances` - 池用户余额
 
-### 集成模式
+#### 3. 资金库端点 (4个)
 
-每个端点都遵循以下模式：
+- `GET /v1/api/dex/vaults` - 资金库列表 (从池数据转换)
+- `GET /v1/api/dex/vaults/{vaultId}` - 资金库详情
+- `GET /v1/api/dex/vaults/analytics` - 资金库分析
+- `GET /v1/api/dex/vaults/strategies` - 投资策略
+
+#### 4. 农场端点 (3个)
+
+- `GET /v1/api/dex/farms` - 农场列表 (从池数据转换)
+- `GET /v1/api/dex/user/{userAddress}/farms` - 用户农场
+- `GET /v1/api/dex/user/{userAddress}/farms/{farmId}` - 用户指定农场
+
+#### 5. 奖励端点 (4个)
+
+- `GET /v1/api/dex/user/{userAddress}/rewards` - 用户奖励
+- `GET /v1/api/dex/user/{userAddress}/claimable-rewards` - 可领取奖励
+- `GET /v1/api/dex/user/{userAddress}/rewards/history` - 奖励历史
+- `POST /v1/api/dex/rewards/batch-proof` - 批量奖励证明
+
+### Hono 集成模式
+
+每个端点都遵循 Hono 框架的模式：
 
 ```typescript
-export async function handleApiEndpoint(request: Request, env: any): Promise<Response> {
-  try {
-    // 1. 检查 subgraph 健康状态
-    const subgraphHealth = await isSubgraphHealthy();
-    
-    if (subgraphHealth.healthy) {
-      // 2. 使用 GraphQL 查询获取实时数据
-      console.log('🔗 Fetching from subgraph...');
-      const data = await subgraphClient.someQuery();
+import { Hono } from 'hono';
+import { createAuthMiddleware } from './middleware/auth';
+import { createPoolsHandler } from './handlers/pools-graphql';
+
+// 创建路由
+const app = new Hono<{ Bindings: Env }>();
+
+// 健康检查 (无需认证)
+app.get('/health', async (c) => {
+  const subgraphClient = createSubgraphClient(c.env);
+  const health = await subgraphClient.checkHealth();
+  return c.json({ status: 'healthy', subgraph: health });
+});
+
+// 认证中间件
+app.use('*', createAuthMiddleware());
+
+// 受保护的端点
+app.get('/pools', createPoolsHandler('list'));
+app.get('/pools/:poolId', createPoolsHandler('details'));
+```
+
+### 处理器工厂模式
+
+```typescript
+export function createPoolsHandler(action: string) {
+  return async function poolsHandler(c: Context<{ Bindings: Env }>) {
+    try {
+      const subgraphClient = createSubgraphClient(c.env);
       
-      // 3. 转换数据格式并返回
-      return createApiResponse(transformedData, corsHeaders);
+      // 1. 检查 subgraph 健康状态
+      const subgraphHealth = await subgraphClient.checkHealth();
       
-    } else {
-      console.log('⚠️ Subgraph not healthy, using fallback');
+      if (!subgraphHealth.healthy) {
+        return c.json({
+          success: false,
+          error: 'Subgraph unavailable',
+          message: 'SUBGRAPH_ERROR'
+        }, 503);
+      }
+
+      // 2. 根据 action 执行不同的处理逻辑
+      switch (action) {
+        case 'list':
+          return await handlePoolsList(c, subgraphClient);
+        case 'details':
+          return await handlePoolDetails(c, subgraphClient);
+        default:
+          return c.json({ error: 'Invalid action' }, 400);
+      }
+
+    } catch (error) {
+      console.error('Handler error:', error);
+      return c.json({
+        success: false,
+        error: 'Internal server error'
+      }, 500);
     }
-    
-    // 4. 回退到数据库或模拟数据
-    const fallbackData = await getFallbackData();
-    return createApiResponse(fallbackData, corsHeaders);
-    
-  } catch (error) {
-    // 5. 错误处理
-    return createErrorResponse('Error message', corsHeaders, 500);
-  }
+  };
 }
 ```
 

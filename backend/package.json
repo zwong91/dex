@@ -8,7 +8,9 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev",
-    "test": "vitest run test/*.spec.ts --exclude test/integration.spec.ts test/performance.spec.ts test/security.spec.ts",
+    "test": "npm run test:all",
+    "test:all": "tsx all-in-one-test.ts",
+    "test:all:coverage": "tsx all-in-one-test.ts --coverage",
     "test:unit": "vitest run test/*.spec.ts --exclude test/integration.spec.ts test/performance.spec.ts test/security.spec.ts",
     "test:integration": "vitest run test/integration.spec.ts",
     "test:performance": "vitest run test/performance.spec.ts",
@@ -16,11 +18,8 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:coverage:watch": "vitest watch --coverage",
-    "test:coverage:unit": "vitest run test/*.spec.ts --exclude test/integration.spec.ts test/performance.spec.ts test/security.spec.ts --coverage",
     "coverage:open": "npx live-server coverage/lcov-report --port=8080",
-    "cf-typegen": "wrangler types",
-    "test:graphql": "node test-graphql.mjs",
-    "test:api": "node test-integration.mjs"
+    "cf-typegen": "wrangler types"
   },
   "keywords": [
     "cloudflare",
@@ -40,11 +39,13 @@
     "@types/node": "^24.0.3",
     "@vitest/coverage-v8": "^3.2.4",
     "live-server": "^1.2.0",
+    "tsx": "^4.20.3",
     "typescript": "^5.7.2",
     "vitest": "^3.2.4",
     "wrangler": "^4.21.0"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.7.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "better-sqlite3": "^12.1.0",
     "hono": "^4.8.1",
