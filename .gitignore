@@ -25,3 +25,4 @@ dist-ssr
 .vercel
 *tsbuildinfo
 *backend/**/*.map
+backend/indexer/graph_data/postgres/
