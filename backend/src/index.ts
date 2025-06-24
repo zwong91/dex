@@ -3,27 +3,12 @@ import { json } from 'itty-router-extras';
 import { aiHandler } from './ai/handler';
 import { storageHandler } from './storage/handler';
 import { createDexHandler } from './dex/handler';
-import { databaseHandler } from './database/handler';
-import { drizzle } from 'drizzle-orm/d1';
-import * as schema from './database/schema';
 
 export interface Env {
 	AI?: any;
-	DB?: D1Database;
-	D1_DATABASE?: D1Database; // For DEX database
 	R2?: R2Bucket;
 	KEY: string;
 	NODE_ENV?: string;
-	// RPC URLs
-	BSC_INFURA_URL?: string;
-	BSC_TEST_INFURA_URL?: string;
-	// Contract addresses
-	LB_FACTORY_BSC?: string;
-	LB_FACTORY_BSCTEST?: string;
-	LB_ROUTER_BSC?: string;
-	LB_ROUTER_BSCTEST?: string;
-	LB_QUOTER_BSC?: string;
-	LB_QUOTER_BSCTEST?: string;
 	// API configuration
 	PRICE_API_URL?: string;
 	PRICE_API_KEY?: string;
@@ -76,22 +61,14 @@ export default {
 				return new Response(JSON.stringify({ 
 					status: 'ok', 
 					timestamp: new Date().toISOString(),
-					services: ['ai', 'database', 'storage', 'dex']
+					services: ['ai', 'storage', 'dex-graphql'],
+					architecture: 'pure-graphql'
 				}), {
 					headers: { 'Content-Type': 'application/json', ...corsHeaders }
 				});
 			}
 
-			// V1 Database Management API (users, api-keys, permissions, etc.)
-			if (url.pathname.startsWith('/v1/api/admin/users') || 
-				url.pathname.startsWith('/v1/api/admin/api-keys') ||
-				url.pathname.startsWith('/v1/api/admin/permissions') ||
-				url.pathname.startsWith('/v1/api/admin/analytics') ||
-				url.pathname.startsWith('/v1/api/admin/applications')) {
-				return await databaseHandler(request, env);
-			}
-
-			// DEX API routes - Support both v1 and direct paths
+			// DEX API routes - Pure GraphQL implementation
 			if (url.pathname.startsWith('/v1/api/dex')) {
 				const dexHandler = await createDexHandler(env);
 				const response = await dexHandler(request);
@@ -132,7 +109,7 @@ export default {
 
 	/**
 	 * 处理 Cloudflare Worker Cron 触发器
-	 * 根据 wrangler.toml 中定义的 cron 调度执行不同的同步任务
+	 * 纯GraphQL架构下的轻量级任务调度
 	 */
 	async scheduled(
 		controller: ScheduledController,
@@ -144,15 +121,21 @@ export default {
 		console.log(`🕐 Cron job triggered: ${controller.cron} at ${cronTimestamp}`);
 
 		try {
-			// 根据 cron 表达式执行相应的任务
+			// 纯GraphQL架构下的轻量级任务
 			switch (controller.cron) {
-				case "*/1 * * * *": // sync-pools-frequent - 每1分钟
+				case "*/5 * * * *": // health-check - 每5分钟检查subgraph健康状态
+					console.log("🏥 Running subgraph health check...");
+					// 可以在这里添加subgraph健康监控
 					break;
 
-				case "0 * * * *": // sync-stats-hourly - 每小时
+				case "0 * * * *": // metrics-collection - 每小时收集指标
+					console.log("📊 Collecting GraphQL metrics...");
+					// 可以在这里添加API使用统计收集
 					break;
 
-				case "0 2 * * 0": // cleanup-old-data - 每周日凌晨2点
+				case "0 2 * * 0": // log-cleanup - 每周日凌晨2点清理日志
+					console.log("🧹 Running log cleanup...");
+					// 可以在这里添加日志清理逻辑
 					break;
 
 				default:

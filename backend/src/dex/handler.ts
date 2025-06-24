@@ -6,7 +6,7 @@
  */
 
 import { validateApiKey, hasPermission, checkRateLimit, trackApiUsage } from './auth';
-import { matchGraphQLRoute, extractRouteParams } from './routing/graphql-routes';
+import { matchGraphQLRoute, extractRouteParams } from './routing';
 import type { CorsHeaders } from './types';
 
 /**
