@@ -91,24 +91,6 @@ export default {
 				return await databaseHandler(request, env);
 			}
 
-			// Admin sync endpoints
-			if (url.pathname.startsWith('/v1/api/admin/sync')) {
-				const { handleSync } = await import('./dex/sync/sync-handler');
-				return await handleSync(request, env);
-			}
-
-			// Cron management endpoints
-			if (url.pathname.startsWith('/v1/api/admin/cron')) {
-				const { handleSimpleCronManagement } = await import('./dex/sync/simple-cron-management');
-				return await handleSimpleCronManagement(request, env);
-			}
-
-			// Simple test endpoints for debugging
-			if (url.pathname.startsWith('/v1/api/test/simple')) {
-				const { handleSimpleTest } = await import('./dex/sync/simple-test');
-				return await handleSimpleTest(request, env);
-			}
-
 			// DEX API routes - Support both v1 and direct paths
 			if (url.pathname.startsWith('/v1/api/dex')) {
 				const dexHandler = await createDexHandler(env);
@@ -162,22 +144,15 @@ export default {
 		console.log(`🕐 Cron job triggered: ${controller.cron} at ${cronTimestamp}`);
 
 		try {
-			// 动态导入 Cron 处理器
-			const { CronHandler } = await import('./dex/sync/cron-handler');
-			const cronHandler = new CronHandler(env);
-
 			// 根据 cron 表达式执行相应的任务
 			switch (controller.cron) {
 				case "*/1 * * * *": // sync-pools-frequent - 每1分钟
-					await cronHandler.handleFrequentPoolSync();
 					break;
 
 				case "0 * * * *": // sync-stats-hourly - 每小时
-					await cronHandler.handleHourlyStatsSync();
 					break;
 
 				case "0 2 * * 0": // cleanup-old-data - 每周日凌晨2点
-					await cronHandler.handleWeeklyCleanup();
 					break;
 
 				default:

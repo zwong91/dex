@@ -1,4 +1,5 @@
 import { createApiResponse, createErrorResponse, parseQueryParams, getRequestContext } from '../utils';
+import { subgraphClient, isSubgraphHealthy, type LiquidityPosition } from '../graphql/client';
 // Handler for user bin IDs
 export async function handleUserBinIds(request: Request, env: any): Promise<Response> {
   const url = new URL(request.url);
@@ -68,10 +69,106 @@ export async function handleUserPoolIds(request: Request, env: any): Promise<Res
   const userAddress = pathSegments[5];
   const chain = pathSegments[6];
 
-  const mockUserPoolIds = {
-    userAddress: userAddress,
-    chain: chain,
-    poolIds: [
+  if (!userAddress) {
+    const { corsHeaders } = getRequestContext(env);
+    return createErrorResponse(
+      'Invalid request',
+      'User address is required',
+      corsHeaders,
+      400,
+      'INVALID_REQUEST'
+    );
+  }
+
+  try {
+    // Check if subgraph is available and healthy
+    const subgraphHealth = await isSubgraphHealthy();
+    
+    if (subgraphHealth.healthy) {
+      console.log('🔗 Fetching user positions from subgraph for:', userAddress);
+      
+      try {
+        const userPositions = await subgraphClient.getUserPositions(userAddress, 100);
+        
+        // Group positions by pool
+        const poolPositions = new Map<string, {
+          poolAddress: string;
+          name: string;
+          tokenX: any;
+          tokenY: any;
+          binStep: number;
+          positions: LiquidityPosition[];
+          totalLiquidityUsd: number;
+        }>();
+
+        for (const position of userPositions) {
+          const poolAddress = position.pool.pairAddress;
+          
+          if (!poolPositions.has(poolAddress)) {
+            poolPositions.set(poolAddress, {
+              poolAddress,
+              name: `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol}`,
+              tokenX: {
+                address: position.pool.id, // This should be tokenX address from pool data
+                symbol: position.pool.tokenX.symbol,
+                name: position.pool.tokenX.symbol
+              },
+              tokenY: {
+                address: position.pool.id, // This should be tokenY address from pool data
+                symbol: position.pool.tokenY.symbol,
+                name: position.pool.tokenY.symbol
+              },
+              binStep: 25, // TODO: Get from pool data
+              positions: [],
+              totalLiquidityUsd: 0
+            });
+          }
+          
+          poolPositions.get(poolAddress)!.positions.push(position);
+        }
+
+        // Transform to API format
+        const userPoolData = Array.from(poolPositions.values()).map(pool => ({
+          poolAddress: pool.poolAddress,
+          name: pool.name,
+          tokenX: pool.tokenX,
+          tokenY: pool.tokenY,
+          binStep: pool.binStep,
+          userLiquidityUsd: "0", // TODO: Calculate from position data and prices
+          userSharePercent: 0, // TODO: Calculate
+          positionCount: pool.positions.length,
+          activeBins: pool.positions.map(p => p.binId),
+          lastActivity: pool.positions.length > 0 ? 
+            Math.max(...pool.positions.map(p => parseInt(p.updatedAt))) : 
+            Math.floor(Date.now() / 1000)
+        }));
+
+        const result = {
+          userAddress,
+          chain: chain || 'bsc-testnet',
+          poolIds: userPoolData,
+          totalPools: userPoolData.length,
+          totalLiquidityUsd: "0", // TODO: Sum from all pools
+          totalActivePositions: userPositions.length
+        };
+
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+      } catch (subgraphError) {
+        console.error('❌ Subgraph query failed for user positions, falling back to mock data:', subgraphError);
+        // Fall through to mock data
+      }
+    } else {
+      console.log('⚠️ Subgraph not healthy for user positions, using mock data:', subgraphHealth.error);
+    }
+
+    // Fallback to mock data
+    const mockUserPoolIds = {
+      userAddress: userAddress,
+      chain: chain,
+      poolIds: [
       {
         poolAddress: "0x1234567890abcdef1234567890abcdef12345678",
         name: "Token X / Token Y Pool",
@@ -118,9 +215,21 @@ export async function handleUserPoolIds(request: Request, env: any): Promise<Res
     totalActivePositions: 5
   };
 
-  return new Response(JSON.stringify(mockUserPoolIds), {
-    headers: { 'Content-Type': 'application/json' }
-  });
+    return new Response(JSON.stringify(mockUserPoolIds), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching user pool IDs:', error);
+    const { corsHeaders } = getRequestContext(env);
+    return createErrorResponse(
+      'Server error',
+      'Failed to fetch user pool data',
+      corsHeaders,
+      500,
+      'SERVER_ERROR'
+    );
+  }
 }
 
 // Handler for pool user balances

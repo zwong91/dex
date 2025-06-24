@@ -17,12 +17,6 @@ import {
   handleVaultWithdrawalsByUser, 
   handleVaultWithdrawalsByUserAndVault 
 } from '../handlers/vaults';
-import { 
-  handleTriggerSync, 
-  handleSyncStatus, 
-  handlePoolDiscovery, 
-  handleDatabaseStats 
-} from '../handlers/sync';
 
 /**
  * Route handler type definition
@@ -228,36 +222,6 @@ export const DEX_ROUTES: RouteConfig[] = [
     requiresAuth: true,
     rateLimitTier: 'basic'
   },
-
-  // Sync and System Management
-  {
-    path: '/api/dex/sync/trigger',
-    method: 'POST',
-    handler: handleTriggerSync,
-    requiresAuth: true,
-    rateLimitTier: 'enterprise'
-  },
-  {
-    path: '/api/dex/sync/status',
-    method: 'GET',
-    handler: handleSyncStatus,
-    requiresAuth: true,
-    rateLimitTier: 'basic'
-  },
-  {
-    path: '/api/dex/pools/discover',
-    method: 'POST',
-    handler: handlePoolDiscovery,
-    requiresAuth: true,
-    rateLimitTier: 'enterprise'
-  },
-  {
-    path: '/api/dex/database/stats',
-    method: 'GET',
-    handler: handleDatabaseStats,
-    requiresAuth: true,
-    rateLimitTier: 'basic'
-  }
 ];
 
 /**
