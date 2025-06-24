@@ -52,7 +52,7 @@ export function createDexRoutes() {
 	app.get('/subgraph/meta', async (c) => {
 		try {
 			const subgraphClient = createSubgraphClient(c.env);
-			const meta = await subgraphClient.getMetadata();
+			const meta = await subgraphClient.getMeta();
 			
 			return c.json({
 				success: true,
