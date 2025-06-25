@@ -1,5 +1,8 @@
 /**
- * DEX Users Handlers - Pure GraphQL Implementation with Hono
+ * DEX Users Handlers - Updated for Real Indexer Data
+ * 
+ * Handles user-related queries using real GraphQL subgraph data.
+ * Updated to match actual deployed BSC testnet indexer schema.
  */
 
 import type { Context } from 'hono';
@@ -70,22 +73,19 @@ async function handleUserBinIds(c: Context<{ Bindings: Env }>, subgraphClient: a
 		}, 400);
 	}
 
-	console.log('🔗 Fetching user-related data from subgraph...', userAddress);
+	console.log('🔗 Fetching user liquidity positions from subgraph...', userAddress);
 	
-	// Since we don't have user position entities, we look for traces involving the user
-	// This is a workaround - in a complete indexer, user positions would be tracked separately
-	const traces = await subgraphClient.getTraces(1000, 0); // Get recent traces
+	const positions = await subgraphClient.getUserLiquidityPositions(userAddress);
 	
-	// Filter traces that might involve this user (this is limited without proper user indexing)
-	// In reality, you'd need to index user addresses in the subgraph
-	const userTraces = traces.filter((trace: any) => 
-		trace.txHash && trace.binId // Basic validation
-	);
-	
-	// Extract unique bin IDs from traces (this is an approximation)
-	const binIds = userTraces
-		.map((trace: any) => trace.binId)
-		.filter((binId: string, index: number, arr: string[]) => arr.indexOf(binId) === index);
+	// Extract unique bin IDs from user bin liquidities
+	const binIds: number[] = [];
+	for (const position of positions) {
+		for (const binLiquidity of position.userBinLiquidities || []) {
+			if (!binIds.includes(binLiquidity.binId)) {
+				binIds.push(binLiquidity.binId);
+			}
+		}
+	}
 
 	return c.json({
 		success: true,
@@ -113,12 +113,11 @@ async function handleUserPoolIds(c: Context<{ Bindings: Env }>, subgraphClient: 
 
 	console.log('🔗 Fetching user pool IDs from subgraph...', userAddress);
 	
-	// Since we don't have user position entities, we look for traces involving the user
-	const traces = await subgraphClient.getTraces(1000, 0);
+	const positions = await subgraphClient.getUserLiquidityPositions(userAddress);
 	
-	// Extract unique pool IDs from traces (approximation without proper user indexing)
-	const poolIds = traces
-		.map((trace: any) => trace.lbPair)
+	// Extract unique pool IDs
+	const poolIds = positions
+		.map((position: any) => position.lbPair.id)
 		.filter((poolId: string, index: number, arr: string[]) => arr.indexOf(poolId) === index);
 
 	return c.json({
@@ -150,41 +149,63 @@ async function handleUserHistory(c: Context<{ Bindings: Env }>, subgraphClient: 
 	console.log('🔗 Fetching user history from subgraph...', userAddress);
 	
 	const offset = (page - 1) * limit;
-	// Since we don't have user-specific transaction indexing, get recent traces
-	const traces = await subgraphClient.getTraces(limit, offset);
 	
-	// Transform trace data to transaction format (this is a limited approximation)
-	const transformedTransactions = traces.map((trace: any) => ({
-		id: trace.id,
-		type: trace.type || 'unknown',
-		timestamp: Date.now(), // Traces don't have timestamp in current schema
+	// Get user's swaps and mints/burns
+	const [swaps, mintsBurns] = await Promise.all([
+		subgraphClient.getUserSwaps(userAddress, limit),
+		subgraphClient.getUserMintsBurns(userAddress, limit)
+	]);
+	
+	// Combine and sort all transactions
+	const allTransactions = [
+		...swaps.map((swap: any) => ({
+			...swap,
+			type: 'swap',
+			timestamp: parseInt(swap.timestamp || '0')
+		})),
+		...mintsBurns.map((tx: any) => ({
+			...tx,
+			timestamp: parseInt(tx.timestamp || '0')
+		}))
+	].sort((a, b) => b.timestamp - a.timestamp);
+	
+	// Apply pagination
+	const paginatedTransactions = allTransactions.slice(offset, offset + limit);
+	
+	// Transform transaction data
+	const transformedTransactions = paginatedTransactions.map((tx: any) => ({
+		id: tx.id,
+		type: tx.type || 'swap',
+		timestamp: tx.timestamp,
 		pool: {
-			id: trace.lbPair,
-			name: `Pool ${trace.lbPair?.slice(0, 8)}...`,
+			id: tx.lbPair?.id,
+			name: tx.lbPair ? `${tx.lbPair.tokenX.symbol}/${tx.lbPair.tokenY.symbol}` : 'Unknown',
 		},
 		amounts: {
-			tokenIn: trace.amountXIn || trace.amountYIn || '0',
-			tokenOut: trace.amountXOut || trace.amountYOut || '0',
-			tokenX: trace.amountXIn || trace.amountXOut || '0',
-			tokenY: trace.amountYIn || trace.amountYOut || '0',
+			tokenXIn: tx.amountXIn || '0',
+			tokenYIn: tx.amountYIn || '0', 
+			tokenXOut: tx.amountXOut || '0',
+			tokenYOut: tx.amountYOut || '0',
+			tokenX: tx.amountX || '0',
+			tokenY: tx.amountY || '0',
+			usd: tx.amountUSD || '0',
 		},
-		tokens: {
-			tokenIn: null, // Not available in current schema
-			tokenOut: null,
-			tokenX: null,
-			tokenY: null,
+		fees: {
+			tokenX: tx.feesTokenX || '0',
+			tokenY: tx.feesTokenY || '0',
+			usd: tx.feesUSD || '0',
 		},
-		fee: '0', // Not available in current schema
-		gasUsed: '0',
-		txHash: trace.txHash,
-		blockNumber: 0, // Not available in current schema
+		txHash: tx.transaction?.id,
+		blockNumber: tx.transaction?.blockNumber,
+		sender: tx.sender,
+		recipient: tx.recipient,
 	}));
 
 	const pagination = {
 		page,
 		limit,
-		total: transformedTransactions.length, // In a real app, get total count from subgraph
-		hasNext: transformedTransactions.length === limit,
+		total: allTransactions.length,
+		hasNext: offset + limit < allTransactions.length,
 		hasPrev: page > 1,
 	};
 
@@ -214,19 +235,34 @@ async function handleUserLifetimeStats(c: Context<{ Bindings: Env }>, subgraphCl
 
 	console.log('🔗 Fetching user lifetime stats from subgraph...', userAddress);
 	
-	// Since we don't have user-specific data, provide basic stats from traces
-	const traces = await subgraphClient.getTraces(100, 0);
+	const [positions, transactions] = await Promise.all([
+		subgraphClient.getUserPositions(userAddress),
+		subgraphClient.getUserTransactions(userAddress, 1000, 0) // Get many transactions for stats
+	]);
+
+	// Calculate lifetime stats
+	const totalLiquidity = positions.reduce((sum: number, position: any) => 
+		sum + parseFloat(position.liquidityUSD || '0'), 0);
 	
-	// Calculate simplified lifetime stats (this is an approximation)
+	const totalVolume = transactions
+		.filter((tx: any) => tx.type === 'swap')
+		.reduce((sum: number, tx: any) => 
+			sum + parseFloat(tx.amountUSD || '0'), 0);
+	
+	const totalFees = transactions.reduce((sum: number, tx: any) => 
+		sum + parseFloat(tx.feeUSD || '0'), 0);
+
 	const stats = {
 		userAddress,
-		totalLiquidityProvided: '0', // Not available in current schema
-		totalVolumeTraded: '0', // Not available in current schema
-		totalFeesEarned: '0', // Not available in current schema
-		totalTransactions: traces.length,
-		totalPools: 1, // Simplified
-		firstTransactionDate: null,
-		lastTransactionDate: new Date().toISOString(),
+		totalLiquidityProvided: totalLiquidity.toString(),
+		totalVolumeTraded: totalVolume.toString(),
+		totalFeesEarned: totalFees.toString(),
+		totalTransactions: transactions.length,
+		totalPools: positions.length,
+		firstTransactionDate: transactions.length > 0 ? 
+			new Date(Math.min(...transactions.map((tx: any) => parseInt(tx.timestamp) * 1000))).toISOString() : null,
+		lastTransactionDate: transactions.length > 0 ? 
+			new Date(Math.max(...transactions.map((tx: any) => parseInt(tx.timestamp) * 1000))).toISOString() : null,
 	};
 
 	return c.json({

@@ -39,6 +39,14 @@ export function isAccountApproved(
   return false;
 }
 
+export function isSwapForY(
+  amountsInBytes32: Bytes,
+): bool {
+  const amountsIn = decodeAmounts(amountsInBytes32);
+  const amountYIn = amountsIn[1];
+  return amountYIn.equals(BIG_INT_ZERO);
+}
+
 // https://docs.traderjoexyz.com/guides/byte-32-decoding#liquidity-book-vs-uniswap-v3
 export function decodeAmounts(amounts: Bytes): Array<BigInt> {
   // Convert amounts to a BigInt

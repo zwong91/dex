@@ -1,6 +1,8 @@
 /**
- * DEX Vaults Handlers - Pure GraphQL Implementation with Hono
- * Vaults are derived from high-TVL pools with automated strategies
+ * DEX Vaults Handlers - Updated for Real Indexer Data
+ * 
+ * Vaults are derived from high-TVL pools with automated strategies.
+ * Since indexer doesn't have dedicated vault entities, we create them from pools.
  */
 
 import type { Context } from 'hono';
@@ -64,13 +66,13 @@ async function handleVaultsList(c: Context<{ Bindings: Env }>, subgraphClient: a
 	
 	console.log('🔗 Fetching vault-eligible pools from subgraph...');
 	
-	// Get all available pools - since we don't have TVL data, use timestamp ordering
-	const pools = await subgraphClient.getPools(1000, 0, 'timestamp', 'desc');
+	// Get pools sorted by TVL to identify vault candidates
+	const pools = await subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc');
 	
-	// Since we don't have TVL data in current schema, treat all pools as potential vaults
-	// In a real implementation, you would calculate TVL from bin reserves
+	// Filter pools that qualify as vaults (high TVL, active)
 	const vaultEligiblePools = pools.filter((pool: any) => 
-		pool.name && pool.tokenX && pool.tokenY // Basic validation that pool has required data
+		parseFloat(pool.totalValueLockedUSD || '0') >= minTvl &&
+		parseInt(pool.liquidityProviderCount || '0') > 0
 	);
 
 	// Transform pools to vault format
@@ -113,7 +115,7 @@ async function handleVaultDetails(c: Context<{ Bindings: Env }>, subgraphClient:
 	
 	console.log('🔗 Fetching vault details from subgraph...', poolId);
 	
-	const pool = await subgraphClient.getPool(poolId);
+	const pool = await subgraphClient.getPoolById(poolId);
 	
 	if (!pool) {
 		return c.json({
@@ -139,23 +141,32 @@ async function handleVaultDetails(c: Context<{ Bindings: Env }>, subgraphClient:
 async function handleVaultsAnalytics(c: Context<{ Bindings: Env }>, subgraphClient: any) {
 	console.log('🔗 Fetching vaults analytics from subgraph...');
 	
-	const pools = await subgraphClient.getPools(1000, 0, 'timestamp', 'desc');
+	const pools = await subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc');
 	
-	// Since we don't have TVL data, treat all pools as potential vaults
+	// Filter vault-eligible pools
 	const vaultPools = pools.filter((pool: any) => 
-		pool.name && pool.tokenX && pool.tokenY
+		parseFloat(pool.totalValueLockedUSD || '0') >= 10000 &&
+		parseInt(pool.liquidityProviderCount || '0') > 0
 	);
 
-	// Calculate simplified analytics since we don't have TVL/volume data
-	const totalTvl = 0; // Not available in current schema
-	const totalVolume24h = 0; // Not available in current schema
-	const totalFees24h = 0; // Not available in current schema
-	const averageAPY = 0; // Not available in current schema
+	// Calculate analytics
+	const totalTvl = vaultPools.reduce((sum: number, pool: any) => 
+		sum + parseFloat(pool.totalValueLockedUSD || '0'), 0);
+	
+	const totalVolume24h = vaultPools.reduce((sum: number, pool: any) => 
+		sum + parseFloat(pool.volumeUSD24h || '0'), 0);
+	
+	const totalFees24h = vaultPools.reduce((sum: number, pool: any) => 
+		sum + parseFloat(pool.feesUSD24h || '0'), 0);
 
-	// Simplified top vaults
+	const averageAPY = vaultPools.length > 0 ? 
+		vaultPools.reduce((sum: number, pool: any) => sum + calculatePoolAPY(pool), 0) / vaultPools.length : 0;
+
+	// Top performing vaults
 	const topVaults = vaultPools
-		.slice(0, 10)
-		.map((pool: any) => transformPoolToVault(pool));
+		.map(pool => ({ ...transformPoolToVault(pool), apy: calculatePoolAPY(pool) }))
+		.sort((a, b) => b.apy - a.apy)
+		.slice(0, 10);
 
 	const analytics = {
 		totalVaults: vaultPools.length,
@@ -165,14 +176,14 @@ async function handleVaultsAnalytics(c: Context<{ Bindings: Env }>, subgraphClie
 		averageAPY: averageAPY,
 		topVaults,
 		riskDistribution: {
-			low: Math.floor(vaultPools.length * 0.6),
-			medium: Math.floor(vaultPools.length * 0.3),
-			high: Math.floor(vaultPools.length * 0.1),
+			low: vaultPools.filter(pool => calculateRiskLevel(pool) === 'low').length,
+			medium: vaultPools.filter(pool => calculateRiskLevel(pool) === 'medium').length,
+			high: vaultPools.filter(pool => calculateRiskLevel(pool) === 'high').length,
 		},
 		strategyDistribution: {
-			conservative: Math.floor(vaultPools.length * 0.4),
-			balanced: Math.floor(vaultPools.length * 0.4),
-			aggressive: Math.floor(vaultPools.length * 0.2),
+			conservative: vaultPools.filter(pool => getVaultStrategy(pool) === 'conservative').length,
+			balanced: vaultPools.filter(pool => getVaultStrategy(pool) === 'balanced').length,
+			aggressive: vaultPools.filter(pool => getVaultStrategy(pool) === 'aggressive').length,
 		},
 	};
 
@@ -227,10 +238,10 @@ async function handleVaultStrategies(c: Context<{ Bindings: Env }>, subgraphClie
 
 // Helper functions
 function transformPoolToVault(pool: any, detailed: boolean = false) {
-	const tvl = 0; // Simplified since TVL data not available
-	const apy = 0; // Simplified since APY calculation not available
-	const riskLevel = 'medium'; // Default risk level
-	const strategy = 'balanced'; // Default strategy
+	const tvl = parseFloat(pool.totalValueLockedUSD || '0');
+	const apy = calculatePoolAPY(pool);
+	const riskLevel = calculateRiskLevel(pool);
+	const strategy = getVaultStrategy(pool);
 	
 	const baseVault = {
 		vaultId: `vault_${pool.id}`,
@@ -245,43 +256,43 @@ function transformPoolToVault(pool: any, detailed: boolean = false) {
 			address: pool.tokenX.id,
 			symbol: pool.tokenX.symbol,
 			name: pool.tokenX.name,
-			decimals: parseInt(pool.tokenX.decimals || '18'),
-			priceUsd: 0, // Price data not available
+			decimals: pool.tokenX.decimals,
+			priceUsd: parseFloat(pool.tokenX.priceUSD || '0'),
 		},
 		tokenY: {
 			address: pool.tokenY.id,
 			symbol: pool.tokenY.symbol,
 			name: pool.tokenY.name,
-			decimals: parseInt(pool.tokenY.decimals || '18'),
-			priceUsd: 0, // Price data not available
+			decimals: pool.tokenY.decimals,
+			priceUsd: parseFloat(pool.tokenY.priceUSD || '0'),
 		},
 		tvl: tvl.toString(),
 		apy: apy,
-		totalShares: '0', // Simplified
+		totalShares: pool.totalSupply || '0',
 		sharePrice: '1.0', // Simplified for now
-		managementFee: '0.5', // Default management fee
-		performanceFee: '10', // Default performance fee
-		status: 'active', // Simplified status
-		createdAt: pool.timestamp ? 
-			new Date(parseInt(pool.timestamp) * 1000).toISOString() : new Date().toISOString(),
-		lastUpdate: Date.now(),
+		managementFee: getManagementFee(strategy),
+		performanceFee: getPerformanceFee(strategy),
+		status: pool.liquidityProviderCount > 0 ? 'active' : 'inactive',
+		createdAt: pool.createdAtTimestamp ? 
+			new Date(parseInt(pool.createdAtTimestamp) * 1000).toISOString() : new Date().toISOString(),
+		lastUpdate: pool.updatedAtTimestamp ? parseInt(pool.updatedAtTimestamp) : Date.now(),
 	};
 
 	if (detailed) {
 		return {
 			...baseVault,
-			// Additional detailed information (simplified)
-			totalUsers: 0,
-			volume24h: 0,
-			fees24h: 0,
-			reserveX: 0,
-			reserveY: 0,
-			binStep: 0,
-			activeBins: 0,
+			// Additional detailed information
+			totalUsers: parseInt(pool.liquidityProviderCount || '0'),
+			volume24h: parseFloat(pool.volumeUSD24h || '0'),
+			fees24h: parseFloat(pool.feesUSD24h || '0'),
+			reserveX: parseFloat(pool.reserveX || '0'),
+			reserveY: parseFloat(pool.reserveY || '0'),
+			binStep: parseInt(pool.binStep || '0'),
+			activeBins: pool.bins ? pool.bins.filter((bin: any) => parseFloat(bin.liquidity || '0') > 0).length : 0,
 			performance: {
-				dailyReturn: '0.0000',
-				weeklyReturn: '0.0000',
-				monthlyReturn: '0.0000',
+				dailyReturn: (apy / 365).toFixed(4),
+				weeklyReturn: (apy / 52).toFixed(4),
+				monthlyReturn: (apy / 12).toFixed(4),
 			},
 		};
 	}

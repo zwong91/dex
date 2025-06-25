@@ -1,8 +1,8 @@
 /**
- * DEX Pools Handlers - Pure GraphQL Implementation with Hono
+ * DEX Pools Handlers - Updated for Real Indexer Data
  * 
- * All handlers now use GraphQL subgraph exclusively for data.
- * No database fallbacks - the subgraph is the single source of truth.
+ * All handlers now use real GraphQL subgraph data exclusively.
+ * Updated to match actual deployed BSC testnet indexer schema.
  */
 
 import type { Context } from 'hono';
@@ -74,38 +74,41 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 		pairAddress: pool.id,
 		chain: 'bsc-testnet',
 		name: pool.name || `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
-		status: 'active', // All indexed pools are considered active
+		status: parseInt(pool.liquidityProviderCount || '0') > 0 ? 'active' : 'inactive',
 		version: '2.1',
 		tokenX: {
 			address: pool.tokenX.id,
 			symbol: pool.tokenX.symbol,
 			name: pool.tokenX.name,
 			decimals: parseInt(pool.tokenX.decimals),
-			priceUsd: 0, // Price data not available in current schema
-			priceNative: '0',
+			priceUsd: parseFloat(pool.tokenXPriceUSD || '0'),
+			priceNative: pool.tokenXPrice || '0',
 		},
 		tokenY: {
 			address: pool.tokenY.id,
 			symbol: pool.tokenY.symbol,
 			name: pool.tokenY.name,
 			decimals: parseInt(pool.tokenY.decimals),
-			priceUsd: 0, // Price data not available in current schema
-			priceNative: '0',
+			priceUsd: parseFloat(pool.tokenYPriceUSD || '0'),
+			priceNative: pool.tokenYPrice || '0',
 		},
-		reserveX: 0, // Will be calculated from bins if needed
-		reserveY: 0, // Will be calculated from bins if needed
-		lbBinStep: 10, // Default bin step, could be extracted from pool name
-		liquidityUsd: 0, // TVL calculation would require price data
-		volume24hUsd: 0, // Volume calculation not available in current schema
-		fees24hUsd: 0, // Fee calculation not available in current schema
-		apr: 0,
-		apy: 0,
-		createdAt: pool.timestamp ? new Date(parseInt(pool.timestamp) * 1000).toISOString() : new Date().toISOString(),
+		reserveX: parseFloat(pool.reserveX || '0'),
+		reserveY: parseFloat(pool.reserveY || '0'),
+		lbBinStep: parseInt(pool.binStep || '10'),
+		activeId: pool.activeId || 0,
+		liquidityUsd: parseFloat(pool.totalValueLockedUSD || '0'),
+		volume24hUsd: parseFloat(pool.volumeUSD || '0'),
+		fees24hUsd: parseFloat(pool.feesUSD || '0'),
+		txCount: parseInt(pool.txCount || '0'),
+		liquidityProviderCount: parseInt(pool.liquidityProviderCount || '0'),
+		apr: 0, // Will calculate from fees if needed
+		apy: 0, // Will calculate from fees if needed
+		createdAt: new Date().toISOString(),
 		lastUpdate: Date.now(),
 	}));
 
-	// Create pagination info
-	const totalCount = subgraphPools.length; // For now, use returned count
+	// Create pagination info  
+	const totalCount = subgraphPools.length; // Use returned count as approximation
 	const pagination = {
 		page,
 		limit,
@@ -154,42 +157,44 @@ async function handlePoolDetails(c: Context<{ Bindings: Env }>, subgraphClient: 
 		pairAddress: pool.id,
 		chain: 'bsc-testnet',
 		name: pool.name || `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
-		status: 'active',
+		status: parseInt(pool.liquidityProviderCount || '0') > 0 ? 'active' : 'inactive',
 		version: '2.1',
 		tokenX: {
 			address: pool.tokenX.id,
 			symbol: pool.tokenX.symbol,
 			name: pool.tokenX.name,
 			decimals: parseInt(pool.tokenX.decimals),
-			priceUsd: 0,
-			priceNative: '0',
+			priceUsd: parseFloat(pool.tokenXPriceUSD || '0'),
+			priceNative: pool.tokenXPrice || '0',
 		},
 		tokenY: {
 			address: pool.tokenY.id,
 			symbol: pool.tokenY.symbol,
 			name: pool.tokenY.name,
 			decimals: parseInt(pool.tokenY.decimals),
-			priceUsd: 0,
-			priceNative: '0',
+			priceUsd: parseFloat(pool.tokenYPriceUSD || '0'),
+			priceNative: pool.tokenYPrice || '0',
 		},
-		reserveX: 0,
-		reserveY: 0,
-		lbBinStep: 0,
-		liquidityUsd: 0,
-		volume24hUsd: 0,
-		fees24hUsd: 0,
-		apr: 0,
-		apy: 0,
-		createdAt: pool.timestamp ? new Date(parseInt(pool.timestamp) * 1000).toISOString() : new Date().toISOString(),
+		reserveX: parseFloat(pool.reserveX || '0'),
+		reserveY: parseFloat(pool.reserveY || '0'),
+		lbBinStep: parseInt(pool.binStep || '10'),
+		activeId: pool.activeId || 0,
+		liquidityUsd: parseFloat(pool.totalValueLockedUSD || '0'),
+		volume24hUsd: parseFloat(pool.volumeUSD || '0'),
+		fees24hUsd: parseFloat(pool.feesUSD || '0'),
+		txCount: parseInt(pool.txCount || '0'),
+		liquidityProviderCount: parseInt(pool.liquidityProviderCount || '0'),
+		apr: 0, // Will calculate if needed
+		apy: 0, // Will calculate if needed
+		createdAt: new Date().toISOString(),
 		lastUpdate: Date.now(),
 		
 		// Additional details
-		liquidityProviderCount: 0,
-		swapCount: 0,
-		activeBins: 0,
-		totalBins: 0,
+		swapCount: parseInt(pool.txCount || '0'),
+		activeBins: 1, // Default value, can be enhanced later
+		totalBins: 1, // Default value, can be enhanced later
 		
-		// Recent activity
+		// Recent activity (can be fetched separately if needed)
 		recentSwaps: [],
 	};
 

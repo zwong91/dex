@@ -26,7 +26,7 @@ export interface SubgraphMeta {
   hasIndexingErrors: boolean;
 }
 
-export interface Pool {
+export interface LBPair {
   id: string;
   name: string;
   tokenX: {
@@ -41,8 +41,19 @@ export interface Pool {
     name: string;
     decimals: string;
   };
-  timestamp: string;
-  block: string;
+  reserveX: string;
+  reserveY: string;
+  totalValueLockedUSD: string;
+  volumeUSD: string;
+  txCount: string;
+  binStep: string;
+  activeId: number;
+  tokenXPrice: string;
+  tokenYPrice: string;
+  tokenXPriceUSD: string;
+  tokenYPriceUSD: string;
+  feesUSD: string;
+  liquidityProviderCount: string;
 }
 
 export interface Token {
@@ -50,44 +61,34 @@ export interface Token {
   symbol: string;
   name: string;
   decimals: string;
-  totalSupply: string;
+  volume: string;
+  volumeUSD: string;
+  totalValueLocked: string;
+  totalValueLockedUSD: string;
+  derivedAVAX: string;
   txCount: string;
-}
-
-export interface Bin {
-  id: string;
-  binId: string;
+  feesUSD: string;
   totalSupply: string;
-  reserveX: string;
-  reserveY: string;
-  lbPair: {
-    id: string;
-    name: string;
-  };
-}
-
-export interface Trace {
-  id: string;
-  type: string;
-  lbPair: string;
-  binId: string;
-  amountXIn: string;
-  amountXOut: string;
-  amountYIn: string;
-  amountYOut: string;
-  txHash: string;
-  minted: string;
-  burned: string;
 }
 
 export interface SwapEvent {
   id: string;
   transaction: {
     id: string;
+    timestamp: string;
+    blockNumber: string;
   };
-  timestamp: number;
   lbPair: {
     id: string;
+    name: string;
+    tokenX: {
+      symbol: string;
+      decimals: string;
+    };
+    tokenY: {
+      symbol: string;
+      decimals: string;
+    };
   };
   sender: string;
   recipient: string;
@@ -101,38 +102,7 @@ export interface SwapEvent {
   feesTokenX: string;
   feesTokenY: string;
   feesUSD: string;
-}
-
-export interface LiquidityPosition {
-  id: string;
-  user: {
-    id: string;
-  };
-  lbPair: {
-    id: string;
-    name: string;
-    tokenX: {
-      id: string;
-      symbol: string;
-      name: string;
-      decimals: number;
-    };
-    tokenY: {
-      id: string;
-      symbol: string;
-      name: string;
-      decimals: number;
-    };
-  };
-  userBinLiquidities: Array<{
-    id: string;
-    binId: number;
-    liquidity: string;
-    timestamp: number;
-  }>;
-  binsCount: number;
-  block: number;
-  timestamp: number;
+  timestamp: string;
 }
 
 /**
@@ -141,8 +111,11 @@ export interface LiquidityPosition {
 export class SubgraphClient {
   private endpoint: string;
   
-  constructor(endpoint: string = 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet') {
-    this.endpoint = endpoint;
+  constructor(endpoint?: string, env?: any) {
+    // Use provided endpoint or get from environment or use default
+    this.endpoint = endpoint || 
+      env?.SUBGRAPH_URL ||
+      'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet';
   }
 
   /**
@@ -219,17 +192,13 @@ export class SubgraphClient {
         };
       }
 
-      // Check if the subgraph is reasonably up to date (within last hour)
+      // Check if the subgraph is reasonably up to date (within last 24 hours)
       const currentTime = Date.now() / 1000;
       const timeDiff = currentTime - meta.block.timestamp;
       
-      if (timeDiff > 3600) { // More than 1 hour behind
-        return { 
-          healthy: false, 
-          error: `Subgraph is ${Math.floor(timeDiff / 60)} minutes behind`,
-          blockNumber: meta.block.number,
-          hasIndexingErrors: false
-        };
+      // Be more lenient with timestamp check for development/testnet
+      if (timeDiff > 86400) { // More than 24 hours behind
+        console.warn(`Subgraph is ${Math.floor(timeDiff / 60)} minutes behind, but continuing...`);
       }
 
       return { 
@@ -251,9 +220,9 @@ export class SubgraphClient {
   async getPools(
     first: number = 100, 
     skip: number = 0,
-    orderBy: string = 'timestamp',
+    orderBy: string = 'totalValueLockedUSD',
     orderDirection: 'asc' | 'desc' = 'desc'
-  ): Promise<Pool[]> {
+  ): Promise<LBPair[]> {
     const query = `
       query GetPools($first: Int!, $skip: Int!, $orderBy: String!, $orderDirection: String!) {
         lbpairs(
@@ -276,8 +245,19 @@ export class SubgraphClient {
             name
             decimals
           }
-          timestamp
-          block
+          reserveX
+          reserveY
+          totalValueLockedUSD
+          volumeUSD
+          txCount
+          binStep
+          activeId
+          tokenXPrice
+          tokenYPrice
+          tokenXPriceUSD
+          tokenYPriceUSD
+          feesUSD
+          liquidityProviderCount
         }
       }
     `;
@@ -289,14 +269,14 @@ export class SubgraphClient {
       orderDirection,
     };
 
-    const result = await this.query<{ lbpairs: Pool[] }>(query, variables);
+    const result = await this.query<{ lbpairs: LBPair[] }>(query, variables);
     return result.data?.lbpairs || [];
   }
 
   /**
    * Get a specific pool by address
    */
-  async getPool(pairAddress: string): Promise<Pool | null> {
+  async getPool(pairAddress: string): Promise<LBPair | null> {
     const query = `
       query GetPool($pairAddress: String!) {
         lbpairs(where: { id: $pairAddress }) {
@@ -314,30 +294,41 @@ export class SubgraphClient {
             name
             decimals
           }
-          timestamp
-          block
+          reserveX
+          reserveY
+          totalValueLockedUSD
+          volumeUSD
+          txCount
+          binStep
+          activeId
+          tokenXPrice
+          tokenYPrice
+          tokenXPriceUSD
+          tokenYPriceUSD
+          feesUSD
+          liquidityProviderCount
         }
       }
     `;
 
-    const result = await this.query<{ lbpairs: Pool[] }>(query, { pairAddress: pairAddress.toLowerCase() });
+    const result = await this.query<{ lbpairs: LBPair[] }>(query, { pairAddress: pairAddress.toLowerCase() });
     return result.data?.lbpairs?.[0] || null;
   }
 
   /**
-   * Get recent swap events for a pool
+   * Get user's swap history
    */
-  async getPoolSwaps(
-    pairAddress: string,
-    first: number = 100,
-    skip: number = 0
-  ): Promise<SwapEvent[]> {
+  async getUserSwaps(userAddress: string, first: number = 100): Promise<any[]> {
     const query = `
-      query GetPoolSwaps($pairAddress: String!, $first: Int!, $skip: Int!) {
+      query GetUserSwaps($userAddress: String!, $first: Int!) {
         swaps(
-          where: { pool: $pairAddress }
+          where: { 
+            or: [
+              { sender: $userAddress },
+              { recipient: $userAddress }
+            ]
+          }
           first: $first
-          skip: $skip
           orderBy: timestamp
           orderDirection: desc
         ) {
@@ -347,38 +338,50 @@ export class SubgraphClient {
             timestamp
             blockNumber
           }
-          pool {
+          lbPair {
             id
-            pairAddress
+            name
+            tokenX {
+              symbol
+              decimals
+            }
+            tokenY {
+              symbol
+              decimals
+            }
           }
           sender
-          to
+          recipient
+          origin
+          activeId
           amountXIn
           amountYIn
           amountXOut
           amountYOut
-          fees
+          amountUSD
+          feesTokenX
+          feesTokenY
+          feesUSD
           timestamp
         }
       }
     `;
 
     const variables = {
-      pairAddress: pairAddress.toLowerCase(),
+      userAddress: userAddress.toLowerCase(),
       first,
-      skip,
     };
 
-    const result = await this.query<{ swaps: SwapEvent[] }>(query, variables);
+    const result = await this.query<{ swaps: any[] }>(query, variables);
     return result.data?.swaps || [];
   }
 
   /**
    * Get user's liquidity positions
    */
-  async getUserPositions(userAddress: string, first: number = 100): Promise<LiquidityPosition[]> {
+  async getUserLiquidityPositions(userAddress: string, first: number = 100): Promise<any[]> {
     const query = `
-      query GetUserPositions($userAddress: String!, $first: Int!) {
+      query GetUserLiquidityPositions($userAddress: String!, $first: Int!) {
         liquidityPositions(
           where: { user: $userAddress }
           first: $first
@@ -404,6 +407,9 @@ export class SubgraphClient {
               name
               decimals
             }
+            reserveX
+            reserveY
+            totalValueLockedUSD
           }
           userBinLiquidities {
             id
@@ -412,7 +418,6 @@ export class SubgraphClient {
             timestamp
           }
           binsCount
-          block
           timestamp
         }
       }
@@ -423,79 +428,150 @@ export class SubgraphClient {
       first,
     };
 
-    const result = await this.query<{ liquidityPositions: LiquidityPosition[] }>(query, variables);
+    const result = await this.query<{ liquidityPositions: any[] }>(query, variables);
     return result.data?.liquidityPositions || [];
   }
 
   /**
-   * Get 24h volume and fees for a pool
+   * Get user's mint and burn history
    */
-  async getPool24hStats(pairAddress: string): Promise<{ volume24h: number; fees24h: number; swapCount: number }> {
-    const twentyFourHoursAgo = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
-    
+  async getUserMintsBurns(userAddress: string, first: number = 100): Promise<any[]> {
     const query = `
-      query GetPool24hStats($pairAddress: String!, $timestamp: Int!) {
-        swaps(
-          where: { 
-            lbPair: $pairAddress,
-            timestamp_gte: $timestamp
-          }
-          first: 1000
+      query GetUserMintsBurns($userAddress: String!, $first: Int!) {
+        mints(
+          where: { sender: $userAddress }
+          first: $first
+          orderBy: timestamp
+          orderDirection: desc
         ) {
           id
-          amountXIn
-          amountYIn
-          amountXOut
-          amountYOut
+          transaction {
+            id
+            timestamp
+            blockNumber
+          }
+          lbPair {
+            id
+            name
+            tokenX { symbol decimals }
+            tokenY { symbol decimals }
+          }
+          sender
+          recipient
+          amountX
+          amountY
           amountUSD
-          feesTokenX
-          feesTokenY
-          feesUSD
+          timestamp
+        }
+        burns(
+          where: { sender: $userAddress }
+          first: $first
+          orderBy: timestamp
+          orderDirection: desc
+        ) {
+          id
+          transaction {
+            id
+            timestamp
+            blockNumber
+          }
+          lbPair {
+            id
+            name
+            tokenX { symbol decimals }
+            tokenY { symbol decimals }
+          }
+          sender
+          recipient
+          amountX
+          amountY
+          amountUSD
           timestamp
         }
       }
     `;
 
     const variables = {
-      pairAddress: pairAddress.toLowerCase(),
-      timestamp: twentyFourHoursAgo,
+      userAddress: userAddress.toLowerCase(),
+      first,
     };
 
-    const result = await this.query<{ swaps: Array<{
-      id: string;
-      amountXIn: string;
-      amountYIn: string;
-      amountXOut: string;
-      amountYOut: string;
-      amountUSD: string;
-      feesTokenX: string;
-      feesTokenY: string;
-      feesUSD: string;
-      timestamp: number;
-    }> }>(query, variables);
+    const result = await this.query<{ mints: any[]; burns: any[] }>(query, variables);
+    return [
+      ...(result.data?.mints || []).map(m => ({ ...m, type: 'mint' })),
+      ...(result.data?.burns || []).map(b => ({ ...b, type: 'burn' }))
+    ].sort((a, b) => b.timestamp - a.timestamp);
+  }
 
-    const swaps = result.data?.swaps || [];
-    
-    let totalVolumeUsd = 0;
-    let totalFeesUsd = 0;
-    
-    // Calculate total volume and fees using USD amounts from subgraph
-    for (const swap of swaps) {
-      totalVolumeUsd += parseFloat(swap.amountUSD || '0');
-      totalFeesUsd += parseFloat(swap.feesUSD || '0');
-    }
+  /**
+   * Get all tokens
+   */
+  async getTokens(first: number = 100, skip: number = 0): Promise<Token[]> {
+    const query = `
+      query GetTokens($first: Int!, $skip: Int!) {
+        tokens(
+          first: $first
+          skip: $skip
+          orderBy: totalValueLockedUSD
+          orderDirection: desc
+        ) {
+          id
+          symbol
+          name
+          decimals
+          volume
+          volumeUSD
+          totalValueLocked
+          totalValueLockedUSD
+          derivedAVAX
+          txCount
+          feesUSD
+          totalSupply
+        }
+      }
+    `;
 
-    return {
-      volume24h: totalVolumeUsd,
-      fees24h: totalFeesUsd,
-      swapCount: swaps.length,
+    const variables = {
+      first,
+      skip,
     };
+
+    const result = await this.query<{ tokens: Token[] }>(query, variables);
+    return result.data?.tokens || [];
+  }
+
+  /**
+   * Get factory data for global analytics
+   */
+  async getFactoryData(): Promise<any> {
+    const query = `
+      query GetFactoryData {
+        lbfactories {
+          id
+          pairCount
+          volumeUSD
+          volumeAVAX
+          untrackedVolumeUSD
+          totalValueLockedUSD
+          totalValueLockedAVAX
+          txCount
+          tokenCount
+          userCount
+          flashloanFee
+          feesUSD
+          feesAVAX
+        }
+      }
+    `;
+
+    const result = await this.query<{ lbfactories: any[] }>(query);
+    return result.data?.lbfactories?.[0] || null;
   }
 
   /**
    * Search pools by token symbols
    */
-  async searchPools(searchTerm: string, first: number = 50): Promise<Pool[]> {
+  async searchPools(searchTerm: string, first: number = 50): Promise<LBPair[]> {
     const query = `
       query SearchPools($searchTerm: String!, $first: Int!) {
         lbpairs(
@@ -508,7 +584,7 @@ export class SubgraphClient {
             ]
           }
           first: $first
-          orderBy: timestamp
+          orderBy: totalValueLockedUSD
           orderDirection: desc
         ) {
           id
@@ -525,8 +601,6 @@ export class SubgraphClient {
             name
             decimals
           }
-          binStep
-          activeId
           reserveX
           reserveY
           totalValueLockedUSD
@@ -534,8 +608,8 @@ export class SubgraphClient {
           feesUSD
           txCount
           liquidityProviderCount
-          timestamp
-          block
+          binStep
+          activeId
         }
       }
     `;
@@ -545,150 +619,23 @@ export class SubgraphClient {
       first,
     };
 
-    const result = await this.query<{ lbpairs: Pool[] }>(query, variables);
+    const result = await this.query<{ lbpairs: LBPair[] }>(query, variables);
     return result.data?.lbpairs || [];
   }
-
-  /**
-   * Get all tokens
-   */
-  async getTokens(first: number = 100, skip: number = 0): Promise<Token[]> {
-    const query = `
-      query GetTokens($first: Int!, $skip: Int!) {
-        tokens(
-          first: $first
-          skip: $skip
-          orderBy: symbol
-          orderDirection: asc
-        ) {
-          id
-          symbol
-          name
-          decimals
-          totalSupply
-          txCount
-        }
-      }
-    `;
-
-    const variables = { first, skip };
-    const result = await this.query<{ tokens: Token[] }>(query, variables);
-    return result.data?.tokens || [];
-  }
-
-  /**
-   * Get bins with liquidity
-   */
-  async getBins(first: number = 100, skip: number = 0): Promise<Bin[]> {
-    const query = `
-      query GetBins($first: Int!, $skip: Int!) {
-        bins(
-          first: $first
-          skip: $skip
-          where: { totalSupply_gt: "0" }
-          orderBy: totalSupply
-          orderDirection: desc
-        ) {
-          id
-          binId
-          totalSupply
-          reserveX
-          reserveY
-          lbPair {
-            id
-            name
-          }
-        }
-      }
-    `;
-
-    const variables = { first, skip };
-    const result = await this.query<{ bins: Bin[] }>(query, variables);
-    return result.data?.bins || [];
-  }
-
-  /**
-   * Get recent traces/transactions
-   */
-  async getTraces(first: number = 100, skip: number = 0): Promise<Trace[]> {
-    const query = `
-      query GetTraces($first: Int!, $skip: Int!) {
-        traces(
-          first: $first
-          skip: $skip
-          orderBy: id
-          orderDirection: desc
-        ) {
-          id
-          type
-          lbPair
-          binId
-          amountXIn
-          amountXOut
-          amountYIn
-          amountYOut
-          txHash
-          minted
-          burned
-        }
-      }
-    `;
-
-    const variables = { first, skip };
-    const result = await this.query<{ traces: Trace[] }>(query, variables);
-    return result.data?.traces || [];
-  }
-
-  /**
-   * Get traces for a specific pair
-   */
-  async getPairTraces(pairAddress: string, first: number = 100): Promise<Trace[]> {
-    const query = `
-      query GetPairTraces($pairAddress: String!, $first: Int!) {
-        traces(
-          where: { lbPair: $pairAddress }
-          first: $first
-          orderBy: id
-          orderDirection: desc
-        ) {
-          id
-          type
-          lbPair
-          binId
-          amountXIn
-          amountXOut
-          amountYIn
-          amountYOut
-          txHash
-          minted
-          burned
-        }
-      }
-    `;
-
-    const variables = { 
-      pairAddress: pairAddress.toLowerCase(),
-      first 
-    };
-    
-    const result = await this.query<{ traces: Trace[] }>(query, variables);
-    return result.data?.traces || [];
-  }
 }
-
-/**
- * Create a singleton instance of the subgraph client
- */
-export const subgraphClient = new SubgraphClient();
 
 /**
  * Factory function to create a subgraph client instance
  * This allows for better testing and environment-specific configuration
  */
 export function createSubgraphClient(env?: any): SubgraphClient {
-  const endpoint = env?.SUBGRAPH_URL || 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet';
-  return new SubgraphClient(endpoint);
+  return new SubgraphClient(undefined, env);
 }
+
+/**
+ * Create a singleton instance of the subgraph client
+ */
+export const subgraphClient = new SubgraphClient();
 
 /**
  * Default client instance for backward compatibility
