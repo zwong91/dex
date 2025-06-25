@@ -1,0 +1,76 @@
+type LBFactory @entity {
+  id: ID!
+
+  pairCount: BigInt!
+
+  tokenCount: BigInt!
+
+  lbPairs: [LBPair!]! @derivedFrom(field: "factory")
+
+  tokens: [Token!]! @derivedFrom(field: "factory")
+}
+
+type Token @entity {
+  id: ID!
+
+  factory: LBFactory!
+
+  symbol: String!
+  name: String!
+  decimals: BigInt!
+
+  totalSupply: BigInt!
+
+  txCount: BigInt!
+
+  basePairs: [LBPair!]! @derivedFrom(field: "tokenX")
+
+  quotePairs: [LBPair!]! @derivedFrom(field: "tokenY")
+}
+
+type LBPair @entity {
+  id: ID!
+
+  factory: LBFactory!
+
+  name: String!
+
+  tokenX: Token!
+  tokenY: Token!
+
+  bins: [Bin!]! @derivedFrom(field: "lbPair")
+
+  timestamp: BigInt!
+  block: BigInt!
+}
+
+type Bin @entity {
+  id: ID!
+  lbPair: LBPair!
+
+  binId: BigInt!
+
+  totalSupply: BigInt!
+  reserveX: BigDecimal!
+  reserveY: BigDecimal!
+}
+
+type Trace @entity {
+  id: ID!
+
+  type: String!
+
+  txHash: Bytes!
+
+  lbPair: String!
+  binId: BigInt!
+
+  amountXIn: BigDecimal!
+  amountXOut: BigDecimal!
+
+  amountYIn: BigDecimal!
+  amountYOut: BigDecimal!
+
+  minted: BigInt!
+  burned: BigInt!
+}

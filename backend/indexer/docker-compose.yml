@@ -1,0 +1,90 @@
+services:
+  graph-node:
+    container_name: indexer
+    image: graphprotocol/graph-node:v0.36.1
+    env_file:
+      - .env
+    ports:
+      - "${GRAPH_HTTP_PORT:-8000}:8000"
+      - "${GRAPH_WS_PORT:-8001}:8001"
+      - "${GRAPH_JSON_RPC_PORT:-8020}:8020"
+      - "${GRAPH_INDEX_NODE_PORT:-8030}:8030"
+      - "${GRAPH_METRICS_PORT:-8040}:8040"
+    depends_on:
+      - ipfs
+      - postgres
+    environment:
+      postgres_host: postgres
+      postgres_user: ${POSTGRES_USER:-graph-node}
+      postgres_pass: ${POSTGRES_PASSWORD:-let-me-in}
+      postgres_db: ${POSTGRES_DB:-graph-node}
+      ipfs: "ipfs:5001"
+      GRAPH_ETH_CALL_BY_NUMBER: 1
+      GRAPH_ALLOW_NON_DETERMINISTIC_IPFS: 1
+      GRAPH_ALLOW_NON_DETERMINISTIC_FULLTEXT_SEARCH: 1
+      GRAPH_LOG: ${GRAPH_LOG:-info}
+      ethereum: "${BSC_RPC_URL}"
+      RUST_LOG: ${RUST_LOG:-info}
+      # Environment-specific configurations
+      NODE_ENV: ${NODE_ENV:-development}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8030/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ipfs:
+    container_name: ipfs
+    image: ipfs/kubo:v0.25.0
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./graph_data/ipfs:/data/ipfs
+    restart: unless-stopped
+    environment:
+      IPFS_PROFILE: server
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  postgres:
+    container_name: postgres
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    command: [
+      "postgres",
+      "-cshared_preload_libraries=pg_stat_statements",
+      "-cmax_connections=200",
+      "-cshared_buffers=256MB",
+      "-ceffective_cache_size=1GB",
+      "-cmaintenance_work_mem=64MB",
+      "-ccheckpoint_completion_target=0.9",
+      "-cwal_buffers=16MB",
+      "-cdefault_statistics_target=100"
+    ]
+    environment:
+      POSTGRES_USER: graph-node
+      POSTGRES_PASSWORD: let-me-in
+      POSTGRES_DB: graph-node
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ./graph_data/postgres:/var/lib/postgresql/data/pgdata
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U graph-node -d graph-node"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  graph_data_ipfs:
+    driver: local
+  graph_data_postgres:
+    driver: local
+
+networks:
+  default:
+    name: indexer-network
