@@ -5,6 +5,42 @@
 docker exec -it postgres psql -U graph-node -d graph-node
 ```
 
+## 重要说明
+
+### block_range 字段 (int4range 类型)
+Graph Protocol 使用 PostgreSQL 的 `int4range` 类型来跟踪实体的生命周期：
+
+#### 数据类型范围
+- **int4range**: PostgreSQL 范围类型，基于 32位有符号整数 (int4)
+- **范围**: -2,147,483,648 到 2,147,483,647
+- **表示法**: `[start, end)` (左闭右开区间)
+
+#### 字段含义
+- `lower(block_range)`: 实体被创建的区块号
+- `upper(block_range)`: 实体被删除/更新的区块号
+  - 如果为 `NULL`，表示范围是无限的 (`upper_inf(block_range) = true`)
+  - Graph Protocol 使用 `2147483647` 作为无限范围的替代值
+- **2147483647** = 2³¹-1 (32位有符号整数最大值)，表示"永远有效"
+
+#### 实际使用示例
+```sql
+-- 历史记录: [54522931, 54979683)  - 已结束
+-- 历史记录: [54979683, 55076159)  - 已结束  
+-- 当前记录: [55076159, )         - 无限范围，仍然有效
+```
+
+#### 查询模式
+```sql
+-- 查询当前有效记录
+WHERE COALESCE(upper(block_range), 2147483647) = 2147483647
+
+-- 检查是否为无限范围
+WHERE upper_inf(block_range) = true
+
+-- 查询指定区块的有效记录
+WHERE block_range @> 55000000::integer
+```
+
 ## 基础查询
 
 ### 1. 查看工厂信息

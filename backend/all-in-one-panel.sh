@@ -783,6 +783,177 @@ query_menu() {
                     ORDER BY table_schema, table_name;
                     " 2>/dev/null || echo "无法获取表信息"
                     
+                    echo ""
+                    echo -e "${CYAN}========== SQL 数据统计查询 ==========${NC}"
+                    
+                    # 查询1: Factory统计
+                    echo ""
+                    echo -e "${BLUE}1. LB Factory 统计:${NC}"
+                    echo "Factory当前状态 (最新记录):"
+                    docker exec postgres psql -U graph-node -d graph-node -c "
+                    SELECT 
+                        SUBSTRING(id, 1, 10) || '...' as factory_address,
+                        pair_count,
+                        ROUND(volume_usd::numeric, 2) as volume_usd,
+                        ROUND(total_value_locked_usd::numeric, 2) as tvl_usd,
+                        tx_count,
+                        token_count,
+                        user_count,
+                        ROUND(fees_usd::numeric, 2) as fees_usd
+                    FROM sgd1.lb_factory 
+                    WHERE COALESCE(upper(block_range), 2147483647) = 2147483647  -- 只取当前有效记录
+                    ORDER BY pair_count DESC;
+                    " 2>/dev/null || echo "查询失败"
+                    
+                    echo ""
+                    echo -e "${YELLOW}Factory历史记录统计 (显示状态变化):${NC}"
+                    docker exec postgres psql -U graph-node -d graph-node -c "
+                    SELECT 
+                        ROW_NUMBER() OVER (ORDER BY lower(block_range)) as record_num,
+                        SUBSTRING(id, 1, 10) || '...' as factory_id,
+                        pair_count,
+                        ROUND(volume_usd::numeric, 2) as volume_usd,
+                        tx_count,
+                        token_count,
+                        lower(block_range) as start_block,
+                        CASE 
+                            WHEN COALESCE(upper(block_range), 2147483647) = 2147483647 
+                            THEN '当前有效' 
+                            ELSE COALESCE(upper(block_range), 2147483647)::text
+                        END as end_block_status
+                    FROM sgd1.lb_factory 
+                    ORDER BY lower(block_range);
+                    " 2>/dev/null || echo "查询失败"
+                    
+                    echo ""
+                    echo -e "${CYAN}📝 说明: end_block显示'当前有效'表示该记录从start_block开始一直有效到现在${NC}"
+                    echo -e "${CYAN}   数字2147483647是32位有符号整数最大值(2³¹-1)，在Graph Protocol中表示'永远有效'${NC}"
+                    
+                    # 查询2: 代币统计
+                    echo ""
+                    echo -e "${BLUE}2. Token 统计:${NC}"
+                    token_count=$(docker exec postgres psql -U graph-node -d graph-node -t -c "SELECT COUNT(*) FROM sgd1.token;" 2>/dev/null | xargs)
+                    echo "总代币数量: $token_count"
+                    
+                    echo ""
+                    echo -e "${BLUE}代币详情 (按交易量排序):${NC}"
+                    docker exec postgres psql -U graph-node -d graph-node -c "
+                    SELECT 
+                        SUBSTRING(id, 1, 12) || '...' as token_address,
+                        symbol,
+                        name,
+                        decimals,
+                        CASE 
+                            WHEN total_supply IS NOT NULL THEN 
+                                CASE 
+                                    WHEN total_supply > 1e18 THEN ROUND((total_supply / 1e18)::numeric, 2) || 'Q'
+                                    WHEN total_supply > 1e15 THEN ROUND((total_supply / 1e15)::numeric, 2) || 'T'
+                                    WHEN total_supply > 1e12 THEN ROUND((total_supply / 1e12)::numeric, 2) || 'B'
+                                    WHEN total_supply > 1e9 THEN ROUND((total_supply / 1e9)::numeric, 2) || 'M'
+                                    ELSE total_supply::text
+                                END
+                            ELSE 'N/A'
+                        END as total_supply_formatted,
+                        COALESCE(ROUND(volume_usd::numeric, 2), 0) as volume_usd
+                    FROM sgd1.token 
+                    ORDER BY volume_usd DESC NULLS LAST
+                    LIMIT 10;
+                    " 2>/dev/null || echo "查询失败"
+                    
+                    # 查询3: 流动性池统计
+                    echo ""
+                    echo -e "${BLUE}3. LB Pair 统计:${NC}"
+                    pair_count=$(docker exec postgres psql -U graph-node -d graph-node -t -c "SELECT COUNT(*) FROM sgd1.lb_pair;" 2>/dev/null | xargs)
+                    echo "总流动性池数量: $pair_count"
+                    
+                    if [ "$pair_count" -gt 0 ]; then
+                        echo ""
+                        echo -e "${BLUE}流动性池详情 (前5个):${NC}"
+                        docker exec postgres psql -U graph-node -d graph-node -c "
+                        SELECT 
+                            p.id,
+                            p.name,
+                            tx.symbol as token_x_symbol,
+                            ty.symbol as token_y_symbol,
+                            p.reserve_x,
+                            p.reserve_y,
+                            p.volume_usd
+                        FROM sgd1.lb_pair p
+                        LEFT JOIN sgd1.token tx ON p.token_x = tx.id
+                        LEFT JOIN sgd1.token ty ON p.token_y = ty.id
+                        ORDER BY p.volume_usd DESC NULLS LAST
+                        LIMIT 5;
+                        " 2>/dev/null || echo "查询失败"
+                    fi
+                    
+                    # 查询4: 每日数据统计
+                    echo ""
+                    echo -e "${BLUE}4. 每日统计数据:${NC}"
+                    
+                    # Token每日数据
+                    token_day_count=$(docker exec postgres psql -U graph-node -d graph-node -t -c "SELECT COUNT(*) FROM sgd1.token_day_data;" 2>/dev/null | xargs)
+                    echo "Token每日数据记录: $token_day_count"
+                    
+                    # Pair每日数据
+                    pair_day_count=$(docker exec postgres psql -U graph-node -d graph-node -t -c "SELECT COUNT(*) FROM sgd1.lb_pair_day_data;" 2>/dev/null | xargs)
+                    echo "流动性池每日数据记录: $pair_day_count"
+                    
+                    # 查询5: 最新活动
+                    echo ""
+                    echo -e "${BLUE}5. 最新活动统计:${NC}"
+                    
+                    # 最新的代币每日数据
+                    echo -e "${YELLOW}最新代币活动:${NC}"
+                    docker exec postgres psql -U graph-node -d graph-node -c "
+                    SELECT 
+                        td.date,
+                        t.symbol,
+                        td.daily_volume_usd,
+                        td.total_volume_usd
+                    FROM sgd1.token_day_data td
+                    LEFT JOIN sgd1.token t ON td.token = t.id
+                    WHERE td.daily_volume_usd IS NOT NULL 
+                    AND td.daily_volume_usd > 0
+                    ORDER BY td.date DESC
+                    LIMIT 5;
+                    " 2>/dev/null || echo "暂无代币活动数据"
+                    
+                    # 最新的流动性池活动
+                    echo ""
+                    echo -e "${YELLOW}最新流动性池活动:${NC}"
+                    docker exec postgres psql -U graph-node -d graph-node -c "
+                    SELECT 
+                        pd.date,
+                        p.name as pair_name,
+                        pd.daily_volume_usd,
+                        pd.reserve_usd
+                    FROM sgd1.lb_pair_day_data pd
+                    LEFT JOIN sgd1.lb_pair p ON pd.lb_pair = p.id
+                    WHERE pd.daily_volume_usd IS NOT NULL 
+                    AND pd.daily_volume_usd > 0
+                    ORDER BY pd.date DESC
+                    LIMIT 5;
+                    " 2>/dev/null || echo "暂无流动性池活动数据"
+                    
+                    echo ""
+                    echo -e "${CYAN}========================================${NC}"
+                    
+                    # 数据分析总结
+                    echo ""
+                    echo -e "${GREEN}💡 数据分析总结:${NC}"
+                    echo "• 代币总数: $token_count"
+                    echo "• 流动性池总数: $pair_count"
+                    echo "• Token每日记录: $token_day_count"
+                    echo "• 池每日记录: $pair_day_count"
+                    
+                    if [ "$pair_count" -eq 0 ]; then
+                        echo ""
+                        echo -e "${YELLOW}📋 注意: 流动性池数据为空，这可能表示:${NC}"
+                        echo "  1. Subgraph仍在同步中 (当前98.36%)"
+                        echo "  2. BSC测试网上该DEX合约暂无活动"
+                        echo "  3. 合约地址配置需要验证"
+                    fi
+                    
                 else
                     echo -e "${RED}❌ 无法连接到数据库${NC}"
                     echo "请确保 PostgreSQL 容器正在运行"
