@@ -28,11 +28,7 @@
     "logs:graph": "docker logs indexer -f",
     "logs:ipfs": "docker logs ipfs -f",
     "logs:postgres": "docker logs postgres -f",
-    "clean": "docker-compose down -v && rm -rf ./graph_data && rm -rf ./build && rm -rf ./generated",
-    "deploy:testnet": "./deploy-testnet.sh",
-    "deploy:mainnet": "./deploy-mainnet.sh",
-    "redeploy": "./redeploy.sh",
-    "manage": "./manage.sh"
+    "clean": "docker-compose down -v && rm -rf ./graph_data && rm -rf ./build && rm -rf ./generated"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.97.1",
