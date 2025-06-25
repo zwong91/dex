@@ -42,18 +42,27 @@ npm run deploy:testnet  # or deploy:mainnet
 | ---------- | :----: | ----- |
 | Ethereum   | 🟡 Studio Required | Use Subgraph Studio for deployment |
 | BSC        | 🟡 Studio Required | Use Subgraph Studio for deployment |
+| BSC Testnet| 🟢 Active | Local deployment available with `./deploy-testnet.sh` |
 | Local Dev  | 🟢 Active | Local node setup available |  
-
-
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### BSC 测试网本地部署（推荐）
+
+最简单的方式是使用自动部署脚本：
+
 ```bash
-npm install
+cd backend/indexer
+./deploy-testnet.sh
 ```
 
-### 2. Choose Your Deployment Method
+部署完成后访问：
+- GraphQL 端点: http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet
+- GraphQL Playground: http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet/graphql
+
+详细说明请参考：[BSC 测试网部署指南](./DEPLOYMENT_BSC_TESTNET.md)
+
+### 其他网络部署
 
 #### 🎯 For Production (Subgraph Studio)
 ```bash

@@ -1,4 +1,4 @@
-type LBFactory @entity {
+type LBFactory @entity(immutable: false) {
   id: ID!
 
   pairCount: BigInt!
@@ -10,7 +10,7 @@ type LBFactory @entity {
   tokens: [Token!]! @derivedFrom(field: "factory")
 }
 
-type Token @entity {
+type Token @entity(immutable: false) {
   id: ID!
 
   factory: LBFactory!
@@ -28,7 +28,7 @@ type Token @entity {
   quotePairs: [LBPair!]! @derivedFrom(field: "tokenY")
 }
 
-type LBPair @entity {
+type LBPair @entity(immutable: true) {
   id: ID!
 
   factory: LBFactory!
@@ -44,7 +44,7 @@ type LBPair @entity {
   block: BigInt!
 }
 
-type Bin @entity {
+type Bin @entity(immutable: false) {
   id: ID!
   lbPair: LBPair!
 
@@ -55,7 +55,7 @@ type Bin @entity {
   reserveY: BigDecimal!
 }
 
-type Trace @entity {
+type Trace @entity(immutable: true) {
   id: ID!
 
   type: String!

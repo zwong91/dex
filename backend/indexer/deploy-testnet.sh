@@ -55,27 +55,46 @@ if ! docker-compose ps | grep -q "Up"; then
     exit 1
 fi
 
-# 3. 准备配置文件
+# 3. 修复 schema.graphql 中的 @entity 指令问题
+echo -e "${BLUE}🔧 修复 GraphQL Schema...${NC}"
+if grep -q "@entity {" schema.graphql; then
+    echo -e "${YELLOW}  修复 @entity 指令，添加 immutable 参数...${NC}"
+    sed -i '' 's/@entity {/@entity(immutable: false) {/g' schema.graphql
+    sed -i '' 's/@entity(immutable: false) {\([^}]*timestamp[^}]*\)}/@entity(immutable: true) {\1}/g' schema.graphql
+    sed -i '' 's/type Trace @entity(immutable: false)/type Trace @entity(immutable: true)/g' schema.graphql
+    echo -e "${GREEN}  ✅ Schema 修复完成${NC}"
+else
+    echo -e "${GREEN}  ✅ Schema 已经是正确格式${NC}"
+fi
+
+# 4. 准备配置文件
 echo -e "${BLUE}⚙️ 生成配置文件...${NC}"
 npm run prepare:bsc-testnet
 
-# 4. 生成类型定义
+# 5. 生成类型定义
 echo -e "${BLUE}🔧 生成 TypeScript 类型定义...${NC}"
 npm run codegen:bsc-testnet
 
-# 5. 构建子图
+# 6. 构建子图
 echo -e "${BLUE}🔨 构建 subgraph...${NC}"
 npm run build:bsc-testnet
 
-# 6. 跳过创建本地 subgraph，直接部署到本地节点
-echo -e "${BLUE}🚀 部署到本地节点...${NC}"
-# 使用 graph deploy 直接部署，避免 registry 表缺失错误
-npx graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001/ entysquare/indexer-bnb build/subgraph.yaml
+# 7. 创建子图（如果不存在）
+echo -e "${BLUE}📝 创建子图...${NC}"
+SUBGRAPH_NAME="entysquare/indexer-bnb-testnet"
+if ! npx graph create --node http://localhost:8020/ $SUBGRAPH_NAME 2>/dev/null; then
+    echo -e "${YELLOW}  子图可能已存在，继续部署...${NC}"
+fi
 
-# 8. 显示结果
+# 8. 部署到本地节点
+echo -e "${BLUE}🚀 部署到本地节点...${NC}"
+# 使用原始 yaml 文件而不是 build 目录中的文件，避免编译错误
+echo "v0.0.1" | npx graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001/ $SUBGRAPH_NAME subgraph.bsc-testnet.yaml
+
+# 9. 显示结果
 echo -e "${GREEN}🎉 部署完成！${NC}"
-echo -e "${GREEN}📍 GraphQL 端点: http://localhost:8000/subgraphs/name/entysquare/indexer-v21${NC}"
-echo -e "${GREEN}🌐 Graph Explorer: http://localhost:8000/subgraphs/name/entysquare/indexer-v21/graphql${NC}"
+echo -e "${GREEN}📍 GraphQL 端点: http://localhost:8000/subgraphs/name/$SUBGRAPH_NAME${NC}"
+echo -e "${GREEN}🌐 Graph Explorer: http://localhost:8000/subgraphs/name/$SUBGRAPH_NAME/graphql${NC}"
 
 echo ""
 echo -e "${BLUE}📊 可用的管理命令:${NC}"
@@ -91,7 +110,7 @@ echo -e "    npm run clean         # 完全清理"
 echo ""
 echo -e "  ${YELLOW}检查状态:${NC}"
 echo -e "    docker-compose ps     # 查看容器状态"
+echo -e "    docker logs indexer --tail 20  # 查看最新日志"
 
 echo ""
 echo -e "${GREEN}✨ 现在可以开始查询你的 subgraph 了！${NC}"
-echo -e "    npm run clean         # 完全清理"
