@@ -1002,7 +1002,8 @@ query_menu() {
                     response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/pools")
                     if echo "$response" | jq '.' >/dev/null 2>&1; then
                         echo -e "${GREEN}✅ 认证成功${NC}"
-                        echo "$response" | jq '.' | head -10
+                        # 只显示关键信息，避免输出过长
+                        echo "$response" | jq '.data[] | {id, name, status, tokenX: .tokenX.symbol, tokenY: .tokenY.symbol, liquidityUsd}'
                     else
                         echo -e "${RED}❌ 认证失败或无数据${NC}"
                         echo "$response"
@@ -1014,7 +1015,8 @@ query_menu() {
                     response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/tokens")
                     if echo "$response" | jq '.' >/dev/null 2>&1; then
                         echo -e "${GREEN}✅ 认证成功${NC}"
-                        echo "$response" | jq '.' | head -10
+                        # 只显示关键信息
+                        echo "$response" | jq '.data[] | {address, symbol, name, decimals, totalSupply}'
                     else
                         echo -e "${RED}❌ 认证失败或无数据${NC}"
                         echo "$response"
@@ -1025,8 +1027,13 @@ query_menu() {
                     echo -e "${BLUE}3. GET /v1/api/dex/swaps (带test-key认证):${NC}"
                     response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/swaps")
                     if echo "$response" | jq '.' >/dev/null 2>&1; then
-                        echo -e "${GREEN}✅ 认证成功${NC}"
-                        echo "$response" | jq '.' | head -10
+                        if echo "$response" | jq '.success' | grep -q "true"; then
+                            echo -e "${GREEN}✅ 认证成功${NC}"
+                            echo "$response" | jq '.'
+                        else
+                            echo -e "${YELLOW}⚠️ 认证成功但端点未实现${NC}"
+                            echo "$response" | jq '.error // .message'
+                        fi
                     else
                         echo -e "${RED}❌ 认证失败或无数据${NC}"
                         echo "$response"
@@ -1037,8 +1044,13 @@ query_menu() {
                     echo -e "${BLUE}4. GET /v1/api/dex/liquidity (带test-key认证):${NC}"
                     response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/liquidity")
                     if echo "$response" | jq '.' >/dev/null 2>&1; then
-                        echo -e "${GREEN}✅ 认证成功${NC}"
-                        echo "$response" | jq '.' | head -10
+                        if echo "$response" | jq '.success' | grep -q "true"; then
+                            echo -e "${GREEN}✅ 认证成功${NC}"
+                            echo "$response" | jq '.'
+                        else
+                            echo -e "${YELLOW}⚠️ 认证成功但端点未实现${NC}"
+                            echo "$response" | jq '.error // .message'
+                        fi
                     else
                         echo -e "${RED}❌ 认证失败或无数据${NC}"
                         echo "$response"
@@ -1049,22 +1061,32 @@ query_menu() {
                     echo -e "${BLUE}5. GET /v1/api/dex/fees (带test-key认证):${NC}"
                     response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/fees")
                     if echo "$response" | jq '.' >/dev/null 2>&1; then
-                        echo -e "${GREEN}✅ 认证成功${NC}"
-                        echo "$response" | jq '.' | head -10
+                        if echo "$response" | jq '.success' | grep -q "true"; then
+                            echo -e "${GREEN}✅ 认证成功${NC}"
+                            echo "$response" | jq '.'
+                        else
+                            echo -e "${YELLOW}⚠️ 认证成功但端点未实现${NC}"
+                            echo "$response" | jq '.error // .message'
+                        fi
                     else
                         echo -e "${RED}❌ 认证失败或无数据${NC}"
                         echo "$response"
                     fi
                     
                     echo ""
-                    # 测试6: 价格查询 (需要参数的端点)
+                    # 测试6: 价格查询
                     echo -e "${BLUE}6. GET /v1/api/dex/price (带test-key认证):${NC}"
-                    response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/price?token=0x...")
+                    response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/price")
                     if echo "$response" | jq '.' >/dev/null 2>&1; then
-                        echo -e "${GREEN}✅ 认证成功${NC}"
-                        echo "$response" | jq '.'
+                        if echo "$response" | jq '.success' | grep -q "true"; then
+                            echo -e "${GREEN}✅ 认证成功${NC}"
+                            echo "$response" | jq '.'
+                        else
+                            echo -e "${YELLOW}⚠️ 认证成功但端点未实现${NC}"
+                            echo "$response" | jq '.error // .message'
+                        fi
                     else
-                        echo -e "${YELLOW}⚠️ 需要有效代币参数或端点不存在${NC}"
+                        echo -e "${RED}❌ 认证失败或无数据${NC}"
                         echo "$response"
                     fi
                     
@@ -1082,6 +1104,10 @@ query_menu() {
                     echo ""
                     echo -e "${GREEN}🎉 test-key API认证测试完成!${NC}"
                     echo -e "${BLUE}💡 所有端点都已使用 test-key 进行了认证测试${NC}"
+                    echo ""
+                    echo -e "${CYAN}📋 如需查看完整JSON响应，可使用以下命令:${NC}"
+                    echo -e "${YELLOW}curl -H \"X-API-Key: test-key\" \"http://localhost:8787/v1/api/dex/pools\" | jq .${NC}"
+                    echo -e "${YELLOW}curl -H \"X-API-Key: test-key\" \"http://localhost:8787/v1/api/dex/tokens\" | jq .${NC}"
                 else
                     echo "跳过测试 - 服务未运行"
                 fi
