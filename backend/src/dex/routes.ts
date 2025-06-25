@@ -88,9 +88,9 @@ export function createDexRoutes() {
 
 	// Vaults endpoints (derived from pools)
 	app.get('/vaults', createVaultsHandler('list'));
-	app.get('/vaults/:vaultId', createVaultsHandler('details'));
 	app.get('/vaults/analytics', createVaultsHandler('analytics'));
 	app.get('/vaults/strategies', createVaultsHandler('strategies'));
+	app.get('/vaults/:vaultId', createVaultsHandler('details'));
 
 	// Farms endpoints (derived from pools)
 	app.get('/farms', createFarmsHandler('list'));

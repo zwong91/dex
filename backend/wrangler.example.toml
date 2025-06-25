@@ -70,7 +70,7 @@ LB_QUOTER_BSCTEST = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
 
 
 # GraphQL configuration
-SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb"
+SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet"
 SUBGRAPH_HEALTH_URL = "http://localhost:8000"
 
 # 🔧 Production AI binding - Enabled for AI functionality

@@ -27,7 +27,8 @@ const CONFIG = {
   API_BASE: 'http://localhost:8787',
   SUBGRAPH_URL: 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet',
   API_KEY: 'test-key',
-  TEST_ADDRESS: '0x742d35Cc6548C1Ad35C7c8e36fC76CE23a3c3c89'
+  TEST_ADDRESS: '0x742d35Cc6548C1Ad35C7c8e36fC76CE23a3c3c89',
+  VALID_POOL_ID: '0x406ca3b0acd27b8060c84902d2b0cab6f5ad898d' // Real pool ID from subgraph
 };
 
 // Colors for output
@@ -205,7 +206,7 @@ async function runAPITests(): Promise<void> {
         ['GET', '/v1/api/dex/pools', 'Pools list'],
         ['GET', '/v1/api/dex/tokens', 'Tokens list'],
         ['GET', '/v1/api/dex/analytics', 'Analytics data'],
-        ['GET', `/v1/api/dex/pools/${CONFIG.TEST_ADDRESS}`, 'Pool details']
+        ['GET', `/v1/api/dex/pools/${CONFIG.VALID_POOL_ID}`, 'Pool details']
       ]
     },
     {
