@@ -64,15 +64,15 @@ show_header() {
     echo -e "${CYAN}║${WHITE}              DEX Backend & Indexer 统一管理面板                  ${CYAN}║${NC}"
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${CYAN}║${NC} ${BLUE}🎯 一站式管理 Backend API 和 Graph Indexer 服务${NC}              ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} ${GREEN}📍 Backend: $BACKEND_DIR${NC}"
-    echo -e "${CYAN}║${NC} ${GREEN}📍 Indexer: $INDEXER_DIR${NC}"
+    echo -e "${CYAN}║${NC} ${GREEN}📍 Backend:  ~/dex/backend${NC}                               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${GREEN}📍 Indexer:  ~/dex/backend/indexer${NC}                       ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
 # 获取服务状态
 get_api_status() {
-    if curl -s "https://dex-backend-serverless.jongun2038.workers.dev/health" >/dev/null 2>&1; then
+    if curl -s "http://localhost:8787/health" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ 在线${NC}"
     else
         echo -e "${RED}❌ 离线${NC}"
@@ -183,11 +183,11 @@ show_main_menu() {
     echo -e "${WHITE}┌─────────────────────────────────────────────────────────────────┐${NC}"
     echo -e "${WHITE}│${NC} ${BLUE}🎛️  主菜单${NC}                                                       ${WHITE}│${NC}"
     echo -e "${WHITE}├─────────────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${WHITE}│${NC} ${YELLOW}1)${NC} ${ICON_API} Backend API 管理    ${YELLOW}6)${NC} ${ICON_QUERY} 查询工具              ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC} ${YELLOW}2)${NC} ${ICON_INDEXER} Graph Indexer 管理  ${YELLOW}7)${NC} ${ICON_LOGS} 日志查看              ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC} ${YELLOW}3)${NC} ${ICON_DEPLOY} 部署管理           ${YELLOW}8)${NC} ${ICON_CLEAN} 环境清理              ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC} ${YELLOW}4)${NC} ${ICON_TEST} 测试工具            ${YELLOW}9)${NC} 🔧 脚本管理              ${WHITE}│${NC}"
-    echo -e "${WHITE}│${NC} ${YELLOW}5)${NC} ${ICON_MONITOR} 实时监控            ${YELLOW}0)${NC} ${ICON_EXIT} 退出                   ${WHITE}│${NC}"
+    echo -e "${WHITE}│${NC} ${YELLOW}1)${NC} ${ICON_API} Backend API 管理        ${YELLOW}6)${NC} ${ICON_QUERY} 查询工具              ${WHITE}│${NC}"
+    echo -e "${WHITE}│${NC} ${YELLOW}2)${NC} ${ICON_INDEXER} Graph Indexer 管理      ${YELLOW}7)${NC} ${ICON_LOGS} 日志查看              ${WHITE}│${NC}"
+    echo -e "${WHITE}│${NC} ${YELLOW}3)${NC} ${ICON_DEPLOY} 部署管理               ${YELLOW}8)${NC} ${ICON_CLEAN} 环境清理              ${WHITE}│${NC}"
+    echo -e "${WHITE}│${NC} ${YELLOW}4)${NC} ${ICON_TEST} 测试工具                ${YELLOW}9)${NC} 🔧 脚本管理              ${WHITE}│${NC}"
+    echo -e "${WHITE}│${NC} ${YELLOW}5)${NC} ${ICON_MONITOR} 实时监控                ${YELLOW}0)${NC} ${ICON_EXIT} 退出                    ${WHITE}│${NC}"
     echo -e "${WHITE}└─────────────────────────────────────────────────────────────────┘${NC}"
     echo ""
 }
@@ -224,10 +224,10 @@ backend_menu() {
                 echo -e "${BLUE}📊 检查部署状态...${NC}"
                 echo ""
                 echo -e "${YELLOW}Production API:${NC}"
-                curl -s "https://dex-backend-serverless.jongun2038.workers.dev/" | jq '.' || echo "无法连接"
+                curl -s "http://localhost:8787/" | jq '.' || echo "无法连接"
                 echo ""
                 echo -e "${YELLOW}Health Check:${NC}"
-                curl -s "https://dex-backend-serverless.jongun2038.workers.dev/health" | jq '.' || echo "无法连接"
+                curl -s "http://localhost:8787/health" | jq '.' || echo "无法连接"
                 read -p "按任意键继续..."
                 ;;
             4)
@@ -321,8 +321,20 @@ indexer_menu() {
                 echo -e "${BLUE}🔄 启动实时同步监控...${NC}"
                 echo -e "${YELLOW}按 Ctrl+C 退出监控${NC}"
                 echo ""
-                # 使用indexer目录下的monitor.sh脚本
-                cd $INDEXER_DIR && ./monitor.sh
+                
+                # 简化的同步监控循环
+                while true; do
+                    clear
+                    echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
+                    echo -e "${CYAN}║${WHITE}                     同步状态实时监控                         ${CYAN}║${NC}"
+                    echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
+                    echo ""
+                    
+                    check_sync_status
+                    
+                    echo -e "${BLUE}⏰ 5秒后刷新... (按 Ctrl+C 退出)${NC}"
+                    sleep 5
+                done
                 ;;
             8)
                 echo -e "${BLUE}🌐 选择部署环境:${NC}"
@@ -418,7 +430,7 @@ deploy_menu() {
                 echo -e "${BLUE}📊 检查部署状态...${NC}"
                 echo ""
                 echo -e "${YELLOW}Backend API 状态:${NC}"
-                curl -s "https://dex-backend-serverless.jongun2038.workers.dev/health" | jq '.' 2>/dev/null || echo "离线"
+                curl -s "http://localhost:8787/health" | jq '.' 2>/dev/null || echo "离线"
                 echo ""
                 echo -e "${YELLOW}Graph Indexer 状态:${NC}"
                 curl -s http://localhost:8000 >/dev/null 2>&1 && echo "✅ 运行中" || echo "❌ 未运行"
@@ -462,27 +474,155 @@ test_menu() {
                 echo -e "${BLUE}🔗 测试 Backend API 端点...${NC}"
                 echo ""
                 echo -e "${YELLOW}测试健康检查:${NC}"
-                curl -s "https://dex-backend-serverless.jongun2038.workers.dev/health" | jq '.'
+                curl -s "http://localhost:8787/health" | jq '.'
                 echo ""
                 echo -e "${YELLOW}测试认证 (无密钥):${NC}"
-                curl -s "https://dex-backend-serverless.jongun2038.workers.dev/v1/api/dex/pools" | jq '.'
+                curl -s "http://localhost:8787/v1/api/dex/pools" | jq '.'
                 read -p "按任意键继续..."
                 ;;
             3)
                 echo -e "${BLUE}📊 测试 GraphQL 查询...${NC}"
                 echo ""
-                echo -e "${YELLOW}查询流动性池:${NC}"
-                curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                
+                # 首先检查GraphQL端点是否可用
+                echo -e "${YELLOW}检查GraphQL端点状态...${NC}"
+                if curl -s http://localhost:8000 >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ GraphQL端点可访问${NC}"
+                else
+                    echo -e "${RED}❌ GraphQL端点不可访问 (端口 8000)${NC}"
+                    echo -e "${BLUE}💡 提示: 请先启动 Graph Indexer 服务${NC}"
+                    read -p "按任意键继续..."
+                    continue
+                fi
+                
+                # 检查subgraph状态
+                echo ""
+                echo -e "${YELLOW}检查Subgraph状态...${NC}"
+                subgraph_status=$(curl -s -X POST http://localhost:8030/graphql \
+                  -H "Content-Type: application/json" \
+                  -d '{"query":"{ indexingStatuses { subgraph health synced fatalError { message } } }"}' 2>/dev/null)
+                
+                if [ $? -eq 0 ] && [ ! -z "$subgraph_status" ]; then
+                    health=$(echo $subgraph_status | jq -r '.data.indexingStatuses[0].health // "unknown"' 2>/dev/null)
+                    synced=$(echo $subgraph_status | jq -r '.data.indexingStatuses[0].synced // false' 2>/dev/null)
+                    subgraph_name=$(echo $subgraph_status | jq -r '.data.indexingStatuses[0].subgraph // "unknown"' 2>/dev/null)
+                    
+                    echo -e "📊 ${BLUE}Subgraph:${NC} $subgraph_name"
+                    echo -e "💊 ${BLUE}健康状态:${NC} $health"
+                    echo -e "🔄 ${BLUE}同步状态:${NC} $synced"
+                    
+                    if [ "$synced" != "true" ]; then
+                        echo -e "${YELLOW}⚠️ Subgraph尚未完全同步，查询结果可能为空${NC}"
+                    fi
+                else
+                    echo -e "${RED}❌ 无法获取Subgraph状态${NC}"
+                fi
+                
+                echo ""
+                echo -e "${CYAN}========== GraphQL 查询测试套件 ==========${NC}"
+                
+                # 测试1: 查询流动性池数量
+                echo ""
+                echo -e "${BLUE}1. 查询流动性池总数:${NC}"
+                pool_count=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
                   -H "Content-Type: application/json" \
                   -d '{"query":"{ lbPairs { id } }"}' \
-                  | jq '.data.lbPairs | length' 2>/dev/null || echo "查询失败"
+                  | jq '.data.lbPairs | length' 2>/dev/null)
+                
+                if [ "$pool_count" != "null" ] && [ "$pool_count" != "" ]; then
+                    echo -e "${GREEN}✅ 找到 $pool_count 个流动性池${NC}"
+                    if [ "$pool_count" -gt 0 ]; then
+                        echo -e "${BLUE}前5个流动性池详情:${NC}"
+                        curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                          -H "Content-Type: application/json" \
+                          -d '{"query":"{ lbPairs(first: 5) { id name tokenX { symbol } tokenY { symbol } reserveX reserveY } }"}' \
+                          | jq '.data.lbPairs' 2>/dev/null
+                    fi
+                else
+                    echo -e "${RED}❌ 查询失败或无数据${NC}"
+                fi
+                
+                # 测试2: 查询代币数量
+                echo ""
+                echo -e "${BLUE}2. 查询代币总数:${NC}"
+                token_count=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                  -H "Content-Type: application/json" \
+                  -d '{"query":"{ tokens { id } }"}' \
+                  | jq '.data.tokens | length' 2>/dev/null)
+                
+                if [ "$token_count" != "null" ] && [ "$token_count" != "" ]; then
+                    echo -e "${GREEN}✅ 找到 $token_count 个代币${NC}"
+                    if [ "$token_count" -gt 0 ]; then
+                        echo -e "${BLUE}前5个代币详情:${NC}"
+                        curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                          -H "Content-Type: application/json" \
+                          -d '{"query":"{ tokens(first: 5) { id symbol name decimals } }"}' \
+                          | jq '.data.tokens' 2>/dev/null
+                    fi
+                else
+                    echo -e "${RED}❌ 查询失败或无数据${NC}"
+                fi
+                
+                # 测试3: 查询交易记录
+                echo ""
+                echo -e "${BLUE}3. 查询交易记录:${NC}"
+                trace_count=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                  -H "Content-Type: application/json" \
+                  -d '{"query":"{ traces { id } }"}' \
+                  | jq '.data.traces | length' 2>/dev/null)
+                
+                if [ "$trace_count" != "null" ] && [ "$trace_count" != "" ]; then
+                    echo -e "${GREEN}✅ 找到 $trace_count 条交易记录${NC}"
+                    if [ "$trace_count" -gt 0 ]; then
+                        echo -e "${BLUE}最新5条交易记录:${NC}"
+                        curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                          -H "Content-Type: application/json" \
+                          -d '{"query":"{ traces(first: 5, orderBy: id, orderDirection: desc) { id type lbPair binId txHash } }"}' \
+                          | jq '.data.traces' 2>/dev/null
+                    fi
+                else
+                    echo -e "${RED}❌ 查询失败或无数据${NC}"
+                fi
+                
+                # 测试4: 查询Factory统计
+                echo ""
+                echo -e "${BLUE}4. 查询Factory统计信息:${NC}"
+                factory_data=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                  -H "Content-Type: application/json" \
+                  -d '{"query":"{ lbFactories { id pairCount volumeUSD totalValueLockedUSD txCount tokenCount userCount } }"}' 2>/dev/null)
+                
+                if echo "$factory_data" | jq '.data.lbFactories[0]' >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ Factory统计信息:${NC}"
+                    echo "$factory_data" | jq '.data.lbFactories[0]' 2>/dev/null
+                else
+                    echo -e "${RED}❌ 查询失败或无数据${NC}"
+                fi
+                
+                echo ""
+                echo -e "${CYAN}========================================${NC}"
+                
+                # 如果所有查询都返回0或空，给出建议
+                if [ "$pool_count" = "0" ] || [ "$pool_count" = "" ]; then
+                    echo ""
+                    echo -e "${YELLOW}💡 数据为空的可能原因:${NC}"
+                    echo "  1. Subgraph还在同步区块链数据"
+                    echo "  2. 目标网络(BSC测试网)上还没有DEX交易"
+                    echo "  3. Subgraph配置的合约地址可能需要更新"
+                    echo "  4. 需要等待更多时间完成数据索引"
+                    echo ""
+                    echo -e "${BLUE}🔧 建议操作:${NC}"
+                    echo "  • 检查同步状态: 主菜单 → 2) Graph Indexer管理 → 6) 快速状态检查"
+                    echo "  • 查看日志: 主菜单 → 7) 日志查看 → 1) Graph Node日志"
+                    echo "  • 重新部署: 主菜单 → 2) Graph Indexer管理 → 4) 部署Subgraph"
+                fi
+                
                 read -p "按任意键继续..."
                 ;;
             4)
                 echo -e "${BLUE}⚡ 性能测试...${NC}"
                 echo ""
                 echo -e "${YELLOW}API 响应时间测试:${NC}"
-                time curl -s "https://dex-backend-serverless.jongun2038.workers.dev/health" >/dev/null
+                time curl -s "http://localhost:8787/health" >/dev/null
                 read -p "按任意键继续..."
                 ;;
             0)
@@ -510,7 +650,7 @@ monitor_mode() {
         echo -e "${WHITE}├─────────────────────────────────────────────────────────────────┤${NC}"
         
         # Backend API 状态
-        if curl -s "https://dex-backend-serverless.jongun2038.workers.dev/health" >/dev/null 2>&1; then
+        if curl -s "http://localhost:8787/health" >/dev/null 2>&1; then
             echo -e "${WHITE}│${NC} ${ICON_API} Backend API:     ${GREEN}✅ 在线${NC}                              ${WHITE}│${NC}"
         else
             echo -e "${WHITE}│${NC} ${ICON_API} Backend API:     ${RED}❌ 离线${NC}                              ${WHITE}│${NC}"
@@ -616,25 +756,165 @@ query_menu() {
                 echo -e "${BLUE}📈 SQL 数据库统计...${NC}"
                 echo ""
                 echo "正在查询 PostgreSQL 数据库统计信息..."
-                docker exec -t postgres psql -U graph-node -d graph-node -c "
-                SELECT 
-                    'LBFactory' as entity, COUNT(*) as count FROM sgd1.lb_factory
-                UNION ALL
-                SELECT 'LBPair' as entity, COUNT(*) as count FROM sgd1.lb_pair
-                UNION ALL
-                SELECT 'Token' as entity, COUNT(DISTINCT id) as count FROM sgd1.token
-                UNION ALL
-                SELECT 'Bin' as entity, COUNT(*) as count FROM sgd1.bin
-                UNION ALL
-                SELECT 'Trace' as entity, COUNT(*) as count FROM sgd1.trace;
-                " 2>/dev/null || echo "无法连接到数据库"
+                
+                # 首先检查数据库连接和schema
+                echo -e "${YELLOW}检查数据库连接...${NC}"
+                if docker exec postgres psql -U graph-node -d graph-node -c "SELECT version();" >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ 数据库连接正常${NC}"
+                    echo ""
+                    
+                    # 检查可用的schema
+                    echo -e "${YELLOW}可用的 Schema:${NC}"
+                    docker exec postgres psql -U graph-node -d graph-node -c "
+                    SELECT schema_name 
+                    FROM information_schema.schemata 
+                    WHERE schema_name LIKE 'sgd%' OR schema_name LIKE '%subgraph%'
+                    ORDER BY schema_name;
+                    " 2>/dev/null || echo "无法获取schema信息"
+                    
+                    echo ""
+                    echo -e "${YELLOW}查找相关表...${NC}"
+                    # 查找包含 subgraph 相关的表
+                    docker exec postgres psql -U graph-node -d graph-node -c "
+                    SELECT table_schema, table_name, table_type
+                    FROM information_schema.tables 
+                    WHERE (table_name LIKE '%lb%' OR table_name LIKE '%pair%' OR table_name LIKE '%token%' OR table_name LIKE '%factory%')
+                    AND table_schema NOT IN ('information_schema', 'pg_catalog')
+                    ORDER BY table_schema, table_name;
+                    " 2>/dev/null || echo "无法获取表信息"
+                    
+                else
+                    echo -e "${RED}❌ 无法连接到数据库${NC}"
+                    echo "请确保 PostgreSQL 容器正在运行"
+                fi
                 read -p "按任意键继续..."
                 ;;
             7)
                 echo -e "${BLUE}🔗 测试 API 端点...${NC}"
                 echo ""
-                echo -e "${YELLOW}健康检查:${NC}"
-                curl -s "https://dex-backend-serverless.jongun2038.workers.dev/health" | jq '.'
+                echo -e "${YELLOW}测试健康检查:${NC}"
+                
+                # 检查本地Worker是否运行
+                if curl -s "http://localhost:8787/health" >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ 本地Worker服务正在运行${NC}"
+                    curl -s "http://localhost:8787/health" | jq '.' 2>/dev/null || echo "响应格式错误"
+                else
+                    echo -e "${RED}❌ 本地Worker服务未运行 (端口 8787)${NC}"
+                    echo ""
+                    echo -e "${BLUE}💡 提示:${NC}"
+                    echo "  1. 在Backend目录运行: npm run dev"
+                    echo "  2. 或使用主菜单 '1) Backend API 管理' → '1) 本地开发服务器'"
+                    echo ""
+                    
+                    # 提示如何启动本地服务
+                    echo -e "${YELLOW}如何启动本地服务:${NC}"
+                    echo "  cd /Users/es/dex/backend && npm run dev"
+                fi
+                
+                echo ""
+                echo -e "${YELLOW}测试认证端点 (无API密钥):${NC}"
+                if curl -s "http://localhost:8787/health" >/dev/null 2>&1; then
+                    echo -e "${BLUE}GET /v1/api/dex/pools (无认证):${NC}"
+                    curl -s "http://localhost:8787/v1/api/dex/pools" | jq '.' 2>/dev/null || echo "无响应或格式错误"
+                else
+                    echo "跳过测试 - 服务未运行"
+                fi
+                
+                echo ""
+                echo -e "${YELLOW}测试认证端点 (使用 test-key):${NC}"
+                if curl -s "http://localhost:8787/health" >/dev/null 2>&1; then
+                    echo -e "${CYAN}🔐 使用 test-key 进行完整API认证测试...${NC}"
+                    echo ""
+                    
+                    # 测试1: 流动性池
+                    echo -e "${BLUE}1. GET /v1/api/dex/pools (带test-key认证):${NC}"
+                    response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/pools")
+                    if echo "$response" | jq '.' >/dev/null 2>&1; then
+                        echo -e "${GREEN}✅ 认证成功${NC}"
+                        echo "$response" | jq '.' | head -10
+                    else
+                        echo -e "${RED}❌ 认证失败或无数据${NC}"
+                        echo "$response"
+                    fi
+                    
+                    echo ""
+                    # 测试2: 代币信息
+                    echo -e "${BLUE}2. GET /v1/api/dex/tokens (带test-key认证):${NC}"
+                    response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/tokens")
+                    if echo "$response" | jq '.' >/dev/null 2>&1; then
+                        echo -e "${GREEN}✅ 认证成功${NC}"
+                        echo "$response" | jq '.' | head -10
+                    else
+                        echo -e "${RED}❌ 认证失败或无数据${NC}"
+                        echo "$response"
+                    fi
+                    
+                    echo ""
+                    # 测试3: 交易数据
+                    echo -e "${BLUE}3. GET /v1/api/dex/swaps (带test-key认证):${NC}"
+                    response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/swaps")
+                    if echo "$response" | jq '.' >/dev/null 2>&1; then
+                        echo -e "${GREEN}✅ 认证成功${NC}"
+                        echo "$response" | jq '.' | head -10
+                    else
+                        echo -e "${RED}❌ 认证失败或无数据${NC}"
+                        echo "$response"
+                    fi
+                    
+                    echo ""
+                    # 测试4: 流动性数据
+                    echo -e "${BLUE}4. GET /v1/api/dex/liquidity (带test-key认证):${NC}"
+                    response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/liquidity")
+                    if echo "$response" | jq '.' >/dev/null 2>&1; then
+                        echo -e "${GREEN}✅ 认证成功${NC}"
+                        echo "$response" | jq '.' | head -10
+                    else
+                        echo -e "${RED}❌ 认证失败或无数据${NC}"
+                        echo "$response"
+                    fi
+                    
+                    echo ""
+                    # 测试5: 费用统计
+                    echo -e "${BLUE}5. GET /v1/api/dex/fees (带test-key认证):${NC}"
+                    response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/fees")
+                    if echo "$response" | jq '.' >/dev/null 2>&1; then
+                        echo -e "${GREEN}✅ 认证成功${NC}"
+                        echo "$response" | jq '.' | head -10
+                    else
+                        echo -e "${RED}❌ 认证失败或无数据${NC}"
+                        echo "$response"
+                    fi
+                    
+                    echo ""
+                    # 测试6: 价格查询 (需要参数的端点)
+                    echo -e "${BLUE}6. GET /v1/api/dex/price (带test-key认证):${NC}"
+                    response=$(curl -s -H "X-API-Key: test-key" "http://localhost:8787/v1/api/dex/price?token=0x...")
+                    if echo "$response" | jq '.' >/dev/null 2>&1; then
+                        echo -e "${GREEN}✅ 认证成功${NC}"
+                        echo "$response" | jq '.'
+                    else
+                        echo -e "${YELLOW}⚠️ 需要有效代币参数或端点不存在${NC}"
+                        echo "$response"
+                    fi
+                    
+                    echo ""
+                    # 测试7: 错误认证测试
+                    echo -e "${BLUE}7. 测试错误API Key:${NC}"
+                    response=$(curl -s -H "X-API-Key: wrong-key" "http://localhost:8787/v1/api/dex/pools")
+                    if echo "$response" | grep -q "unauthorized\|forbidden\|invalid" 2>/dev/null; then
+                        echo -e "${GREEN}✅ 正确拒绝了错误的API Key${NC}"
+                    else
+                        echo -e "${YELLOW}⚠️ 可能未正确验证API Key${NC}"
+                    fi
+                    echo "$response"
+                    
+                    echo ""
+                    echo -e "${GREEN}🎉 test-key API认证测试完成!${NC}"
+                    echo -e "${BLUE}💡 所有端点都已使用 test-key 进行了认证测试${NC}"
+                else
+                    echo "跳过测试 - 服务未运行"
+                fi
+                
                 read -p "按任意键继续..."
                 ;;
             8)
@@ -745,81 +1025,18 @@ scripts_menu() {
         echo -e "${WHITE}┌─────────────────────────────────────────────────────────────────┐${NC}"
         echo -e "${WHITE}│${NC} 🔧 ${BLUE}脚本管理${NC}                                                   ${WHITE}│${NC}"
         echo -e "${WHITE}├─────────────────────────────────────────────────────────────────┤${NC}"
-        echo -e "${WHITE}│${NC} ${YELLOW}Backend Scripts:${NC}                                                ${WHITE}│${NC}"
         echo -e "${WHITE}│${NC} ${YELLOW}1)${NC} 运行全面测试套件 (all-in-one-test.ts)                      ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC}                                                                 ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC} ${YELLOW}Indexer Scripts (已整合):${NC}                                        ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC} ${YELLOW}2)${NC} 管理功能 (manage.sh → 已整合到主面板)                       ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC} ${YELLOW}3)${NC} 同步监控 (monitor.sh → 已整合到实时监控)                    ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC} ${YELLOW}4)${NC} 查询工具 (query.sh → 已整合到查询工具)                      ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC} ${YELLOW}5)${NC} 同步检查 (check-sync.sh → 已整合到状态检查)                 ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC} ${YELLOW}6)${NC} 主网部署 (deploy-mainnet.sh → 已整合到部署管理)             ${WHITE}│${NC}"
-        echo -e "${WHITE}│${NC} ${YELLOW}7)${NC} 测试网部署 (deploy-testnet.sh → 已整合到部署管理)           ${WHITE}│${NC}"
         echo -e "${WHITE}│${NC}                                                                 ${WHITE}│${NC}"
         echo -e "${WHITE}│${NC} ${YELLOW}0)${NC} 返回主菜单                                                 ${WHITE}│${NC}"
         echo -e "${WHITE}└─────────────────────────────────────────────────────────────────┘${NC}"
         echo ""
         
-        read -p "请选择操作 (0-7): " choice
+        read -p "请选择操作 (0-1): " choice
         case $choice in
             1)
                 echo -e "${BLUE}🧪 运行全面测试套件...${NC}"
                 cd $BACKEND_DIR
                 npx tsx all-in-one-test.ts
-                read -p "按任意键继续..."
-                ;;
-            2)
-                echo -e "${BLUE}🔧 Indexer 管理功能 (已整合):${NC}"
-                echo ""
-                echo "这些功能现已集成到主面板中："
-                echo "• 启动/停止/重启服务 → Graph Indexer 管理菜单"
-                echo "• 查看状态 → 主面板状态显示"
-                echo "• 测试查询 → 查询工具菜单"
-                echo "• 快速状态 → Graph Indexer 管理菜单"
-                echo ""
-                echo "请使用主菜单中对应的功能。"
-                read -p "按任意键继续..."
-                ;;
-            3)
-                echo -e "${BLUE}🔄 实时同步监控 (已整合)...${NC}"
-                echo ""
-                echo "此功能已集成到主面板的实时监控中。"
-                echo "请使用主菜单中的 '5) 实时监控' 功能。"
-                read -p "按任意键继续..."
-                ;;
-            4)
-                echo -e "${BLUE}🔍 查询工具功能 (已整合):${NC}"
-                echo ""
-                echo "这些查询功能现已集成到主面板中："
-                echo "• 查询工厂信息 → 查询工具菜单"
-                echo "• 查询交易对 → 查询工具菜单"
-                echo "• 查询代币 → 查询工具菜单"
-                echo "• 查询 Bins → 查询工具菜单"
-                echo "• 查询交易记录 → 查询工具菜单"
-                echo "• SQL 统计 → 查询工具菜单"
-                echo ""
-                echo "请使用主菜单中的 '6) 查询工具' 功能。"
-                read -p "按任意键继续..."
-                ;;
-            5)
-                echo -e "${BLUE}🔄 同步状态检查 (已整合)...${NC}"
-                echo ""
-                echo "此功能已集成到主面板中。"
-                echo "请使用 '2) Graph Indexer 管理' → '6) 快速状态检查' 功能。"
-                read -p "按任意键继续..."
-                ;;
-            6)
-                echo -e "${BLUE}🌐 主网部署 (已整合)...${NC}"
-                echo ""
-                echo "此功能已集成到主面板中。"
-                echo "请使用 '3) 部署管理' 或 '2) Graph Indexer 管理' → '8) 部署到主网/测试网' 功能。"
-                read -p "按任意键继续..."
-                ;;
-            7)
-                echo -e "${BLUE}🧪 测试网部署 (已整合)...${NC}"
-                echo ""
-                echo "此功能已集成到主面板中。"
-                echo "请使用 '3) 部署管理' 或 '2) Graph Indexer 管理' → '8) 部署到主网/测试网' 功能。"
                 read -p "按任意键继续..."
                 ;;
             0)
