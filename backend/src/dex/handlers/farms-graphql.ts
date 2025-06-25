@@ -63,13 +63,14 @@ async function handleFarmsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 	console.log('🔗 Fetching farm-eligible pools from subgraph...');
 	
 	// Get pools sorted by TVL to identify farm candidates
-	const pools = await subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc');
+	const poolsRaw = await subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc');
+	const pools = Array.isArray(poolsRaw) ? poolsRaw : [];
 	
 	// Filter pools that qualify as farms (decent TVL, active)
 	const farmEligiblePools = pools.filter((pool: any) => 
-		parseFloat(pool.totalValueLockedUSD || '0') >= minTvl &&
-		parseInt(pool.liquidityProviderCount || '0') > 0 &&
-		parseFloat(pool.volumeUSD24h || '0') > 1000 // Some trading activity
+		parseFloat(pool?.totalValueLockedUSD || '0') >= minTvl &&
+		parseInt(pool?.liquidityProviderCount || '0') > 0 &&
+		parseFloat(pool?.volumeUSD24h || '0') > 1000 // Some trading activity
 	);
 
 	// Transform pools to farm format
@@ -109,44 +110,45 @@ async function handleUserFarms(c: Context<{ Bindings: Env }>, subgraphClient: an
 
 	console.log('🔗 Fetching user farm positions from subgraph...', userAddress);
 	
-	const userPositions = await subgraphClient.getUserPositions(userAddress);
+	const userPositionsRaw = await subgraphClient.getUserPositions(userAddress);
+	const userPositions = Array.isArray(userPositionsRaw) ? userPositionsRaw : [];
 	
 	// Filter positions that are in farm-eligible pools
 	const farmPositions = userPositions.filter((position: any) => 
-		parseFloat(position.pool.totalValueLockedUSD || '0') >= 5000 &&
-		parseFloat(position.pool.volumeUSD24h || '0') > 1000
+		parseFloat(position?.pool?.totalValueLockedUSD || '0') >= 5000 &&
+		parseFloat(position?.pool?.volumeUSD24h || '0') > 1000
 	);
 
 	// Transform to farm position format
 	const userFarms = farmPositions.map((position: any) => ({
-		farmId: `farm_${position.pool.id}`,
-		farmAddress: position.pool.id,
-		name: `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol} Farm`,
-		poolAddress: position.pool.id,
+		farmId: `farm_${position?.pool?.id || 'unknown'}`,
+		farmAddress: position?.pool?.id || '',
+		name: `${position?.pool?.tokenX?.symbol || 'Unknown'}/${position?.pool?.tokenY?.symbol || 'Unknown'} Farm`,
+		poolAddress: position?.pool?.id || '',
 		strategy: 'liquidity_mining',
 		tokenX: {
-			address: position.pool.tokenX.id,
-			symbol: position.pool.tokenX.symbol,
-			name: position.pool.tokenX.name,
-			decimals: position.pool.tokenX.decimals,
+			address: position?.pool?.tokenX?.id || '',
+			symbol: position?.pool?.tokenX?.symbol || '',
+			name: position?.pool?.tokenX?.name || '',
+			decimals: position?.pool?.tokenX?.decimals || '18',
 		},
 		tokenY: {
-			address: position.pool.tokenY.id,
-			symbol: position.pool.tokenY.symbol,
-			name: position.pool.tokenY.name,
-			decimals: position.pool.tokenY.decimals,
+			address: position?.pool?.tokenY?.id || '',
+			symbol: position?.pool?.tokenY?.symbol || '',
+			name: position?.pool?.tokenY?.name || '',
+			decimals: position?.pool?.tokenY?.decimals || '18',
 		},
 		userPosition: {
-			shares: position.liquidity || '0',
-			valueUsd: position.liquidityUSD || '0',
-			depositedAt: position.createdAtTimestamp ? 
+			shares: position?.liquidity || '0',
+			valueUsd: position?.liquidityUSD || '0',
+			depositedAt: position?.createdAtTimestamp ? 
 				parseInt(position.createdAtTimestamp) * 1000 : Date.now(),
-			lastHarvest: position.updatedAtTimestamp ? 
+			lastHarvest: position?.updatedAtTimestamp ? 
 				parseInt(position.updatedAtTimestamp) * 1000 : Date.now(),
 		},
 		rewards: calculateUserRewards(position),
-		apy: calculateFarmAPY(position.pool),
-		tvl: position.pool.totalValueLockedUSD || '0',
+		apy: calculateFarmAPY(position?.pool),
+		tvl: position?.pool?.totalValueLockedUSD || '0',
 		status: 'active',
 	}));
 

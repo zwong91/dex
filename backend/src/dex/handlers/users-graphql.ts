@@ -75,12 +75,13 @@ async function handleUserBinIds(c: Context<{ Bindings: Env }>, subgraphClient: a
 
 	console.log('🔗 Fetching user liquidity positions from subgraph...', userAddress);
 	
-	const positions = await subgraphClient.getUserLiquidityPositions(userAddress);
+	const positionsRaw = await subgraphClient.getUserLiquidityPositions(userAddress);
+	const positions = Array.isArray(positionsRaw) ? positionsRaw : [];
 	
 	// Extract unique bin IDs from user bin liquidities
 	const binIds: number[] = [];
 	for (const position of positions) {
-		for (const binLiquidity of position.userBinLiquidities || []) {
+		for (const binLiquidity of (position?.userBinLiquidities || [])) {
 			if (!binIds.includes(binLiquidity.binId)) {
 				binIds.push(binLiquidity.binId);
 			}
@@ -113,11 +114,13 @@ async function handleUserPoolIds(c: Context<{ Bindings: Env }>, subgraphClient: 
 
 	console.log('🔗 Fetching user pool IDs from subgraph...', userAddress);
 	
-	const positions = await subgraphClient.getUserLiquidityPositions(userAddress);
+	const positionsRaw = await subgraphClient.getUserLiquidityPositions(userAddress);
+	const positions = Array.isArray(positionsRaw) ? positionsRaw : [];
 	
 	// Extract unique pool IDs
 	const poolIds = positions
-		.map((position: any) => position.lbPair.id)
+		.map((position: any) => position?.lbPair?.id)
+		.filter((poolId: string) => poolId)
 		.filter((poolId: string, index: number, arr: string[]) => arr.indexOf(poolId) === index);
 
 	return c.json({
@@ -151,10 +154,13 @@ async function handleUserHistory(c: Context<{ Bindings: Env }>, subgraphClient: 
 	const offset = (page - 1) * limit;
 	
 	// Get user's swaps and mints/burns
-	const [swaps, mintsBurns] = await Promise.all([
+	const [swapsRaw, mintsBurnsRaw] = await Promise.all([
 		subgraphClient.getUserSwaps(userAddress, limit),
 		subgraphClient.getUserMintsBurns(userAddress, limit)
 	]);
+	
+	const swaps = Array.isArray(swapsRaw) ? swapsRaw : [];
+	const mintsBurns = Array.isArray(mintsBurnsRaw) ? mintsBurnsRaw : [];
 	
 	// Combine and sort all transactions
 	const allTransactions = [
@@ -235,22 +241,25 @@ async function handleUserLifetimeStats(c: Context<{ Bindings: Env }>, subgraphCl
 
 	console.log('🔗 Fetching user lifetime stats from subgraph...', userAddress);
 	
-	const [positions, transactions] = await Promise.all([
+	const [positionsRaw, transactionsRaw] = await Promise.all([
 		subgraphClient.getUserPositions(userAddress),
-		subgraphClient.getUserTransactions(userAddress, 1000, 0) // Get many transactions for stats
+		subgraphClient.getUserTransactions(userAddress, 1000, 0)
 	]);
+
+	const positions = Array.isArray(positionsRaw) ? positionsRaw : [];
+	const transactions = Array.isArray(transactionsRaw) ? transactionsRaw : [];
 
 	// Calculate lifetime stats
 	const totalLiquidity = positions.reduce((sum: number, position: any) => 
-		sum + parseFloat(position.liquidityUSD || '0'), 0);
-	
+		sum + parseFloat(position?.liquidityUSD || '0'), 0);
+
 	const totalVolume = transactions
-		.filter((tx: any) => tx.type === 'swap')
+		.filter((tx: any) => tx?.type === 'swap')
 		.reduce((sum: number, tx: any) => 
-			sum + parseFloat(tx.amountUSD || '0'), 0);
-	
+			sum + parseFloat(tx?.amountUSD || '0'), 0);
+
 	const totalFees = transactions.reduce((sum: number, tx: any) => 
-		sum + parseFloat(tx.feeUSD || '0'), 0);
+		sum + parseFloat(tx?.feeUSD || '0'), 0);
 
 	const stats = {
 		userAddress,
@@ -260,9 +269,9 @@ async function handleUserLifetimeStats(c: Context<{ Bindings: Env }>, subgraphCl
 		totalTransactions: transactions.length,
 		totalPools: positions.length,
 		firstTransactionDate: transactions.length > 0 ? 
-			new Date(Math.min(...transactions.map((tx: any) => parseInt(tx.timestamp) * 1000))).toISOString() : null,
+			new Date(Math.min(...transactions.map((tx: any) => parseInt(tx?.timestamp) * 1000))).toISOString() : null,
 		lastTransactionDate: transactions.length > 0 ? 
-			new Date(Math.max(...transactions.map((tx: any) => parseInt(tx.timestamp) * 1000))).toISOString() : null,
+			new Date(Math.max(...transactions.map((tx: any) => parseInt(tx?.timestamp) * 1000))).toISOString() : null,
 	};
 
 	return c.json({
@@ -287,29 +296,30 @@ async function handleUserFeesEarned(c: Context<{ Bindings: Env }>, subgraphClien
 
 	console.log('🔗 Fetching user fees earned from subgraph...', userAddress);
 	
-	const positions = await subgraphClient.getUserPositions(userAddress);
-	
+	const positionsRaw = await subgraphClient.getUserPositions(userAddress);
+	const positions = Array.isArray(positionsRaw) ? positionsRaw : [];
+
 	// Calculate fees earned per position
 	const feesEarned = positions.map((position: any) => {
-		const poolShare = parseFloat(position.liquidity || '0') / parseFloat(position.pool.totalLiquidity || '1');
-		const poolFeesUSD = parseFloat(position.pool.feesUSD || '0');
+		const poolShare = parseFloat(position?.liquidity || '0') / parseFloat(position?.pool?.totalLiquidity || '1');
+		const poolFeesUSD = parseFloat(position?.pool?.feesUSD || '0');
 		const userFeesUSD = poolFeesUSD * poolShare;
 		
 		return {
-			poolId: position.pool.id,
-			poolName: `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol}`,
+			poolId: position?.pool?.id || '',
+			poolName: position?.pool ? `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol}` : '',
 			liquidityShare: poolShare,
 			feesEarnedUSD: userFeesUSD.toString(),
 			position: {
-				binId: position.binId,
-				liquidity: position.liquidity,
-				liquidityUSD: position.liquidityUSD,
+				binId: position?.binId,
+				liquidity: position?.liquidity,
+				liquidityUSD: position?.liquidityUSD,
 			},
 		};
 	});
 
 	const totalFeesEarned = feesEarned.reduce((sum: number, fee: any) => 
-		sum + parseFloat(fee.feesEarnedUSD), 0);
+		sum + parseFloat(fee?.feesEarnedUSD || '0'), 0);
 
 	return c.json({
 		success: true,

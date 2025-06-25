@@ -27,7 +27,7 @@ const CONFIG = {
   API_BASE: 'http://localhost:8787',
   SUBGRAPH_URL: 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet',
   API_KEY: 'test-key',
-  TEST_ADDRESS: '0x742d35Cc6548C1Ad35C7c8e36fC76CE23a3c3c89',
+  TEST_ADDRESS: '0xE0A051f87bb78f38172F633449121475a193fC1A',
   VALID_POOL_ID: '0x406ca3b0acd27b8060c84902d2b0cab6f5ad898d' // Real pool ID from subgraph
 };
 

@@ -9,12 +9,12 @@ export * from './types';
 // Authentication
 export * from './auth';
 
-// Handlers
-export * from './handlers/pools';
-export * from './handlers/rewards';
-export * from './handlers/users';
-export * from './handlers/farms';
-export * from './handlers/vaults';
+// Handlers (only export GraphQL-based handlers)
+export * from './handlers/pools-graphql';
+export * from './handlers/rewards-graphql';
+export * from './handlers/users-graphql';
+export * from './handlers/farms-graphql';
+export * from './handlers/vaults-graphql';
 
 // Routing
 export * from './routing';

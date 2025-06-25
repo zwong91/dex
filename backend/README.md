@@ -364,6 +364,6 @@ MIT License - See [LICENSE](../LICENSE) file for details.
 
 ---
 
-**Development Team**: UNC Protocol Team  
+**Development Team**: EntySquare Protocol Team  
 **Project Version**: 1.0.0  
 **Last Updated**: June 2025

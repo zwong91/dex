@@ -316,6 +316,13 @@ export class SubgraphClient {
   }
 
   /**
+   * Get a specific pool by ID (alias for getPool)
+   */
+  async getPoolById(poolId: string): Promise<LBPair | null> {
+    return this.getPool(poolId);
+  }
+
+  /**
    * Get user's swap history
    */
   async getUserSwaps(userAddress: string, first: number = 100): Promise<any[]> {
@@ -430,6 +437,23 @@ export class SubgraphClient {
 
     const result = await this.query<{ liquidityPositions: any[] }>(query, variables);
     return result.data?.liquidityPositions || [];
+  }
+
+  /**
+   * Get user positions (alias for getUserLiquidityPositions with simplified data)
+   */
+  async getUserPositions(userAddress: string, first: number = 100): Promise<any[]> {
+    const positions = await this.getUserLiquidityPositions(userAddress, first);
+    
+    // Transform to simplified position format
+    return positions.map((position: any) => ({
+      id: position.id,
+      binId: position.userBinLiquidities?.[0]?.binId || 0,
+      liquidity: position.userBinLiquidities?.[0]?.liquidity || '0',
+      liquidityUSD: position.lbPair?.totalValueLockedUSD || '0',
+      pool: position.lbPair,
+      timestamp: position.timestamp
+    }));
   }
 
   /**
@@ -621,6 +645,77 @@ export class SubgraphClient {
 
     const result = await this.query<{ lbpairs: LBPair[] }>(query, variables);
     return result.data?.lbpairs || [];
+  }
+
+  /**
+   * Get user transactions (combines swaps and mint/burns)
+   */
+  async getUserTransactions(userAddress: string, first: number = 100, skip: number = 0): Promise<any[]> {
+    const [swaps, mintsBurns] = await Promise.all([
+      this.getUserSwaps(userAddress, first),
+      this.getUserMintsBurns(userAddress, first)
+    ]);
+    
+    const allTxs = [
+      ...swaps.map((swap: any) => ({ ...swap, type: 'swap' })),
+      ...mintsBurns
+    ].sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
+    
+    return allTxs.slice(skip, skip + first);
+  }
+
+  /**
+   * Get user positions in a specific pool
+   */
+  async getUserPositionsInPool(userAddress: string, poolId: string): Promise<any[]> {
+    const query = `
+      query GetUserPositionsInPool($userAddress: String!, $poolId: String!) {
+        liquidityPositions(
+          where: { 
+            user: $userAddress,
+            lbPair: $poolId
+          }
+          orderBy: timestamp
+          orderDirection: desc
+        ) {
+          id
+          user {
+            id
+          }
+          lbPair {
+            id
+            name
+          }
+          userBinLiquidities {
+            id
+            binId
+            liquidity
+            timestamp
+          }
+          binsCount
+          timestamp
+        }
+      }
+    `;
+
+    const variables = {
+      userAddress: userAddress.toLowerCase(),
+      poolId: poolId.toLowerCase()
+    };
+
+    const result = await this.query<{ liquidityPositions: any[] }>(query, variables);
+    
+    // Transform to simpler format
+    return (result.data?.liquidityPositions || []).flatMap((position: any) => 
+      (position.userBinLiquidities || []).map((binLiq: any) => ({
+        binId: binLiq.binId,
+        liquidity: binLiq.liquidity,
+        liquidityUSD: '0', // Calculate if needed
+        timestamp: binLiq.timestamp,
+        createdAtTimestamp: binLiq.timestamp,
+        updatedAtTimestamp: binLiq.timestamp
+      }))
+    );
   }
 }
 

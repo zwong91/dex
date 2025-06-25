@@ -69,10 +69,13 @@ async function handleUserRewards(c: Context<{ Bindings: Env }>, subgraphClient: 
 
 	console.log('🔗 Fetching user rewards from subgraph...', userAddress);
 	
-	const [userPositions, userTransactions] = await Promise.all([
+	const [userPositionsRaw, userTransactionsRaw] = await Promise.all([
 		subgraphClient.getUserPositions(userAddress),
 		subgraphClient.getUserTransactions(userAddress, 1000, 0)
 	]);
+
+	const userPositions = Array.isArray(userPositionsRaw) ? userPositionsRaw : [];
+	const userTransactions = Array.isArray(userTransactionsRaw) ? userTransactionsRaw : [];
 
 	// Calculate rewards from each position
 	const positionRewards = userPositions.map((position: any) => {

@@ -141,12 +141,18 @@ async function handlePoolDetails(c: Context<{ Bindings: Env }>, subgraphClient: 
 
 	console.log('🔗 Fetching pool details from subgraph...', poolId);
 	
-	const pool = await subgraphClient.getPool(poolId);
+	const pool = await subgraphClient.getPoolById(poolId);
 	
 	if (!pool) {
+		// Try to find if any pools exist to help debug
+		const allPools = await subgraphClient.getPools(10, 0);
+		const availableIds = allPools.map((p: any) => p.id).slice(0, 5);
+		
 		return c.json({
 			error: 'Pool not found',
 			poolId,
+			message: `Pool with ID ${poolId} does not exist`,
+			availablePoolIds: availableIds,
 			timestamp: new Date().toISOString()
 		}, 404);
 	}

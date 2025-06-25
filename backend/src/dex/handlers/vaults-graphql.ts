@@ -164,8 +164,8 @@ async function handleVaultsAnalytics(c: Context<{ Bindings: Env }>, subgraphClie
 
 	// Top performing vaults
 	const topVaults = vaultPools
-		.map(pool => ({ ...transformPoolToVault(pool), apy: calculatePoolAPY(pool) }))
-		.sort((a, b) => b.apy - a.apy)
+		.map((pool: any) => ({ ...transformPoolToVault(pool), apy: calculatePoolAPY(pool) }))
+		.sort((a: { apy: number }, b: { apy: number }) => b.apy - a.apy)
 		.slice(0, 10);
 
 	const analytics = {
@@ -176,14 +176,14 @@ async function handleVaultsAnalytics(c: Context<{ Bindings: Env }>, subgraphClie
 		averageAPY: averageAPY,
 		topVaults,
 		riskDistribution: {
-			low: vaultPools.filter(pool => calculateRiskLevel(pool) === 'low').length,
-			medium: vaultPools.filter(pool => calculateRiskLevel(pool) === 'medium').length,
-			high: vaultPools.filter(pool => calculateRiskLevel(pool) === 'high').length,
+			low: vaultPools.filter((pool: any) => calculateRiskLevel(pool) === 'low').length,
+			medium: vaultPools.filter((pool: any) => calculateRiskLevel(pool) === 'medium').length,
+			high: vaultPools.filter((pool: any) => calculateRiskLevel(pool) === 'high').length,
 		},
 		strategyDistribution: {
-			conservative: vaultPools.filter(pool => getVaultStrategy(pool) === 'conservative').length,
-			balanced: vaultPools.filter(pool => getVaultStrategy(pool) === 'balanced').length,
-			aggressive: vaultPools.filter(pool => getVaultStrategy(pool) === 'aggressive').length,
+			conservative: vaultPools.filter((pool: any) => getVaultStrategy(pool) === 'conservative').length,
+			balanced: vaultPools.filter((pool: any) => getVaultStrategy(pool) === 'balanced').length,
+			aggressive: vaultPools.filter((pool: any) => getVaultStrategy(pool) === 'aggressive').length,
 		},
 	};
 
