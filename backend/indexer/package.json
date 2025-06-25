@@ -21,7 +21,7 @@
     "deploy-studio": "echo '🚀 To deploy to Subgraph Studio:' && echo 'graph deploy --studio <SUBGRAPH_SLUG>' && echo 'Replace <SUBGRAPH_SLUG> with your subgraph name from Studio'",
     "create-local": "graph create --node http://localhost:8020/ entysquare/indexer-bnb-testnet",
     "remove-local": "graph remove --node http://localhost:8020/ entysquare/indexer-bnb-testnet",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 entysquare/indexer-bnb-testnet",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 entysquare/indexer-bnb-testnet subgraph.bsc-testnet.yaml",
     "start:node": "rm -rf ./graph_data && docker-compose up -d",
     "stop:node": "docker-compose down",
     "restart:node": "docker-compose restart",
