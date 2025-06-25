@@ -1,5 +1,5 @@
-import { BigDecimal, BigInt, Bytes } from "@graphprotocol/graph-ts";
-import { BIG_DECIMAL_ZERO, BIG_INT_ONE, BIG_INT_ZERO } from "../constants";
+import { BigInt, BigDecimal, Bytes } from "@graphprotocol/graph-ts";
+import { BIG_INT_ZERO, BIG_INT_ONE, BIG_DECIMAL_ZERO } from "../constants";
 
 export function formatDecimalsToExponent(decimals: BigInt): BigDecimal {
   let bd = BigDecimal.fromString("1");
@@ -39,18 +39,11 @@ export function isAccountApproved(
   return false;
 }
 
-export function isSwapForY(
-  amountsInBytes32: Bytes,
-): bool {
-  const amountsIn = decodeAmounts(amountsInBytes32);
-  const amountYIn = amountsIn[1];
-  return amountYIn.equals(BIG_INT_ZERO);
-}
-
+// https://docs.traderjoexyz.com/guides/byte-32-decoding#liquidity-book-vs-uniswap-v3
 export function decodeAmounts(amounts: Bytes): Array<BigInt> {
-  const t = Bytes.fromHexString(amounts.toHexString());
-  t.reverse();
-  const amountsBigInt = BigInt.fromUnsignedBytes(t);
+  // Convert amounts to a BigInt
+  amounts.reverse();
+  const amountsBigInt = BigInt.fromUnsignedBytes(amounts);
 
   // Read the right 128 bits of the 256 bits
   const amountsX = amountsBigInt.bitAnd(
@@ -64,3 +57,5 @@ export function decodeAmounts(amounts: Bytes): Array<BigInt> {
 
   return [amountsX, amountsY];
 }
+
+export * from "./pricing";

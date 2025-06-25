@@ -1,5 +1,8 @@
 {
     "network": "mainnet",
     "lbfactory_address": "0xDC8d77b69155c7E68A95a4fb0f06a71FF90B943a",
+    "oracle_dex_lens_address": "0x3008D2C0A3b7C676ff8bd948fdE9B5fC6a26A56f",
+    "oracle_dex_lens_usd_decimals": 18,
+    "wrapped_native_token_address": "0xB8c77482e45F1F44dE1745F52C74426C631bDD52",
     "start_block": 17821282
   }

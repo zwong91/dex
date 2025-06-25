@@ -1,9 +1,10 @@
 import { BigInt, BigDecimal, Address } from "@graphprotocol/graph-ts";
 import { Bin, LBPair } from "../../generated/schema";
-import { BIG_DECIMAL_ZERO, BIG_INT_ZERO } from "../constants";
-import { loadToken } from ".";
+import { BIG_DECIMAL_ONE, BIG_DECIMAL_ZERO, BIG_INT_ZERO } from "../constants";
+import { loadToken } from "../entities";
+import { getPriceYOfBin } from "../utils";
 
-export function loadBin(lbPair: LBPair, binId: BigInt): Bin {
+export function loadBin(lbPair: LBPair, binId: number): Bin {
   const id = lbPair.id.concat("#").concat(binId.toString());
   let bin = Bin.load(id);
 
@@ -13,10 +14,14 @@ export function loadBin(lbPair: LBPair, binId: BigInt): Bin {
 
     bin = new Bin(id);
     bin.lbPair = lbPair.id;
-    bin.binId = binId;
+    bin.binId = binId as u32;
     bin.reserveX = BIG_DECIMAL_ZERO;
     bin.reserveY = BIG_DECIMAL_ZERO;
     bin.totalSupply = BIG_INT_ZERO;
+    bin.priceY = getPriceYOfBin(binId, lbPair.binStep, tokenX, tokenY); // each bin has a determined price
+    bin.priceX = BIG_DECIMAL_ONE.div(bin.priceY);
+    bin.liquidityProviders = [];
+    bin.liquidityProviderCount = BIG_INT_ZERO;
   }
 
   return bin;
@@ -24,7 +29,7 @@ export function loadBin(lbPair: LBPair, binId: BigInt): Bin {
 
 export function trackBin(
   lbPair: LBPair,
-  binId: BigInt,
+  binId: number,
   amountXIn: BigDecimal,
   amountXOut: BigDecimal,
   amountYIn: BigDecimal,

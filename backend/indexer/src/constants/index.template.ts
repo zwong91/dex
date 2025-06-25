@@ -19,8 +19,9 @@ export const NULL_CALL_RESULT_VALUE =
 
 export const LBFACTORY_ADDRESS = Address.fromString('{{ lbfactory_address }}');
 
-export const TRACE_TYPE_SWAP = "SWAP";
-export const TRACE_TYPE_LIQUIDITY_ADDED = "LIQUIDITY_ADDED";
-export const TRACE_TYPE_LIQUIDITY_REMOVED = "LIQUIDITY_REMOVED";
-export const TRACE_TYPE_TRANSFER_BATCH = "TRANSFER_BATCH";
-export const TRACE_TYPE_FLASHLOAN = "FLASHLOAN";
+export const ORACLE_DEX_LENS_ADDRESS = Address.fromString('{{ oracle_dex_lens_address }}');
+
+export const ORACLE_DEX_LENS_USD_DECIMALS = BigDecimal.fromString("1e{{ oracle_dex_lens_usd_decimals }}");
+
+// Wrapped native token address (WETH for Ethereum, WBNB for BSC, etc.)
+export const WRAPPED_NATIVE_TOKEN_ADDRESS = Address.fromString('{{ wrapped_native_token_address }}');
