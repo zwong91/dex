@@ -1,17 +1,21 @@
 import { Hono } from 'hono';
-import { validator } from 'hono/validator';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { createAuthMiddleware } from './middleware/auth';
-import { createPoolsHandler } from './handlers/pools-graphql';
-import { createUsersHandler } from './handlers/users-graphql';  
-import { createVaultsHandler } from './handlers/vaults-graphql';
-import { createFarmsHandler } from './handlers/farms-graphql';
-import { createRewardsHandler } from './handlers/rewards-graphql';
 import { createSubgraphClient } from './graphql/client';
 import type { Env } from '../index';
 
-// Create DEX routes
+// Import handler factory functions
+import { createPoolsHandler } from './handlers/pools-graphql';
+import { createUsersHandler } from './handlers/users-graphql';
+import { createVaultsHandler } from './handlers/vaults-graphql';
+import { createFarmsHandler } from './handlers/farms-graphql';
+import { createRewardsHandler } from './handlers/rewards-graphql';
+
+/**
+ * Unified DEX Routes using Hono framework
+ * All routes use GraphQL as the single source of truth
+ */
 export function createDexRoutes() {
 	const app = new Hono<{ Bindings: Env }>();
 
@@ -25,17 +29,12 @@ export function createDexRoutes() {
 				status: 'healthy',
 				timestamp: new Date().toISOString(),
 				version: '2.0.0',
-				database: 'disconnected',
+				architecture: 'unified-graphql',
 				subgraph: {
 					url: c.env.SUBGRAPH_URL || 'mock',
 					healthy: subgraphHealth.healthy,
 					blockNumber: subgraphHealth.blockNumber,
 					indexingErrors: subgraphHealth.hasIndexingErrors
-				},
-				services: {
-					database: 'offline',
-					blockchain_rpc: 'missing',
-					price_api: 'missing'
 				}
 			});
 		} catch (error) {
@@ -72,13 +71,16 @@ export function createDexRoutes() {
 	// Apply authentication middleware to protected routes
 	app.use('*', createAuthMiddleware());
 
-	// Core data endpoints
+	// === CORE DATA ENDPOINTS (GraphQL-only) ===
+	
+	// Pools endpoints
 	app.get('/pools', createPoolsHandler('list'));
 	app.get('/pools/:poolId', createPoolsHandler('details'));
 	app.get('/tokens', createPoolsHandler('tokens'));
 	app.get('/analytics', createPoolsHandler('analytics'));
 
-	// User endpoints
+	// === USER DATA ENDPOINTS (GraphQL-only) ===
+	
 	app.get('/user/:address/bin-ids', createUsersHandler('binIds'));
 	app.get('/user/:address/pool-ids', createUsersHandler('poolIds'));
 	app.get('/user/:address/history', createUsersHandler('history'));
@@ -86,18 +88,21 @@ export function createDexRoutes() {
 	app.get('/user/:address/fees-earned', createUsersHandler('feesEarned'));
 	app.get('/pool/:poolId/user/:address/balances', createUsersHandler('poolBalances'));
 
-	// Vaults endpoints (derived from pools)
+	// === VAULTS ENDPOINTS (GraphQL-only) ===
+	
 	app.get('/vaults', createVaultsHandler('list'));
+	app.get('/vaults/:vaultId', createVaultsHandler('details'));
 	app.get('/vaults/analytics', createVaultsHandler('analytics'));
 	app.get('/vaults/strategies', createVaultsHandler('strategies'));
-	app.get('/vaults/:vaultId', createVaultsHandler('details'));
 
-	// Farms endpoints (derived from pools)
+	// === FARMS ENDPOINTS (GraphQL-only) ===
+	
 	app.get('/farms', createFarmsHandler('list'));
 	app.get('/user/:address/farms', createFarmsHandler('userFarms'));
 	app.get('/user/:address/farms/:farmId', createFarmsHandler('userFarmDetails'));
 
-	// Rewards endpoints (calculated from positions)
+	// === REWARDS ENDPOINTS (GraphQL-only) ===
+	
 	app.get('/user/:address/rewards', createRewardsHandler('userRewards'));
 	app.get('/user/:address/claimable-rewards', createRewardsHandler('claimableRewards'));
 	app.get('/user/:address/rewards/history', createRewardsHandler('rewardsHistory'));
@@ -105,7 +110,8 @@ export function createDexRoutes() {
 	// Batch proof endpoint with validation
 	const batchProofSchema = z.object({
 		userAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
-		poolIds: z.array(z.string()).min(1, 'At least one pool ID required'),
+		merkleProofs: z.array(z.any()).optional(),
+		claims: z.array(z.any()).optional(),
 	});
 	
 	app.post('/rewards/batch-proof', 
@@ -115,3 +121,55 @@ export function createDexRoutes() {
 
 	return app;
 }
+
+/**
+ * Route configuration for documentation and tooling
+ */
+export const UNIFIED_ROUTE_CONFIG = {
+	// Health endpoints (no auth)
+	health: [
+		{ path: '/health', method: 'GET', auth: false, description: 'API health check' },
+		{ path: '/subgraph/meta', method: 'GET', auth: false, description: 'Subgraph metadata' }
+	],
+	
+	// Core data endpoints (auth required)
+	pools: [
+		{ path: '/pools', method: 'GET', auth: true, description: 'List all pools' },
+		{ path: '/pools/:poolId', method: 'GET', auth: true, description: 'Get pool details' },
+		{ path: '/tokens', method: 'GET', auth: true, description: 'List all tokens' },
+		{ path: '/analytics', method: 'GET', auth: true, description: 'DEX analytics data' }
+	],
+	
+	// User data endpoints (auth required)
+	users: [
+		{ path: '/user/:address/bin-ids', method: 'GET', auth: true, description: 'User bin IDs' },
+		{ path: '/user/:address/pool-ids', method: 'GET', auth: true, description: 'User pool IDs' },
+		{ path: '/user/:address/history', method: 'GET', auth: true, description: 'User transaction history' },
+		{ path: '/user/:address/lifetime-stats', method: 'GET', auth: true, description: 'User lifetime statistics' },
+		{ path: '/user/:address/fees-earned', method: 'GET', auth: true, description: 'User earned fees' },
+		{ path: '/pool/:poolId/user/:address/balances', method: 'GET', auth: true, description: 'User pool balances' }
+	],
+	
+	// Vaults endpoints (auth required)
+	vaults: [
+		{ path: '/vaults', method: 'GET', auth: true, description: 'List all vaults' },
+		{ path: '/vaults/:vaultId', method: 'GET', auth: true, description: 'Get vault details' },
+		{ path: '/vaults/analytics', method: 'GET', auth: true, description: 'Vault analytics' },
+		{ path: '/vaults/strategies', method: 'GET', auth: true, description: 'Vault strategies' }
+	],
+	
+	// Farms endpoints (auth required)
+	farms: [
+		{ path: '/farms', method: 'GET', auth: true, description: 'List all farms' },
+		{ path: '/user/:address/farms', method: 'GET', auth: true, description: 'User farms' },
+		{ path: '/user/:address/farms/:farmId', method: 'GET', auth: true, description: 'User farm details' }
+	],
+	
+	// Rewards endpoints (auth required)
+	rewards: [
+		{ path: '/user/:address/rewards', method: 'GET', auth: true, description: 'User rewards' },
+		{ path: '/user/:address/claimable-rewards', method: 'GET', auth: true, description: 'Claimable rewards' },
+		{ path: '/user/:address/rewards/history', method: 'GET', auth: true, description: 'Rewards history' },
+		{ path: '/rewards/batch-proof', method: 'POST', auth: true, description: 'Generate batch proof' }
+	]
+};

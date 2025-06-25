@@ -56,10 +56,10 @@ app.get('/health', (c) => {
 	});
 });
 
-// Mount route modules
+// Mount route modules using unified routes
 app.route('/v1/api/dex', createDexRoutes());
 app.route('/v1/api/ai', createAIRoutes());
-app.route('/v1/api', createStorageRoutes());
+app.route('/v1/api/storage', createStorageRoutes());
 
 // 404 handler
 app.notFound((c) => {

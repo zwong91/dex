@@ -16,8 +16,5 @@ export * from './handlers/users-graphql';
 export * from './handlers/farms-graphql';
 export * from './handlers/vaults-graphql';
 
-// Routing
-export * from './routing';
-
 // Utils
 export * from './utils';
