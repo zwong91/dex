@@ -4,7 +4,6 @@
 declare namespace Cloudflare {
 	interface Env {
 		NODE_ENV: "production" | "development" | "staging";
-		API_RATE_LIMIT: "100";
 		SUBGRAPH_URL: "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb" | "https://api.thegraph.com/subgraphs/name/entysquare/indexer-bnb";
 		SUBGRAPH_HEALTH_URL: "http://localhost:8000";
 		R2: R2Bucket;
@@ -16,7 +15,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "NODE_ENV" | "API_RATE_LIMIT" | "SUBGRAPH_URL" | "SUBGRAPH_HEALTH_URL">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "NODE_ENV" | "SUBGRAPH_URL" | "SUBGRAPH_HEALTH_URL">> {}
 }
 
 // Begin runtime types

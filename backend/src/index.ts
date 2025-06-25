@@ -12,10 +12,6 @@ export interface Env {
 	R2?: R2Bucket;
 	KEY: string;
 	NODE_ENV?: string;
-	// API configuration
-	PRICE_API_URL?: string;
-	PRICE_API_KEY?: string;
-	API_RATE_LIMIT?: string;
 	// GraphQL configuration  
 	SUBGRAPH_URL?: string;
 }

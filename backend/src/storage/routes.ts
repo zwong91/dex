@@ -26,7 +26,7 @@ export function createStorageRoutes() {
 	const app = new Hono<{ Bindings: Env }>();
 
 	// Health check (no auth required)
-	app.get('/storage/health', (c) => {
+	app.get('/health', (c) => {
 		return c.json({
 			status: 'healthy',
 			service: 'storage',

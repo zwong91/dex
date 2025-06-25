@@ -1,18 +1,20 @@
 # ==================================================
-# DEX API V1 - Production Configuration
+# DEX API V1 - Pure GraphQL Configuration
 # ==================================================
-# This is the production-ready configuration for DEX API V1
+# This is the pure GraphQL configuration for DEX API V1
 # 
 # Major changes in V1:
-# 1. New D1 database with 15 tables for authentication and analytics
-# 2. API key-based authentication system
-# 3. Scheduled cron jobs for data synchronization
-# 4. Permission-based access control with subscription tiers
-# 5. Comprehensive rate limiting and usage tracking
+# 1. Removed all database dependencies
+# 2. Pure GraphQL architecture using subgraph as single source of truth
+# 3. Simplified cron jobs for monitoring and metrics
+# 4. Streamlined authentication without database
+# 5. All data aggregated from blockchain via GraphQL
 #
 # Setup Instructions:
 # 1. Copy this file to wrangler.toml
-# 2. Replace YOUR_*_HERE placeholders with actual values
+# 2. Set secrets: wrangler secret put KEY
+# 3. Deploy subgraph to The Graph network
+# 4. Update SUBGRAPH_URL in vars section
 # ==================================================
 
 name = "dex-backend-serverless"
@@ -21,89 +23,61 @@ compatibility_date = "2025-06-20"
 compatibility_flags = ["nodejs_compat"]
 
 # Replace with your Cloudflare account ID
-account_id = "YOUR_ACCOUNT_ID_HERE"
-
-# ✅ Database configuration - Consistent binding names
-[[d1_databases]]
-binding = "D1_DATABASE"  # Matches env.D1_DATABASE in code
-database_name = "d1-dex-database"
-database_id = "YOUR_NEW_DEX_DATABASE_ID_HERE"
-migrations_dir = "drizzle"
+account_id = "xxxx"
 
 # ✅ Scheduled jobs for data synchronization - Multiple cron triggers
-[triggers]
-crons = [
-    "*/5 * * * *",    # Every 5 minute - Frequent pool sync for blockchain scanning
-    "0 * * * *",      # Every hour - Hourly data updates  
-    "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
-]
+#[triggers]
+#crons = [
+#    "*/5 * * * *",    # Every 5 minute - Frequent pool sync for blockchain scanning
+#    "0 * * * *",      # Every hour - Hourly data updates  
+#    "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
+#]
 
-# ✅ Logging configuration - Enable Workers logs
-# This enables automatic logging in Cloudflare Workers dashboard
-# Logs will be available in: Cloudflare Dashboard > Workers & Pages > Your Worker > Logs
-[observability]
-enabled = true
-
-# ✅ Environment variables - Public configuration
+# ✅ Environment variables - Pure GraphQL configuration
 [vars]
 # Basic configuration
 NODE_ENV = "production"
-API_RATE_LIMIT = "100"
-
-# Logging configuration
-LOG_LEVEL = "info"  # debug, info, warn, error
-ENABLE_CONSOLE_LOGS = "true"
-ENABLE_STRUCTURED_LOGS = "true"
-
-# Blockchain RPC endpoints
-# 用 wrangler secret 管理 key，URL 保留 Infura 格式，key 用 secret 注入
-BSC_TEST_INFURA_URL = "https://bsc-testnet.infura.io/v3/${BSC_TEST_INFURA_KEY}"
-BSC_INFURA_URL = "https://bsc-mainnet.infura.io/v3/${BSC_INFURA_KEY}"
-
-# Contract addresses
-LB_FACTORY_BSC = "0x7D73A6eFB91C89502331b2137c2803408838218b"
-LB_FACTORY_BSCTEST = "0x7D73A6eFB91C89502331b2137c2803408838218b"
-LB_ROUTER_BSC = "0xe98efCE22A8Ec0dd5dDF6C1A81B6ADD740176E98"
-LB_ROUTER_BSCTEST = "0xe98efCE22A8Ec0dd5dDF6C1A81B6ADD740176E98"
-LB_QUOTER_BSC = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
-LB_QUOTER_BSCTEST = "0x424EcD545DB744371650B39e353339E9BB8fB64A"
-
 
 # GraphQL configuration
 SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet"
 SUBGRAPH_HEALTH_URL = "http://localhost:8000"
 
+# ⚠️ Sensitive information should use secrets instead of vars
+# Run this command to set secret:
+# wrangler secret put KEY
+
 # 🔧 Production AI binding - Enabled for AI functionality
 [ai]
 binding = "AI"
 
-# 🔧 Production R2 storage binding - Enabled for file storage
-[[r2_buckets]]
-binding = "R2"
-bucket_name = "dex-storage"
+# 🔧 Production R2 storage binding - Disabled for initial deployment
+# [[r2_buckets]]
+# binding = "R2"
+# bucket_name = "dex-storage"
 # preview_bucket_name = "dex-storage-preview"  # Optional
 
-# 🔧 Development environment configuration
+# 🔧 Development environment configuration (minimal for testing)
 [env.development]
-[env.development.vars]
-NODE_ENV = "development"
-LOG_LEVEL = "debug"
-ENABLE_CONSOLE_LOGS = "true"
-ENABLE_STRUCTURED_LOGS = "true"
-# Development can use different RPC endpoints or test networks
+vars = { NODE_ENV = "development", SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet", SUBGRAPH_HEALTH_URL = "http://localhost:8000" }
 
 # 🔧 Staging environment configuration
 [env.staging]
-[env.staging.vars]
-NODE_ENV = "staging"
-LOG_LEVEL = "info"
-ENABLE_CONSOLE_LOGS = "true"
-ENABLE_STRUCTURED_LOGS = "true"
+vars = { NODE_ENV = "staging", SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet", SUBGRAPH_HEALTH_URL = "http://localhost:8000" }
+
+[env.staging.ai]
+binding = "AI"
+
+# [[env.staging.r2_buckets]]
+# binding = "R2"
+# bucket_name = "dex-storage-staging"
 
 # ✅ Production environment configuration
 [env.production]
-[env.production.vars]
-NODE_ENV = "production"
-LOG_LEVEL = "warn"
-ENABLE_CONSOLE_LOGS = "false"
-ENABLE_STRUCTURED_LOGS = "true"
+vars = { NODE_ENV = "production", SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb", SUBGRAPH_HEALTH_URL = "http://localhost:8000" }
+
+[env.production.ai]
+binding = "AI"
+
+# [[env.production.r2_buckets]]
+# binding = "R2"
+# bucket_name = "dex-storage"
