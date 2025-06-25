@@ -714,42 +714,135 @@ query_menu() {
         case $choice in
             1)
                 echo -e "${BLUE}📊 查询 GraphQL 统计信息...${NC}"
-                curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                echo ""
+                
+                # 使用正确的GraphQL端点和字段名
+                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
                   -H "Content-Type: application/json" \
-                  -d '{"query":"{ lbFactories { pairCount volumeUSD totalValueLockedUSD txCount tokenCount userCount } }"}' \
-                  | jq '.data.lbFactories[0]' 2>/dev/null || echo "查询失败"
+                  -d '{"query":"{ lbfactories { id pairCount volumeUSD totalValueLockedUSD txCount tokenCount userCount } }"}')
+                
+                if echo "$response" | jq -e '.data.lbfactories[0]' >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ LBFactory 统计信息:${NC}"
+                    factory_data=$(echo "$response" | jq '.data.lbfactories[0]')
+                    echo "工厂地址: $(echo "$factory_data" | jq -r '.id')"
+                    echo "流动性池数量: $(echo "$factory_data" | jq -r '.pairCount')"
+                    echo "代币数量: $(echo "$factory_data" | jq -r '.tokenCount')"  
+                    echo "交易数量: $(echo "$factory_data" | jq -r '.txCount')"
+                    echo "用户数量: $(echo "$factory_data" | jq -r '.userCount')"
+                    echo "总成交量(USD): \$$(echo "$factory_data" | jq -r '.volumeUSD')"
+                    echo "总锁定价值(USD): \$$(echo "$factory_data" | jq -r '.totalValueLockedUSD')"
+                elif echo "$response" | jq -e '.errors' >/dev/null 2>&1; then
+                    echo -e "${RED}❌ GraphQL 查询错误:${NC}"
+                    echo "$response" | jq '.errors'
+                else
+                    echo -e "${YELLOW}⚠️ 无法连接到 GraphQL 端点${NC}"
+                    echo "Response: $response"
+                fi
                 read -p "按任意键继续..."
                 ;;
             2)
                 echo -e "${BLUE}💱 查询流动性池...${NC}"
-                curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                echo ""
+                
+                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
                   -H "Content-Type: application/json" \
-                  -d '{"query":"{ lbPairs(first: 5) { id name tokenX { symbol } tokenY { symbol } } }"}' \
-                  | jq '.data.lbPairs' 2>/dev/null || echo "查询失败"
+                  -d '{"query":"{ lbpairs(first: 5) { id name tokenX { symbol } tokenY { symbol } reserveX reserveY } }"}')
+                
+                if echo "$response" | jq -e '.data.lbpairs' >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ 流动性池信息:${NC}"
+                    echo "$response" | jq '.data.lbpairs[] | {id: .id, name: .name, tokenX: .tokenX.symbol, tokenY: .tokenY.symbol, reserveX: .reserveX, reserveY: .reserveY}'
+                elif echo "$response" | jq -e '.errors' >/dev/null 2>&1; then
+                    echo -e "${RED}❌ GraphQL 查询错误:${NC}"
+                    echo "$response" | jq '.errors'
+                else
+                    echo -e "${YELLOW}⚠️ 无法连接到 GraphQL 端点${NC}"
+                    echo "Response: $response"
+                fi
                 read -p "按任意键继续..."
                 ;;
             3)
                 echo -e "${BLUE}🪙 查询代币信息...${NC}"
-                curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                echo ""
+                
+                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
                   -H "Content-Type: application/json" \
-                  -d '{"query":"{ tokens(first: 5) { id symbol name decimals } }"}' \
-                  | jq '.data.tokens' 2>/dev/null || echo "查询失败"
+                  -d '{"query":"{ tokens(first: 5) { id symbol name decimals totalSupply } }"}')
+                
+                if echo "$response" | jq -e '.data.tokens' >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ 代币信息:${NC}"
+                    echo "$response" | jq '.data.tokens[] | {address: .id, symbol: .symbol, name: .name, decimals: .decimals, totalSupply: .totalSupply}'
+                elif echo "$response" | jq -e '.errors' >/dev/null 2>&1; then
+                    echo -e "${RED}❌ GraphQL 查询错误:${NC}"
+                    echo "$response" | jq '.errors'
+                else
+                    echo -e "${YELLOW}⚠️ 无法连接到 GraphQL 端点${NC}"
+                    echo "Response: $response"
+                fi
                 read -p "按任意键继续..."
                 ;;
             4)
                 echo -e "${BLUE}📝 查询交易记录...${NC}"
-                curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                echo ""
+                
+                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
                   -H "Content-Type: application/json" \
-                  -d '{"query":"{ traces(first: 5, orderBy: id, orderDirection: desc) { id type lbPair binId txHash } }"}' \
-                  | jq '.data.traces' 2>/dev/null || echo "查询失败"
+                  -d '{"query":"{ transactions(first: 5, orderBy: timestamp, orderDirection: desc) { id blockNumber timestamp } swaps(first: 5, orderBy: timestamp, orderDirection: desc) { id amountXIn amountXOut amountYIn amountYOut } }"}')
+                
+                if echo "$response" | jq -e '.data' >/dev/null 2>&1; then
+                    tx_count=$(echo "$response" | jq '.data.transactions | length')
+                    swap_count=$(echo "$response" | jq '.data.swaps | length')
+                    
+                    echo -e "${GREEN}✅ 交易活动统计:${NC}"
+                    echo "交易记录数量: $tx_count"
+                    echo "交换记录数量: $swap_count"
+                    
+                    if [ "$tx_count" -gt 0 ]; then
+                        echo -e "${BLUE}最近交易:${NC}"
+                        echo "$response" | jq '.data.transactions'
+                    fi
+                    
+                    if [ "$swap_count" -gt 0 ]; then
+                        echo -e "${BLUE}最近交换:${NC}"
+                        echo "$response" | jq '.data.swaps'
+                    fi
+                    
+                    if [ "$tx_count" -eq 0 ] && [ "$swap_count" -eq 0 ]; then
+                        echo -e "${YELLOW}📊 暂无交易活动数据${NC}"
+                    fi
+                elif echo "$response" | jq -e '.errors' >/dev/null 2>&1; then
+                    echo -e "${RED}❌ GraphQL 查询错误:${NC}"
+                    echo "$response" | jq '.errors'
+                else
+                    echo -e "${YELLOW}⚠️ 无法连接到 GraphQL 端点${NC}"
+                fi
                 read -p "按任意键继续..."
                 ;;
             5)
                 echo -e "${BLUE}📊 查询流动性 Bins...${NC}"
-                curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                echo ""
+                
+                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
                   -H "Content-Type: application/json" \
-                  -d '{"query":"{ bins(first: 10, where: {totalSupply_gt: \"0\"}, orderBy: binId) { id binId totalSupply reserveX reserveY lbPair { name } } }"}' \
-                  | jq '.data.bins' 2>/dev/null || echo "查询失败"
+                  -d '{"query":"{ bins(first: 10, where: {totalSupply_gt: \"0\"}, orderBy: binId) { id binId totalSupply reserveX reserveY lbPair { name } } }"}')
+                
+                if echo "$response" | jq -e '.data.bins' >/dev/null 2>&1; then
+                    bin_count=$(echo "$response" | jq '.data.bins | length')
+                    echo -e "${GREEN}✅ 流动性 Bins 信息:${NC}"
+                    echo "活跃 Bins 数量: $bin_count"
+                    
+                    if [ "$bin_count" -gt 0 ]; then
+                        echo -e "${BLUE}Bins 详情:${NC}"
+                        echo "$response" | jq '.data.bins[] | {id: .id, binId: .binId, totalSupply: .totalSupply, reserveX: .reserveX, reserveY: .reserveY, pairName: .lbPair.name}'
+                    else
+                        echo -e "${YELLOW}📊 暂无活跃的流动性 Bins${NC}"
+                    fi
+                elif echo "$response" | jq -e '.errors' >/dev/null 2>&1; then
+                    echo -e "${RED}❌ GraphQL 查询错误:${NC}"
+                    echo "$response" | jq '.errors'
+                else
+                    echo -e "${YELLOW}⚠️ 无法连接到 GraphQL 端点${NC}"
+                    echo "Response: $response"
+                fi
                 read -p "按任意键继续..."
                 ;;
             6)
