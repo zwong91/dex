@@ -3,6 +3,8 @@
  * 
  * This module provides a GraphQL client to query data from the deployed subgraph.
  * It acts as a bridge between the REST API endpoints and the GraphQL subgraph.
+ * 
+ * Updated to match actual deployed BSC testnet indexer schema
  */
 
 export interface GraphQLResponse<T = any> {
@@ -31,34 +33,51 @@ export interface Pool {
     id: string;
     symbol: string;
     name: string;
-    decimals: number;
+    decimals: string;
   };
   tokenY: {
     id: string;
     symbol: string;
     name: string;
-    decimals: number;
+    decimals: string;
   };
-  binStep: number;
-  activeId: number;
+  timestamp: string;
+  block: string;
+}
+
+export interface Token {
+  id: string;
+  symbol: string;
+  name: string;
+  decimals: string;
+  totalSupply: string;
+  txCount: string;
+}
+
+export interface Bin {
+  id: string;
+  binId: string;
+  totalSupply: string;
   reserveX: string;
   reserveY: string;
-  totalValueLockedUSD: string;
-  volumeUSD: string;
-  feesUSD: string;
-  txCount: number;
-  liquidityProviderCount: number;
-  tokenXPrice: string;
-  tokenYPrice: string;
-  tokenXPriceUSD: string;
-  tokenYPriceUSD: string;
-  timestamp: number;
-  block: number;
-  // Calculated fields
-  liquidityUsd?: number;
-  volume24h?: string;
-  fees24h?: string;
-  apr?: number;
+  lbPair: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface Trace {
+  id: string;
+  type: string;
+  lbPair: string;
+  binId: string;
+  amountXIn: string;
+  amountXOut: string;
+  amountYIn: string;
+  amountYOut: string;
+  txHash: string;
+  minted: string;
+  burned: string;
 }
 
 export interface SwapEvent {
@@ -122,7 +141,7 @@ export interface LiquidityPosition {
 export class SubgraphClient {
   private endpoint: string;
   
-  constructor(endpoint: string = 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb') {
+  constructor(endpoint: string = 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet') {
     this.endpoint = endpoint;
   }
 
@@ -242,7 +261,6 @@ export class SubgraphClient {
           skip: $skip
           orderBy: $orderBy
           orderDirection: $orderDirection
-          where: { liquidityProviderCount_gt: 0 }
         ) {
           id
           name
@@ -258,19 +276,6 @@ export class SubgraphClient {
             name
             decimals
           }
-          binStep
-          activeId
-          reserveX
-          reserveY
-          totalValueLockedUSD
-          volumeUSD
-          feesUSD
-          txCount
-          liquidityProviderCount
-          tokenXPrice
-          tokenYPrice
-          tokenXPriceUSD
-          tokenYPriceUSD
           timestamp
           block
         }
@@ -309,19 +314,6 @@ export class SubgraphClient {
             name
             decimals
           }
-          binStep
-          activeId
-          reserveX
-          reserveY
-          totalValueLockedUSD
-          volumeUSD
-          feesUSD
-          txCount
-          liquidityProviderCount
-          tokenXPrice
-          tokenYPrice
-          tokenXPriceUSD
-          tokenYPriceUSD
           timestamp
           block
         }
@@ -556,6 +548,132 @@ export class SubgraphClient {
     const result = await this.query<{ lbpairs: Pool[] }>(query, variables);
     return result.data?.lbpairs || [];
   }
+
+  /**
+   * Get all tokens
+   */
+  async getTokens(first: number = 100, skip: number = 0): Promise<Token[]> {
+    const query = `
+      query GetTokens($first: Int!, $skip: Int!) {
+        tokens(
+          first: $first
+          skip: $skip
+          orderBy: symbol
+          orderDirection: asc
+        ) {
+          id
+          symbol
+          name
+          decimals
+          totalSupply
+          txCount
+        }
+      }
+    `;
+
+    const variables = { first, skip };
+    const result = await this.query<{ tokens: Token[] }>(query, variables);
+    return result.data?.tokens || [];
+  }
+
+  /**
+   * Get bins with liquidity
+   */
+  async getBins(first: number = 100, skip: number = 0): Promise<Bin[]> {
+    const query = `
+      query GetBins($first: Int!, $skip: Int!) {
+        bins(
+          first: $first
+          skip: $skip
+          where: { totalSupply_gt: "0" }
+          orderBy: totalSupply
+          orderDirection: desc
+        ) {
+          id
+          binId
+          totalSupply
+          reserveX
+          reserveY
+          lbPair {
+            id
+            name
+          }
+        }
+      }
+    `;
+
+    const variables = { first, skip };
+    const result = await this.query<{ bins: Bin[] }>(query, variables);
+    return result.data?.bins || [];
+  }
+
+  /**
+   * Get recent traces/transactions
+   */
+  async getTraces(first: number = 100, skip: number = 0): Promise<Trace[]> {
+    const query = `
+      query GetTraces($first: Int!, $skip: Int!) {
+        traces(
+          first: $first
+          skip: $skip
+          orderBy: id
+          orderDirection: desc
+        ) {
+          id
+          type
+          lbPair
+          binId
+          amountXIn
+          amountXOut
+          amountYIn
+          amountYOut
+          txHash
+          minted
+          burned
+        }
+      }
+    `;
+
+    const variables = { first, skip };
+    const result = await this.query<{ traces: Trace[] }>(query, variables);
+    return result.data?.traces || [];
+  }
+
+  /**
+   * Get traces for a specific pair
+   */
+  async getPairTraces(pairAddress: string, first: number = 100): Promise<Trace[]> {
+    const query = `
+      query GetPairTraces($pairAddress: String!, $first: Int!) {
+        traces(
+          where: { lbPair: $pairAddress }
+          first: $first
+          orderBy: id
+          orderDirection: desc
+        ) {
+          id
+          type
+          lbPair
+          binId
+          amountXIn
+          amountXOut
+          amountYIn
+          amountYOut
+          txHash
+          minted
+          burned
+        }
+      }
+    `;
+
+    const variables = { 
+      pairAddress: pairAddress.toLowerCase(),
+      first 
+    };
+    
+    const result = await this.query<{ traces: Trace[] }>(query, variables);
+    return result.data?.traces || [];
+  }
 }
 
 /**
@@ -568,15 +686,8 @@ export const subgraphClient = new SubgraphClient();
  * This allows for better testing and environment-specific configuration
  */
 export function createSubgraphClient(env?: any): SubgraphClient {
-  const client = new SubgraphClient();
-  
-  // Set environment-specific configuration if provided
-  if (env?.SUBGRAPH_URL) {
-    // In a real implementation, you might want to configure the client URL here
-    console.log('Using subgraph URL from environment:', env.SUBGRAPH_URL);
-  }
-  
-  return client;
+  const endpoint = env?.SUBGRAPH_URL || 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet';
+  return new SubgraphClient(endpoint);
 }
 
 /**

@@ -64,13 +64,13 @@ async function handleVaultsList(c: Context<{ Bindings: Env }>, subgraphClient: a
 	
 	console.log('🔗 Fetching vault-eligible pools from subgraph...');
 	
-	// Get pools sorted by TVL to identify vault candidates
-	const pools = await subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc');
+	// Get all available pools - since we don't have TVL data, use timestamp ordering
+	const pools = await subgraphClient.getPools(1000, 0, 'timestamp', 'desc');
 	
-	// Filter pools that qualify as vaults (high TVL, active)
+	// Since we don't have TVL data in current schema, treat all pools as potential vaults
+	// In a real implementation, you would calculate TVL from bin reserves
 	const vaultEligiblePools = pools.filter((pool: any) => 
-		parseFloat(pool.totalValueLockedUSD || '0') >= minTvl &&
-		parseInt(pool.liquidityProviderCount || '0') > 0
+		pool.name && pool.tokenX && pool.tokenY // Basic validation that pool has required data
 	);
 
 	// Transform pools to vault format

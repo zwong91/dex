@@ -25,7 +25,7 @@ const execAsync = promisify(exec);
 // Configuration
 const CONFIG = {
   API_BASE: 'http://localhost:8787',
-  SUBGRAPH_URL: 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb',
+  SUBGRAPH_URL: 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet',
   API_KEY: 'test-key',
   TEST_ADDRESS: '0x742d35Cc6548C1Ad35C7c8e36fC76CE23a3c3c89'
 };
@@ -422,7 +422,7 @@ Configuration:
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(console.error);
 }
 

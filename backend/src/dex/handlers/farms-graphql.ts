@@ -62,14 +62,13 @@ async function handleFarmsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 	
 	console.log('🔗 Fetching farm-eligible pools from subgraph...');
 	
-	// Get pools sorted by TVL to identify farm candidates
-	const pools = await subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc');
+	// Get all pools - since we don't have TVL data, use timestamp ordering for most recent
+	const pools = await subgraphClient.getPools(1000, 0, 'timestamp', 'desc');
 	
-	// Filter pools that qualify as farms (decent TVL, active)
+	// Since we don't have TVL/volume data in current schema, treat all pools as potential farms
+	// In a real implementation, you would calculate activity from bins and traces
 	const farmEligiblePools = pools.filter((pool: any) => 
-		parseFloat(pool.totalValueLockedUSD || '0') >= minTvl &&
-		parseInt(pool.liquidityProviderCount || '0') > 0 &&
-		parseFloat(pool.volumeUSD24h || '0') > 1000 // Some trading activity
+		pool.name && pool.tokenX && pool.tokenY // Basic validation
 	);
 
 	// Transform pools to farm format

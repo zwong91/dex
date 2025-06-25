@@ -1,102 +1,86 @@
 #!/bin/bash
 
-# GraphQL 查询工具
-# 使用方法: ./query.sh [pools|swaps|stats|custom]
+# BSC 测试网 Indexer 查询工具
+# 使用方法: ./query.sh [command]
 
-QUERY_TYPE=${1:-help}
-ENDPOINT="http://localhost:8000/subgraphs/name/entysquare/indexer-bnb"
+BASE_URL="http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet"
+POSTGRES_CMD="docker exec -it postgres psql -U graph-node -d graph-node"
 
-# 颜色定义
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-case $QUERY_TYPE in
-    "pools")
-        echo -e "${BLUE}🏊 查询流动性池...${NC}"
-        curl -s -X POST $ENDPOINT \
-          -H "Content-Type: application/json" \
-          -d '{"query":"{ lbpairs(first: 10, orderBy: totalValueLockedUSD, orderDirection: desc) { id tokenX { symbol name decimals } tokenY { symbol name decimals } volumeUSD totalValueLockedUSD feesUSD txCount } }"}' \
-          | jq '.data.lbpairs[] | {pair: (.tokenX.symbol + "/" + .tokenY.symbol), tvl: .totalValueLockedUSD, volume: .volumeUSD, fees: .feesUSD, txs: .txCount}'
+case "$1" in
+    "status")
+        echo "🔍 检查服务状态..."
+        docker-compose ps
         ;;
     
-    "swaps")
-        echo -e "${BLUE}💱 查询最新交易...${NC}"
-        curl -s -X POST $ENDPOINT \
-          -H "Content-Type: application/json" \
-          -d '{"query":"{ swaps(first: 10, orderBy: timestamp, orderDirection: desc) { id timestamp amountUSD amountXIn amountYIn amountXOut amountYOut lbpair { tokenX { symbol } tokenY { symbol } } user { id } } }"}' \
-          | jq '.data.swaps[] | {pair: (.lbpair.tokenX.symbol + "/" + .lbpair.tokenY.symbol), amountUSD: .amountUSD, user: .user.id[0:8], time: (.timestamp | tonumber | strftime("%Y-%m-%d %H:%M:%S"))}'
+    "factory")
+        echo "🏭 查询 LB Factory 信息..."
+        curl -s -X POST -H "Content-Type: application/json" \
+            -d '{"query": "{ lbfactories { id pairCount tokenCount } }"}' \
+            $BASE_URL | jq '.'
         ;;
     
-    "stats")
-        echo -e "${BLUE}📊 查询统计信息...${NC}"
-        curl -s -X POST $ENDPOINT \
-          -H "Content-Type: application/json" \
-          -d '{"query":"{ lbfactories { pairCount volumeUSD totalValueLockedUSD txCount tokenCount userCount feesUSD } }"}' \
-          | jq '.data.lbfactories[0]'
+    "pairs")
+        echo "💱 查询交易对信息..."
+        curl -s -X POST -H "Content-Type: application/json" \
+            -d '{"query": "{ lbpairs { id name tokenX { id symbol name } tokenY { id symbol name } timestamp block } }"}' \
+            $BASE_URL | jq '.'
         ;;
     
     "tokens")
-        echo -e "${BLUE}🪙 查询代币信息...${NC}"
-        curl -s -X POST $ENDPOINT \
-          -H "Content-Type: application/json" \
-          -d '{"query":"{ tokens(first: 10, orderBy: totalValueLockedUSD, orderDirection: desc) { id symbol name decimals totalValueLockedUSD volumeUSD txCount } }"}' \
-          | jq '.data.tokens[] | {symbol: .symbol, name: .name, tvl: .totalValueLockedUSD, volume: .volumeUSD, txs: .txCount}'
+        echo "🪙 查询代币信息..."
+        curl -s -X POST -H "Content-Type: application/json" \
+            -d '{"query": "{ tokens(first: 10) { id symbol name decimals totalSupply } }"}' \
+            $BASE_URL | jq '.'
         ;;
     
-    "users")
-        echo -e "${BLUE}👥 查询活跃用户...${NC}"
-        curl -s -X POST $ENDPOINT \
-          -H "Content-Type: application/json" \
-          -d '{"query":"{ users(first: 10, orderBy: txCount, orderDirection: desc) { id txCount } }"}' \
-          | jq '.data.users[] | {user: .id[0:10], transactions: .txCount}'
+    "bins")
+        echo "📊 查询流动性 Bins (前10个有流动性的)..."
+        curl -s -X POST -H "Content-Type: application/json" \
+            -d '{"query": "{ bins(first: 10, where: {totalSupply_gt: \"0\"}, orderBy: binId) { id binId totalSupply reserveX reserveY lbPair { name } } }"}' \
+            $BASE_URL | jq '.'
         ;;
     
-    "positions")
-        echo -e "${BLUE}💰 查询流动性头寸...${NC}"
-        curl -s -X POST $ENDPOINT \
-          -H "Content-Type: application/json" \
-          -d '{"query":"{ liquidityPositions(first: 10, orderBy: totalValueLockedUSD, orderDirection: desc) { id user { id } lbPair { tokenX { symbol } tokenY { symbol } } binsCount totalValueLockedUSD } }"}' \
-          | jq '.data.liquidityPositions[] | {user: .user.id[0:8], pair: (.lbPair.tokenX.symbol + "/" + .lbPair.tokenY.symbol), bins: .binsCount, tvl: .totalValueLockedUSD}'
+    "traces")
+        echo "📝 查询最新交易记录..."
+        curl -s -X POST -H "Content-Type: application/json" \
+            -d '{"query": "{ traces(first: 10, orderBy: id, orderDirection: desc) { id type lbPair binId amountXIn amountXOut amountYIn amountYOut txHash } }"}' \
+            $BASE_URL | jq '.'
         ;;
     
-    "sync")
-        echo -e "${BLUE}🔄 查询同步状态...${NC}"
-        curl -s http://localhost:8030/graphql \
-          -H "Content-Type: application/json" \
-          -d '{"query":"{ indexingStatuses { subgraph health synced fatalError { message } chains { network chainHeadBlock { number } latestBlock { number } } } }"}' \
-          | jq '.data.indexingStatuses[]'
+    "sql-stats")
+        echo "📈 SQL 统计数据..."
+        $POSTGRES_CMD -c "
+        SELECT 
+            'LBFactory' as entity, COUNT(*) as count FROM sgd1.lb_factory
+        UNION ALL
+        SELECT 'LBPair' as entity, COUNT(*) as count FROM sgd1.lb_pair
+        UNION ALL
+        SELECT 'Token' as entity, COUNT(DISTINCT id) as count FROM sgd1.token
+        UNION ALL
+        SELECT 'Bin' as entity, COUNT(*) as count FROM sgd1.bin
+        UNION ALL
+        SELECT 'Trace' as entity, COUNT(*) as count FROM sgd1.trace;
+        "
         ;;
     
-    "custom")
-        echo -e "${YELLOW}📝 自定义查询 (输入 GraphQL 查询语句):${NC}"
-        echo "示例: { lbPairs { id } }"
-        echo -n "查询: "
-        read query
-        curl -s -X POST $ENDPOINT \
-          -H "Content-Type: application/json" \
-          -d "{\"query\":\"$query\"}" \
-          | jq '.'
+    "playground")
+        echo "🎮 打开 GraphQL Playground..."
+        echo "访问: http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet/graphql"
         ;;
     
-    "help"|*)
-        echo -e "${GREEN}🔍 GraphQL 查询工具${NC}"
-        echo ""
-        echo "使用方法: ./query.sh [命令]"
+    *)
+        echo "🚀 BSC 测试网 Indexer 查询工具"
         echo ""
         echo "可用命令:"
-        echo "  pools      - 查询流动性池 (按 TVL 排序)"
-        echo "  swaps      - 查询最新交易"
-        echo "  stats      - 查询总体统计信息"
-        echo "  tokens     - 查询代币信息"
-        echo "  users      - 查询活跃用户"
-        echo "  positions  - 查询流动性头寸"
-        echo "  sync       - 查询同步状态"
-        echo "  custom     - 自定义查询"
+        echo "  status      - 检查服务状态"
+        echo "  factory     - 查询工厂信息"
+        echo "  pairs       - 查询交易对"
+        echo "  tokens      - 查询代币"
+        echo "  bins        - 查询流动性 bins"
+        echo "  traces      - 查询交易记录"
+        echo "  sql-stats   - SQL 统计数据"
+        echo "  playground  - GraphQL Playground"
         echo ""
-        echo -e "${BLUE}💡 提示:${NC}"
-        echo "  - 访问 http://localhost:8000/subgraphs/name/entysquare/indexer-bnb/graphql 进行交互式查询"
-        echo "  - 使用 jq 工具可以更好地格式化 JSON 输出"
+        echo "示例: ./query.sh factory"
         ;;
 esac
