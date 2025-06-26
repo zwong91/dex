@@ -1,12 +1,10 @@
 import {
   Pool as PoolIcon,
   Refresh as RefreshIcon,
-  Remove as RemoveIcon,
   SwapHoriz as SwapIcon,
   TrendingDown as TrendingDownIcon,
   TrendingUp as TrendingUpIcon,
   AccountBalanceWallet as WalletIcon,
-  AutoGraph as AutoGraphIcon,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -16,7 +14,6 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Container,
   Grid,
   IconButton,
@@ -29,19 +26,14 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import Navigation from '../components/Navigation';
 import { useApiDexUserPools } from '../dex/hooks/useApiDexUserPools';
-import { useApiDexUserHistory } from '../dex/hooks/useApiDexUserHistory';
 import { useApiDexUserStats } from '../dex/hooks/useApiDexUserStats';
 import { useWalletData } from '../dex/hooks/useWalletData';
-// import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
-// import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUserPositions';
-import { useDexOperations } from '../dex/hooks/useDexOperations';
 
 const PortfolioPage = () => {
   const { address } = useAccount();
 
   // New DEX API hooks
-  const { pools: userPools, loading: poolsLoading, error: poolsError, refetch: refetchUserPools } = useApiDexUserPools(address);
-  const { history: userHistory, loading: historyLoading, error: historyError, refetch: refetchUserHistory } = useApiDexUserHistory(address);
+  const { pools: userPools, loading: poolsLoading } = useApiDexUserPools(address);
   const { stats: userStats, loading: statsLoading, error: statsError, refetch: refetchUserStats } = useApiDexUserStats(address);
   const { tokenBalances, loading: tokensLoading, error: tokensError, refetch: refetchTokens } = useWalletData();
 
@@ -71,15 +63,7 @@ const PortfolioPage = () => {
   const userPositions = Array.isArray(userPools) ? userPools : [];
   const positionsLoading = poolsLoading;
   
-  // Get dex operations for liquidity withdrawal
-  const { removeLiquidity } = useDexOperations();
-
   const [refreshing, setRefreshing] = useState(false);
-
-  // Loading and error states for operations
-  // (Unused, but keep for future UI feedback)
-  // const [isWithdrawingAndClosing, setIsWithdrawingAndClosing] = useState(false);
-  // const [operationError, setOperationError] = useState<string | null>(null);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -148,9 +132,9 @@ const PortfolioPage = () => {
             </Box>
             <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 2 }} />
           </Box>
-          <Grid container spacing={4} sx={{ mb: 4 }}>
+          <Grid container spacing={4} sx={{ mb: 4 }} component="div">
             {[1, 2, 3, 4].map((j) => (
-              <Grid key={j} size={{ xs: 6, sm: 3 }}>
+              <Grid key={j} sx={{ gridColumn: { xs: 'span 6', sm: 'span 3' } }}>
                 <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
                   <Skeleton variant="text" width={60} height={20} sx={{ mx: 'auto', mb: 1 }} />
                   <Skeleton variant="text" width={80} height={24} sx={{ mx: 'auto' }} />
@@ -232,27 +216,27 @@ const PortfolioPage = () => {
 
         {/* Pool Stats Section */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={6} sm={4}>
+          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
             <Typography variant="body2" color="text.secondary">TVL</Typography>
             <Typography variant="h6" fontWeight={700}>{position.liquidityUsd ? `$${Number(position.liquidityUsd).toLocaleString()}` : '-'}</Typography>
           </Grid>
-          <Grid item xs={6} sm={4}>
+          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
             <Typography variant="body2" color="text.secondary">24h Fees</Typography>
             <Typography variant="h6" fontWeight={700}>{position.fees24hUsd ? `$${Number(position.fees24hUsd).toLocaleString()}` : '-'}</Typography>
           </Grid>
-          <Grid item xs={6} sm={4}>
+          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
             <Typography variant="body2" color="text.secondary">24h Volume</Typography>
             <Typography variant="h6" fontWeight={700}>{position.volume24hUsd ? `$${Number(position.volume24hUsd).toLocaleString()}` : '-'}</Typography>
           </Grid>
-          <Grid item xs={6} sm={4}>
+          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
             <Typography variant="body2" color="text.secondary">APR</Typography>
             <Typography variant="h6" fontWeight={700}>{position.apr ? `${position.apr}%` : '-'}</Typography>
           </Grid>
-          <Grid item xs={6} sm={4}>
+          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
             <Typography variant="body2" color="text.secondary">APY</Typography>
             <Typography variant="h6" fontWeight={700}>{position.apy ? `${position.apy}%` : '-'}</Typography>
           </Grid>
-          <Grid item xs={6} sm={4}>
+          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
             <Typography variant="body2" color="text.secondary">Swaps</Typography>
             <Typography variant="h6" fontWeight={700}>{position.txCount ?? '-'}</Typography>
           </Grid>
@@ -529,7 +513,7 @@ const PortfolioPage = () => {
 
         <Grid container spacing={4}>
           {/* Token Holdings */}
-          <Grid size={{ xs: 12, lg: 8 }}>
+          <Grid sx={{ gridColumn: { xs: 'span 12', lg: 'span 8' } }}>
             <Card 
               elevation={0} 
               sx={{ 
@@ -714,10 +698,10 @@ const PortfolioPage = () => {
           </Grid>
 
           {/* Quick Stats */}
-          <Grid size={{ xs: 12, lg: 4 }}>
+          <Grid sx={{ gridColumn: { xs: 'span 12', lg: 'span 4' } }}>
             <Box sx={{ position: 'sticky', top: 24 }}>
               <Grid container spacing={3}>
-                <Grid size={12}>
+                <Grid sx={{ gridColumn: 'span 12' }}>
                   <Card 
                     elevation={0} 
                     sx={{ 
@@ -744,7 +728,7 @@ const PortfolioPage = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid size={12}>
+                <Grid sx={{ gridColumn: 'span 12' }}>
                   <Card 
                     elevation={0} 
                     sx={{ 
@@ -771,7 +755,7 @@ const PortfolioPage = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid size={12}>
+                <Grid sx={{ gridColumn: 'span 12' }}>
                   <Card 
                     elevation={0} 
                     sx={{ 
@@ -807,5 +791,5 @@ const PortfolioPage = () => {
   );
 };
 
-
 export default PortfolioPage;
+
