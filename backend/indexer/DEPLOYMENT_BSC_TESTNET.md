@@ -117,6 +117,6 @@ npx graph create --node http://localhost:8020/ entysquare/indexer-bnb-testnet
 
 ## 环境要求
 
-- Node.js >= 16
+- Node.js >= 20
 - Docker & Docker Compose
 - macOS/Linux (Windows 需要适配命令)
