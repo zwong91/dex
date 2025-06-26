@@ -46,11 +46,11 @@ const PortfolioPage = () => {
   const { tokens: apiTokens, loading: tokensLoading, error: tokensError, refetch: refetchTokens } = useApiDexTokens();
 
   // Helper: fallback summary from userStats
-  const walletSummary = userStats
+  const walletSummary = userStats && apiTokens
     ? {
-        totalValue: userStats.totalLiquidityUsd || '$0.00',
-        tokenCount: apiTokens?.length || 0,
-        lpValue: userStats.totalLiquidityUsd || '$0.00',
+        totalValue: userStats.totalLiquidityUsd ? `$${Number(userStats.totalLiquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '$0.00',
+        tokenCount: apiTokens.length,
+        lpValue: userStats.totalLiquidityUsd ? `$${Number(userStats.totalLiquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '$0.00',
         positionCount: userStats.poolsCount || 0,
       }
     : {
@@ -64,21 +64,20 @@ const PortfolioPage = () => {
   // Adapt tokenBalances for UI (fallback to symbol, name, price, value, no icon/balance)
   const tokenBalances = (apiTokens || []).map(token => ({
     ...token,
-    icon: '', // No icon from API, could map from local assets if needed
+    icon: `/src/assets/${token.symbol?.toLowerCase() || 'react'}.svg`,
     balanceFormatted: '-', // No balance from API, only token info
-    price: token.priceUsd ? `$${token.priceUsd}` : '-',
-    value: token.liquidityUsd ? `$${token.liquidityUsd}` : '-',
+    price: token.priceUsd ? `$${Number(token.priceUsd).toLocaleString(undefined, { maximumFractionDigits: 4 })}` : '-',
+    value: token.liquidityUsd ? `$${Number(token.liquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-',
     change24h: '-', // Not available from API
   }));
   const loading = tokensLoading || statsLoading;
   const error = tokensError || statsError;
-  const refetch = () => {
-    refetchTokens();
-    refetchUserStats();
+  const refetch = async () => {
+    await Promise.all([refetchTokens(), refetchUserStats()]);
   };
 
   // Use userPools for positions
-  const userPositions = userPools || [];
+  const userPositions = Array.isArray(userPools) ? userPools : [];
   const positionsLoading = poolsLoading;
   
   // Get dex operations for liquidity withdrawal
@@ -87,8 +86,9 @@ const PortfolioPage = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   // Loading and error states for operations
-  const [isWithdrawingAndClosing, setIsWithdrawingAndClosing] = useState(false);
-  const [operationError, setOperationError] = useState<string | null>(null);
+  // (Unused, but keep for future UI feedback)
+  // const [isWithdrawingAndClosing, setIsWithdrawingAndClosing] = useState(false);
+  // const [operationError, setOperationError] = useState<string | null>(null);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -98,109 +98,9 @@ const PortfolioPage = () => {
 
   // Handle collecting fees and withdrawing all liquidity (close position)
   // NOTE: The legacy UserPosition type is not used anymore; userPositions now come from API (DexUserPool)
-  const handleWithdrawAndClose = async (position: any) => {
-    console.log('🔍 Debug: handleWithdrawAndClose called with position:', position);
-    
-    if (!address || !position.binData || position.binData.length === 0) {
-      const errorMsg = !address 
-        ? 'Wallet not connected' 
-        : !position.binData 
-          ? 'Position binData is missing'
-          : 'Position binData is empty';
-      
-      console.error('❌ Validation failed:', errorMsg);
-      console.log('Debug info:', {
-        address,
-        hasBinData: !!position.binData,
-        binDataLength: position.binData?.length || 0,
-        position
-      });
-      
-      setOperationError(`Invalid position data: ${errorMsg}`);
-      return;
-    }
-
-    try {
-      setIsWithdrawingAndClosing(true);
-      setOperationError(null);
-
-      console.log('🔍 Position binData:', position.binData);
-      console.log('🔍 Position details:', {
-        token0: position.token0,
-        token1: position.token1,
-        token0Address: position.token0Address,
-        token1Address: position.token1Address,
-        pairAddress: position.pairAddress,
-        binStep: position.binStep
-      });
-
-      // Prepare bin data for withdrawal
-      const binIds: number[] = [];
-      const amounts: bigint[] = [];
-
-      (position.binData || []).forEach((bin: any) => {
-        console.log('🔍 Processing bin:', bin);
-        if (bin.shares > 0) {
-          binIds.push(bin.binId);
-          amounts.push(bin.shares); // Use full shares amount for complete withdrawal
-          console.log(`✅ Added bin ${bin.binId} with ${bin.shares.toString()} shares`);
-        } else {
-          console.log(`⚠️ Skipped bin ${bin.binId} - zero shares`);
-        }
-      });
-
-      if (binIds.length === 0 || amounts.length === 0) {
-        const errorMsg = 'No liquidity available to withdraw from this position';
-        console.error('❌ No valid bins found:', { binIds, amounts });
-        throw new Error(errorMsg);
-      }
-
-      console.log('🔍 Withdrawing all liquidity and collecting fees for position:', {
-        pair: `${position.token0}/${position.token1}`,
-        binIds,
-        amounts: amounts.map(a => a.toString()),
-        pairAddress: position.pairAddress,
-        token0Address: position.token0Address,
-        token1Address: position.token1Address,
-        binStep: position.binStep
-      });
-
-      // Validate all required parameters
-      if (!position.pairAddress) {
-        throw new Error('Missing pair address');
-      }
-      if (!position.token0Address || !position.token1Address) {
-        throw new Error('Missing token addresses');
-      }
-      if (!position.binStep) {
-        throw new Error('Missing bin step');
-      }
-
-      console.log('🚀 Calling removeLiquidity...');
-      await removeLiquidity(
-        position.pairAddress,
-        position.token0Address,
-        position.token1Address,
-        binIds,
-        amounts,
-        position.binStep
-      );
-
-      console.log('✅ Liquidity withdrawal successful');
-      // Refresh data after successful operation
-      await refetch();
-    } catch (error: any) {
-      console.error('❌ Position closure failed:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        stack: error.stack,
-        cause: error.cause
-      });
-      setOperationError(`Position closure failed: ${error.message}`);
-    } finally {
-      setIsWithdrawingAndClosing(false);
-    }
-  };
+  // const handleWithdrawAndClose = async (position: any) => {
+  //   // ...implementation, see previous version if needed
+  // };
 
   // Render loading skeleton for token balances
   const renderTokenLoadingSkeleton = () => (
@@ -915,5 +815,6 @@ const PortfolioPage = () => {
     </>
   );
 };
+
 
 export default PortfolioPage;
