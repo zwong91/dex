@@ -27,9 +27,10 @@ const execAsync = promisify(exec);
 const CONFIG = {
   API_BASE: 'http://localhost:8787',
   SUBGRAPH_URL: 'https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest',
+  BEARER_TOKEN: 'test-bearer-token',
   API_KEY: 'test-key',
   TEST_ADDRESS: '0xE0A051f87bb78f38172F633449121475a193fC1A',
-  VALID_POOL_ID: '0xf2a0388ae50204fbf4940a82b9312c58ed91e658' // Real pool ID from subgraph
+  VALID_POOL_ID: '0xf2a0388ae50204fbf4940a82b9312c58ed91e658', // Real pool ID from subgraph
 };
 
 // Colors for output
@@ -81,7 +82,7 @@ async function graphqlRequest(query: string, variables: any = {}): Promise<any> 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer 74cfb5d850c776403db7d187d3e262fb'
+        'Authorization': 'Bearer ' + CONFIG.BEARER_TOKEN // Use API key as Bearer token
       },
       body: JSON.stringify({ query, variables })
     });
