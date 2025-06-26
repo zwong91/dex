@@ -86,10 +86,9 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
       const params = buildParams();
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.dex.jongun2038.win';
       // API 路径修正：/v1/api/dex/pools/{chain}
-      const chain = options.chain || 'bsc'; // 默认链为 BSC
+      const chain = options.chain || 'bsc'; // 默认链为 BSC, chain 是小写
       if (!chain) throw new Error('Chain is required');
-      // 确保 chain 是小写
-      const apiChain = chain.toLowerCase();
+      // 确保 
       // 构建完整 URL
       // 注意：如果后端 API 支持多链，可能需要调整路径或参数
       // 例如：/v1/api/dex/pools/bsc?param=value

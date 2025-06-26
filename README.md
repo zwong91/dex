@@ -89,7 +89,12 @@ A sophisticated, multi-chain DEX platform featuring concentrated liquidity manag
 - **Git** version control
 - **MetaMask** or compatible Web3 wallet for testing
 
+
 ### Quick Start
+
+[![Deploy to Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/EntySquare/dex/tree/main)
+
+
 ```bash
 # Clone the repository
 git clone https://github.com/your-username/entysquare.git
