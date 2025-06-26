@@ -38,9 +38,7 @@ export {
 } from './hooks/useSwapQuotes'
 
 // Pool data hooks
-export {
-	useRealPoolData
-} from './hooks/usePoolData'
+// useRealPoolData 已废弃，不再导出
 
 // User liquidity position hooks
 export {
@@ -58,4 +56,5 @@ export {
 } from './hooks/useLBPairPrice'
 
 // Export UserPosition type
+export type { UserPosition } from './hooks/types'
 export type { UserPosition } from './hooks/types'

@@ -28,19 +28,58 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import Navigation from '../components/Navigation';
-import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
-import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUserPositions';
+import { useApiDexUserPools } from '../dex/hooks/useApiDexUserPools';
+import { useApiDexUserHistory } from '../dex/hooks/useApiDexUserHistory';
+import { useApiDexUserStats } from '../dex/hooks/useApiDexUserStats';
+import { useApiDexTokens } from '../dex/hooks/useApiDexTokens';
+// import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
+// import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUserPositions';
 import { useDexOperations } from '../dex/hooks/useDexOperations';
 
 const PortfolioPage = () => {
   const { address } = useAccount();
 
-  // Use real wallet data instead of mock data
-  const { tokenBalances, loading, error, refetch } = useWalletData();
-  const walletSummary = useWalletSummary();
+  // New DEX API hooks
+  const { pools: userPools, loading: poolsLoading, error: poolsError, refetch: refetchUserPools } = useApiDexUserPools(address);
+  const { history: userHistory, loading: historyLoading, error: historyError, refetch: refetchUserHistory } = useApiDexUserHistory(address);
+  const { stats: userStats, loading: statsLoading, error: statsError, refetch: refetchUserStats } = useApiDexUserStats(address);
+  const { tokens: apiTokens, loading: tokensLoading, error: tokensError, refetch: refetchTokens } = useApiDexTokens();
 
-  // Get detailed user positions for liquidity management
-  const { positions: userPositions, loading: positionsLoading } = useUserLiquidityPositions(address);
+  // Helper: fallback summary from userStats
+  const walletSummary = userStats
+    ? {
+        totalValue: userStats.totalLiquidityUsd || '$0.00',
+        tokenCount: apiTokens?.length || 0,
+        lpValue: userStats.totalLiquidityUsd || '$0.00',
+        positionCount: userStats.poolsCount || 0,
+      }
+    : {
+        totalValue: '$0.00',
+        tokenCount: 0,
+        lpValue: '$0.00',
+        positionCount: 0,
+      };
+
+  // Use tokens from API for token holdings
+  // Adapt tokenBalances for UI (fallback to symbol, name, price, value, no icon/balance)
+  const tokenBalances = (apiTokens || []).map(token => ({
+    ...token,
+    icon: '', // No icon from API, could map from local assets if needed
+    balanceFormatted: '-', // No balance from API, only token info
+    price: token.priceUsd ? `$${token.priceUsd}` : '-',
+    value: token.liquidityUsd ? `$${token.liquidityUsd}` : '-',
+    change24h: '-', // Not available from API
+  }));
+  const loading = tokensLoading || statsLoading;
+  const error = tokensError || statsError;
+  const refetch = () => {
+    refetchTokens();
+    refetchUserStats();
+  };
+
+  // Use userPools for positions
+  const userPositions = userPools || [];
+  const positionsLoading = poolsLoading;
   
   // Get dex operations for liquidity withdrawal
   const { removeLiquidity } = useDexOperations();
@@ -58,7 +97,8 @@ const PortfolioPage = () => {
   };
 
   // Handle collecting fees and withdrawing all liquidity (close position)
-  const handleWithdrawAndClose = async (position: UserPosition) => {
+  // NOTE: The legacy UserPosition type is not used anymore; userPositions now come from API (DexUserPool)
+  const handleWithdrawAndClose = async (position: any) => {
     console.log('🔍 Debug: handleWithdrawAndClose called with position:', position);
     
     if (!address || !position.binData || position.binData.length === 0) {
@@ -98,7 +138,7 @@ const PortfolioPage = () => {
       const binIds: number[] = [];
       const amounts: bigint[] = [];
 
-      position.binData.forEach(bin => {
+      (position.binData || []).forEach((bin: any) => {
         console.log('🔍 Processing bin:', bin);
         if (bin.shares > 0) {
           binIds.push(bin.binId);
@@ -241,13 +281,14 @@ const PortfolioPage = () => {
     return change.startsWith('+') ? <TrendingUpIcon /> : <TrendingDownIcon />;
   };
 
-  const renderDetailedPositionCard = (position: UserPosition) => (
-    <Card 
-      key={position.id} 
-      elevation={0} 
-      sx={{ 
-        mb: 3, 
-        border: '1px solid', 
+  // 适配 DexUserPool，展示核心 DEX 数据
+  const renderDetailedPositionCard = (position: any) => (
+    <Card
+      key={position.id}
+      elevation={0}
+      sx={{
+        mb: 3,
+        border: '1px solid',
         borderColor: 'divider',
         borderRadius: 3,
         background: 'white',
@@ -260,175 +301,82 @@ const PortfolioPage = () => {
     >
       <CardContent sx={{ p: 4 }}>
         {/* Header with token pair and status */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-              <Avatar sx={{ width: 40, height: 40, border: '2px solid white', boxShadow: 2 }}>
-                <img
-                  src={position.icon0}
-                  alt={position.token0}
-                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
-                />
-              </Avatar>
-              <Avatar sx={{ width: 40, height: 40, ml: -1.5, zIndex: 1, border: '2px solid white', boxShadow: 2 }}>
-                <img
-                  src={position.icon1}
-                  alt={position.token1}
-                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
-                />
-              </Avatar>
-            </Box>
+            <Avatar sx={{ width: 40, height: 40, border: '2px solid white', boxShadow: 2 }}>
+              <img
+                src={`/src/assets/${position.tokenX.symbol?.toLowerCase()}.svg`}
+                alt={position.tokenX.symbol}
+                style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                onError={(e: any) => { e.target.onerror = null; e.target.src = '/src/assets/react.svg'; }}
+              />
+            </Avatar>
+            <Avatar sx={{ width: 40, height: 40, ml: -1.5, zIndex: 1, border: '2px solid white', boxShadow: 2 }}>
+              <img
+                src={`/src/assets/${position.tokenY.symbol?.toLowerCase()}.svg`}
+                alt={position.tokenY.symbol}
+                style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                onError={(e: any) => { e.target.onerror = null; e.target.src = '/src/assets/react.svg'; }}
+              />
+            </Avatar>
             <Box>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-                {position.token0}/{position.token1}
+                {position.tokenX.symbol}/{position.tokenY.symbol}
               </Typography>
               <Chip
-                label={position.inRange ? 'In Range' : 'Out of Range'}
-                color={position.inRange ? 'success' : 'warning'}
+                label={position.status === 'active' ? 'Active' : 'Inactive'}
+                color={position.status === 'active' ? 'success' : 'warning'}
                 size="small"
                 variant="filled"
                 sx={{ fontWeight: 600, borderRadius: 1 }}
               />
             </Box>
           </Box>
-        </Box>
-
-        {/* Price Range Section */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-            Price Range
-          </Typography>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            p: 2,
-            bgcolor: 'grey.50',
-            borderRadius: 2,
-            border: '1px solid',
-            borderColor: 'grey.200'
-          }}>
-            <Box>
-              <Typography variant="h6" fontWeight={700} color="text.primary">
-                {position.range.min} - {position.range.max}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {position.token1} per {position.token0}
-              </Typography>
-            </Box>
-            <Box sx={{ textAlign: 'right' }}>
-              <Typography variant="body2" color="text.secondary">
-                Current Price
-              </Typography>
-              <Typography variant="body1" fontWeight={600}>
-                {position.range.current}
-              </Typography>
-            </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Pool Version: {position.version}
+            </Typography>
           </Box>
         </Box>
 
-        {/* Position Liquidity Section */}
-        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
-          Position Liquidity
-        </Typography>
-        
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          {/* Current Balance */}
-          <Grid size={6}>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
-                Current Balance
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ width: 24, height: 24 }}>
-                    <img src={position.icon0} alt={position.token0} style={{ width: '100%', height: '100%' }} />
-                  </Avatar>
-                  <Typography variant="body1" fontWeight={600}>
-                    {position.amountX} {position.token0}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    ({position.value})
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ width: 24, height: 24 }}>
-                    <img src={position.icon1} alt={position.token1} style={{ width: '100%', height: '100%' }} />
-                  </Avatar>
-                  <Typography variant="body1" fontWeight={600}>
-                    {position.amountY} {position.token1}
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
+        {/* Pool Stats Section */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={6} sm={4}>
+            <Typography variant="body2" color="text.secondary">TVL</Typography>
+            <Typography variant="h6" fontWeight={700}>{position.liquidityUsd ? `$${Number(position.liquidityUsd).toLocaleString()}` : '-'}</Typography>
           </Grid>
-
-          {/* Auto-Compounded Fees Info */}
-          <Grid size={6}>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
-                📈 Auto-Compounded Trading Fees
-              </Typography>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'success.50', 
-                borderRadius: 2, 
-                border: '1px solid', 
-                borderColor: 'success.200' 
-              }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Avatar sx={{ width: 24, height: 24 }}>
-                      <img src={position.icon0} alt={position.token0} style={{ width: '100%', height: '100%' }} />
-                    </Avatar>
-                    <Typography variant="body2" fontWeight={600}>
-                      {position.feeX} {position.token0}
-                    </Typography>
-                    <Typography variant="caption" color="success.main" sx={{ ml: 'auto' }}>
-                      +{((parseFloat(position.feeX) / parseFloat(position.amountX)) * 100).toFixed(2)}%
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Avatar sx={{ width: 24, height: 24 }}>
-                      <img src={position.icon1} alt={position.token1} style={{ width: '100%', height: '100%' }} />
-                    </Avatar>
-                    <Typography variant="body2" fontWeight={600}>
-                      {position.feeY} {position.token1}
-                    </Typography>
-                    <Typography variant="caption" color="success.main" sx={{ ml: 'auto' }}>
-                      +{((parseFloat(position.feeY) / parseFloat(position.amountY)) * 100).toFixed(2)}%
-                    </Typography>
-                  </Box>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 1, 
-                    mt: 1, 
-                    p: 1.5, 
-                    bgcolor: 'success.100', 
-                    borderRadius: 1 
-                  }}>
-                    <AutoGraphIcon sx={{ color: 'success.main', fontSize: 16 }} />
-                    <Typography variant="caption" color="success.dark" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
-                      Fees automatically compound into your liquidity position. 
-                      They're included when you withdraw.
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
+          <Grid item xs={6} sm={4}>
+            <Typography variant="body2" color="text.secondary">24h Fees</Typography>
+            <Typography variant="h6" fontWeight={700}>{position.fees24hUsd ? `$${Number(position.fees24hUsd).toLocaleString()}` : '-'}</Typography>
+          </Grid>
+          <Grid item xs={6} sm={4}>
+            <Typography variant="body2" color="text.secondary">24h Volume</Typography>
+            <Typography variant="h6" fontWeight={700}>{position.volume24hUsd ? `$${Number(position.volume24hUsd).toLocaleString()}` : '-'}</Typography>
+          </Grid>
+          <Grid item xs={6} sm={4}>
+            <Typography variant="body2" color="text.secondary">APR</Typography>
+            <Typography variant="h6" fontWeight={700}>{position.apr ? `${position.apr}%` : '-'}</Typography>
+          </Grid>
+          <Grid item xs={6} sm={4}>
+            <Typography variant="body2" color="text.secondary">APY</Typography>
+            <Typography variant="h6" fontWeight={700}>{position.apy ? `${position.apy}%` : '-'}</Typography>
+          </Grid>
+          <Grid item xs={6} sm={4}>
+            <Typography variant="body2" color="text.secondary">Swaps</Typography>
+            <Typography variant="h6" fontWeight={700}>{position.txCount ?? '-'}</Typography>
           </Grid>
         </Grid>
 
-        {/* Action Button */}
-        <Box sx={{ mt: 3 }}>
+        {/* Action Button (optional, can be disabled if无链上操作) */}
+        {/*
+        <Box sx={{ mt: 2 }}>
           <Button
             variant="contained"
             fullWidth
             startIcon={<RemoveIcon />}
             onClick={() => handleWithdrawAndClose(position)}
             disabled={isWithdrawingAndClosing}
-            sx={{ 
+            sx={{
               py: 1.5,
               borderRadius: 2,
               textTransform: 'none',
@@ -442,75 +390,10 @@ const PortfolioPage = () => {
               }
             }}
           >
-            {isWithdrawingAndClosing ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CircularProgress size={16} color="inherit" />
-                Withdrawing Liquidity...
-              </Box>
-            ) : (
-              'Withdraw Liquidity'
-            )}
+            Withdraw Liquidity
           </Button>
         </Box>
-
-        {/* Error Display */}
-        {operationError && (
-          <Alert 
-            severity="error" 
-            sx={{ mt: 2 }}
-            onClose={() => setOperationError(null)}
-          >
-            {operationError}
-          </Alert>
-        )}
-
-        {/* Performance Stats - Collapsed version */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          mt: 3,
-          p: 2,
-          bgcolor: 'grey.50',
-          borderRadius: 2
-        }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              24h Fee
-            </Typography>
-            <Typography variant="body1" fontWeight={600}>
-              {position.fees24h}
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              Total Value
-            </Typography>
-            <Typography variant="body1" fontWeight={600} color="primary">
-              {position.value}
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              APR
-            </Typography>
-            <Typography variant="body1" fontWeight={600} color="info.main">
-              {position.apr}
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              Performance
-            </Typography>
-            <Typography
-              variant="body1"
-              fontWeight={600}
-              color={position.performance.startsWith('+') ? 'success.main' : 'error.main'}
-            >
-              {position.performance}
-            </Typography>
-          </Box>
-        </Box>
+        */}
       </CardContent>
     </Card>
   );

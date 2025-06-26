@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import Navigation from '../components/Navigation';
-import { useRealPoolData } from '../dex';
+import { useApiPoolData, ApiPool } from '../dex/hooks/useApiPoolData';
 
 interface PoolData {
   id: string;
@@ -41,34 +41,62 @@ const AddLiquidityPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [selectedPool, setSelectedPool] = useState<PoolData | null>(null);
   
-  // Get pool data
-  const { pools: realPoolData, loading: isLoading } = useRealPoolData();
+  // Get pool data from backend API (same as Pool.tsx)
+  const chainMap: Record<number, string> = {
+    1: 'ethereum',
+    56: 'binance',
+    97: 'binance',
+    137: 'polygon',
+    43114: 'avax',
+    42161: 'arbitrum',
+    10: 'optimism',
+    8453: 'base',
+    11155111: 'ethereum', // sepolia
+  };
+  const chainName = chainMap[chainId] || 'binance';
+  // 统一转换API数据为页面PoolData结构
+  const { pools: apiPools, loading: isLoading } = useApiPoolData({
+    chain: chainName,
+    pageSize: 50,
+    orderBy: 'volume',
+    filterBy: '1d',
+    status: 'main',
+    version: 'all',
+    excludeLowVolumePools: true,
+  });
+  const mapApiPoolToPoolData = (pool: ApiPool): PoolData => ({
+    id: pool.pairAddress,
+    token0: pool.tokenX.symbol,
+    token1: pool.tokenY.symbol,
+    icon0: `/src/assets/${pool.tokenX.symbol.toLowerCase()}.svg`,
+    icon1: `/src/assets/${pool.tokenY.symbol.toLowerCase()}.svg`,
+    tvl: `$${Number(pool.liquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+    apr: pool.lbBaseFeePct ? `${pool.lbBaseFeePct.toFixed(2)}%` : '—',
+    volume24h: pool.volumeUsd ? `$${Number(pool.volumeUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—',
+    fees24h: pool.feesUsd ? `$${Number(pool.feesUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—',
+    pairAddress: pool.pairAddress,
+    binStep: pool.lbBinStep,
+    tokenXAddress: pool.tokenX.address,
+    tokenYAddress: pool.tokenY.address,
+  });
+  const realPoolData: PoolData[] = apiPools.map(mapApiPoolToPoolData);
   
   // Get pool ID from URL parameters
   const poolId = searchParams.get('poolId');
   
   useEffect(() => {
-    console.log('🔍 AddLiquidity Debug:', {
-      poolId,
-      realPoolDataLength: realPoolData?.length,
-      poolIds: realPoolData?.map((p: PoolData) => p.id),
-    });
-    
     if (poolId && realPoolData) {
       // Try exact match first
       let pool = realPoolData.find((p: PoolData) => p.id === poolId);
-      
       // If not found, try case-insensitive match
       if (!pool) {
         pool = realPoolData.find((p: PoolData) => p.id.toLowerCase() === poolId.toLowerCase());
       }
-      
       // If still not found, try decoded poolId
       if (!pool) {
         const decodedPoolId = decodeURIComponent(poolId);
         pool = realPoolData.find((p: PoolData) => p.id === decodedPoolId || p.id.toLowerCase() === decodedPoolId.toLowerCase());
       }
-      
       // If still not found, try using pairAddress
       if (!pool) {
         pool = realPoolData.find((p: PoolData) => 
@@ -76,13 +104,9 @@ const AddLiquidityPage: React.FC = () => {
           p.pairAddress?.toLowerCase() === poolId.toLowerCase()
         );
       }
-      
-      console.log('🎯 Pool search result:', { poolId, foundPool: pool });
-      
       if (pool) {
         setSelectedPool(pool);
       } else {
-        console.warn('❌ Pool not found for ID:', poolId);
         // Don't redirect immediately, let user see the error
       }
     } else if (!poolId) {
@@ -100,7 +124,7 @@ const AddLiquidityPage: React.FC = () => {
       <Container maxWidth="lg">
         <Navigation />
         <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-          <Typography>Loading...</Typography>
+          <Typography>Loading pool data...</Typography>
         </Box>
       </Container>
     );
@@ -178,11 +202,13 @@ const AddLiquidityPage: React.FC = () => {
                   src={selectedPool.icon0}
                   alt={selectedPool.token0}
                   style={{ width: 32, height: 32, borderRadius: '50%' }}
+                  onError={e => (e.currentTarget.src = '/src/assets/react.svg')}
                 />
                 <img
                   src={selectedPool.icon1}
                   alt={selectedPool.token1}
                   style={{ width: 32, height: 32, borderRadius: '50%', marginLeft: -8 }}
+                  onError={e => (e.currentTarget.src = '/src/assets/react.svg')}
                 />
               </Box>
               <Typography variant="h6" fontWeight={600}>
@@ -207,3 +233,4 @@ const AddLiquidityPage: React.FC = () => {
 };
 
 export default AddLiquidityPage;
+        {/* Add Liquidity Form */}

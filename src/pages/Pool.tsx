@@ -23,7 +23,7 @@ import Navigation from '../components/Navigation';
 import CreatePoolDialog from '../components/pool/CreatePoolDialog';
 import TokenSelectionDialog from '../components/pool/TokenSelectionDialog';
 import AddLiquidityForm from '../components/pool/AddLiquidityForm';
-import { useRealPoolData } from '../dex';
+import { useApiPoolData } from '../dex/hooks/useApiPoolData';
 import { getTokensForChain } from '../dex/networkTokens';
 
 interface PoolData {
@@ -61,8 +61,29 @@ const PoolPage = () => {
   // Web3 hooks
   const chainId = useChainId();
 
-  // Fetch real pool data from blockchain
-  const { pools: realPoolData, loading: poolsLoading } = useRealPoolData();
+  // Fetch pool data from backend API
+  // chain 映射：1=ethereum, 56=binance, 137=polygon, 43114=avax, 42161=arbitrum, 10=optimism
+  const chainMap: Record<number, string> = {
+    1: 'ethereum',
+    56: 'binance',
+    97: 'binance',
+    137: 'polygon',
+    43114: 'avax',
+    42161: 'arbitrum',
+    10: 'optimism',
+    8453: 'base',
+    11155111: 'ethereum', // sepolia
+  };
+  const chainName = chainMap[chainId] || 'binance';
+  const { pools: realPoolData, loading: poolsLoading, error: poolsError } = useApiPoolData({
+    chain: chainName,
+    pageSize: 50,
+    orderBy: 'volume',
+    filterBy: '1d',
+    status: 'main',
+    version: 'all',
+    excludeLowVolumePools: true,
+  });
 
   // Get tokens for current chain
   const tokens = getTokensForChain(chainId);
