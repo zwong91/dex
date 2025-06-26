@@ -31,7 +31,7 @@ import Navigation from '../components/Navigation';
 import { useApiDexUserPools } from '../dex/hooks/useApiDexUserPools';
 import { useApiDexUserHistory } from '../dex/hooks/useApiDexUserHistory';
 import { useApiDexUserStats } from '../dex/hooks/useApiDexUserStats';
-import { useApiDexTokens } from '../dex/hooks/useApiDexTokens';
+import { useWalletData } from '../dex/hooks/useWalletData';
 // import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
 // import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUserPositions';
 import { useDexOperations } from '../dex/hooks/useDexOperations';
@@ -43,13 +43,13 @@ const PortfolioPage = () => {
   const { pools: userPools, loading: poolsLoading, error: poolsError, refetch: refetchUserPools } = useApiDexUserPools(address);
   const { history: userHistory, loading: historyLoading, error: historyError, refetch: refetchUserHistory } = useApiDexUserHistory(address);
   const { stats: userStats, loading: statsLoading, error: statsError, refetch: refetchUserStats } = useApiDexUserStats(address);
-  const { tokens: apiTokens, loading: tokensLoading, error: tokensError, refetch: refetchTokens } = useApiDexTokens();
+  const { tokenBalances, loading: tokensLoading, error: tokensError, refetch: refetchTokens } = useWalletData();
 
   // Helper: fallback summary from userStats
-  const walletSummary = userStats && apiTokens
+  const walletSummary = userStats && tokenBalances
     ? {
         totalValue: userStats.totalLiquidityUsd ? `$${Number(userStats.totalLiquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '$0.00',
-        tokenCount: apiTokens.length,
+        tokenCount: tokenBalances.length,
         lpValue: userStats.totalLiquidityUsd ? `$${Number(userStats.totalLiquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '$0.00',
         positionCount: userStats.poolsCount || 0,
       }
@@ -60,16 +60,7 @@ const PortfolioPage = () => {
         positionCount: 0,
       };
 
-  // Use tokens from API for token holdings
-  // Adapt tokenBalances for UI (fallback to symbol, name, price, value, no icon/balance)
-  const tokenBalances = (apiTokens || []).map(token => ({
-    ...token,
-    icon: `/src/assets/${token.symbol?.toLowerCase() || 'react'}.svg`,
-    balanceFormatted: '-', // No balance from API, only token info
-    price: token.priceUsd ? `$${Number(token.priceUsd).toLocaleString(undefined, { maximumFractionDigits: 4 })}` : '-',
-    value: token.liquidityUsd ? `$${Number(token.liquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-',
-    change24h: '-', // Not available from API
-  }));
+  // tokenBalances 已包含 balance, price, value, change24h 等字段，直接用于渲染
   const loading = tokensLoading || statsLoading;
   const error = tokensError || statsError;
   const refetch = async () => {
