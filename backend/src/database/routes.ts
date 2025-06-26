@@ -91,11 +91,8 @@ export async function validateAdminAccess(request: Request, env: Env): Promise<{
   return { valid: false, error: "Unauthorized access" };
 }
 
-// 模块化 admin 路由，风格与其他模块一致
-
-export function createAdminRoutes() {
+export function createDBRoutes() {
   const app = new Hono<{ Bindings: Env }>();
-
 
   // 用户相关
   app.get('/users', async (c) => {
