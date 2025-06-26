@@ -6,9 +6,11 @@ import { timing } from 'hono/timing';
 import { createAIRoutes } from './ai/routes';
 import { createStorageRoutes } from './storage/routes';
 import { createDexRoutes } from './dex/routes';
+import { createDBRoutes } from './database/routes';
 
 export interface Env {
 	AI?: any;
+	D1_DATABASE?: D1Database;
 	R2?: R2Bucket;
 	KEY: string;
 	NODE_ENV?: string;
@@ -56,6 +58,7 @@ app.get('/health', (c) => {
 app.route('/v1/api/dex', createDexRoutes());
 app.route('/v1/api/ai', createAIRoutes());
 app.route('/v1/api/storage', createStorageRoutes());
+app.route('/v1/api/database', createDBRoutes());
 
 // 404 handler
 app.notFound((c) => {
