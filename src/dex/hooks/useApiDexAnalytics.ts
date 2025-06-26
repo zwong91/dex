@@ -39,9 +39,26 @@ export const useApiDexAnalytics = () => {
       if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
       if (data && data.success && data.data) {
-        setAnalytics(data.data);
+        // 保证 topPools/volumeChart/tvlChart 不为 undefined
+        setAnalytics({
+          ...data.data,
+          topPools: Array.isArray(data.data.topPools) ? data.data.topPools : [],
+          volumeChart: Array.isArray(data.data.volumeChart) ? data.data.volumeChart : [],
+          tvlChart: Array.isArray(data.data.tvlChart) ? data.data.tvlChart : [],
+        });
       } else {
-        setAnalytics(null);
+        setAnalytics({
+          totalVolume24h: '0',
+          totalVolume7d: '0',
+          totalTvl: '0',
+          totalFees24h: '0',
+          totalPools: 0,
+          totalTokens: 0,
+          totalUsers: 0,
+          topPools: [],
+          volumeChart: [],
+          tvlChart: [],
+        });
         setError('No analytics data');
       }
     } catch (err: any) {

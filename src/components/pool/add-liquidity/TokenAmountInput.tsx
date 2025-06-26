@@ -36,7 +36,7 @@ const TokenAmountInput = ({
 						src={token.icon}
 						alt={token.symbol}
 					>
-						{token.symbol.charAt(0)}
+						{(token?.symbol || '').charAt(0)}
 					</Avatar>
 					<Typography variant="h6" fontWeight={600} color="white">
 						{token.symbol}
