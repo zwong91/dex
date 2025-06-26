@@ -26,7 +26,7 @@ export const useApiDexUserStats = (userAddress: string | undefined) => {
     setError(null);
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.dex.jongun2038.win';
-      const apiKey = import.meta.env.VITE_API_KEY || 'test-secret-key';
+      const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       const url = `${apiBaseUrl}/v1/api/dex/user/${userAddress}/lifetime-stats`;
       const res = await fetch(url, {
         headers: {

@@ -93,7 +93,7 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
       // 注意：如果后端 API 支持多链，可能需要调整路径或参数
       // 例如：/v1/api/dex/pools/bsc?param=value
       const url = `${apiBaseUrl}/v1/api/dex/pools/bsc?${params.toString()}`;
-      const apiKey = import.meta.env.VITE_API_KEY || 'test-secret-key';
+      const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       const res = await fetch(url, {
         headers: {
           'x-api-key': apiKey,
