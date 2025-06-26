@@ -26,7 +26,7 @@ const execAsync = promisify(exec);
 // Configuration
 const CONFIG = {
   API_BASE: 'http://localhost:8787',
-  SUBGRAPH_URL: 'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet',
+  SUBGRAPH_URL: 'https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest',
   API_KEY: 'test-key',
   TEST_ADDRESS: '0xE0A051f87bb78f38172F633449121475a193fC1A',
   VALID_POOL_ID: '0xf2a0388ae50204fbf4940a82b9312c58ed91e658' // Real pool ID from subgraph
@@ -79,7 +79,10 @@ async function graphqlRequest(query: string, variables: any = {}): Promise<any> 
   try {
     const response = await fetch(CONFIG.SUBGRAPH_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer 74cfb5d850c776403db7d187d3e262fb'
+      },
       body: JSON.stringify({ query, variables })
     });
     return await response.json();

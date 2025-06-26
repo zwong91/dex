@@ -11,6 +11,10 @@ import { createUsersHandler } from './handlers/users-graphql';
 import { createVaultsHandler } from './handlers/vaults-graphql';
 import { createFarmsHandler } from './handlers/farms-graphql';
 import { createRewardsHandler } from './handlers/rewards-graphql';
+import { createSwapsHandler } from './handlers/swaps-graphql';
+import { createLiquidityHandler } from './handlers/liquidity-graphql';
+import { createFeesHandler } from './handlers/fees-graphql';
+import { createPriceHandler } from './handlers/price-graphql';
 
 /**
  * Unified DEX Routes using Hono framework
@@ -78,6 +82,12 @@ export function createDexRoutes() {
 	app.get('/pools/:poolId', createPoolsHandler('details'));
 	app.get('/tokens', createPoolsHandler('tokens'));
 	app.get('/analytics', createPoolsHandler('analytics'));
+
+	// DEX extra endpoints
+	app.get('/swaps', createSwapsHandler('list'));
+	app.get('/liquidity', createLiquidityHandler('list'));
+	app.get('/fees', createFeesHandler('list'));
+	app.get('/price', createPriceHandler('list'));
 
 	// === USER DATA ENDPOINTS (GraphQL-only) ===
 	
