@@ -57,4 +57,3 @@ export {
 
 // Export UserPosition type
 export type { UserPosition } from './hooks/types'
-export type { UserPosition } from './hooks/types'

@@ -43,6 +43,24 @@ interface PoolData {
   tokenYAddress?: string;
 }
 
+// 转换函数
+const apiPoolToPoolData = (pool: any): PoolData => ({
+  id: pool.id,
+  token0: pool.token0,
+  token1: pool.token1,
+  icon0: pool.icon0,
+  icon1: pool.icon1,
+  tvl: pool.tvl,
+  apr: pool.apr,
+  volume24h: pool.volume24h,
+  fees24h: pool.fees24h,
+  userLiquidity: pool.userLiquidity,
+  pairAddress: pool.pairAddress,
+  binStep: pool.binStep,
+  tokenXAddress: pool.tokenXAddress,
+  tokenYAddress: pool.tokenYAddress,
+});
+
 const PoolPage = () => {
   const [showAddNewPool, setShowAddNewPool] = useState(false);
   
@@ -75,7 +93,7 @@ const PoolPage = () => {
     11155111: 'ethereum', // sepolia
   };
   const chainName = chainMap[chainId] || 'binance';
-  const { pools: realPoolData, loading: poolsLoading, error: poolsError } = useApiPoolData({
+  const { pools: realPoolData, loading: poolsLoading /*, error: poolsError*/ } = useApiPoolData({
     chain: chainName,
     pageSize: 50,
     orderBy: 'volume',
@@ -539,7 +557,7 @@ const PoolPage = () => {
                 </CardContent>
               </Card>
             ) : (
-              realPoolData.map(pool => renderPoolCard(pool))
+              realPoolData.map(pool => renderPoolCard(apiPoolToPoolData(pool)))
             )}
           </>
         )}
