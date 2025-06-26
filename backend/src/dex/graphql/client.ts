@@ -7,6 +7,8 @@
  * Updated to match actual deployed BSC testnet indexer schema
  */
 
+import { env } from "cloudflare:workers";
+
 export interface GraphQLResponse<T = any> {
   data?: T;
   errors?: Array<{
@@ -110,12 +112,14 @@ export interface SwapEvent {
  */
 export class SubgraphClient {
   private endpoint: string;
+  private auth_token: string;
   
   constructor(endpoint?: string, env?: any) {
     // Use provided endpoint or get from environment or use default
     this.endpoint = endpoint || 
       env?.SUBGRAPH_URL ||
       'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet';
+    this.auth_token = env?.SUBGRAPH_AUTH_TOKEN || ''; // Optional auth token for private subgraphs
   }
 
   /**
@@ -123,11 +127,19 @@ export class SubgraphClient {
    */
   async query<T = any>(query: string, variables?: Record<string, any>): Promise<GraphQLResponse<T>> {
     try {
+      // 读取 Bearer token（SUBGRAPH_AUTH_TOKEN）
+      const authToken = this.auth_token;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const response = await fetch(this.endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           query,
           variables: variables || {},

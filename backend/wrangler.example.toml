@@ -23,7 +23,7 @@ compatibility_date = "2025-06-20"
 compatibility_flags = ["nodejs_compat"]
 
 # Replace with your Cloudflare account ID
-account_id = "xxxx"
+account_id = "ec9b597fa02615ca6a0e62b7ff35d0cc"
 
 # ✅ Scheduled jobs for data synchronization - Multiple cron triggers
 #[triggers]
@@ -39,12 +39,13 @@ account_id = "xxxx"
 NODE_ENV = "production"
 
 # GraphQL configuration
-SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet"
-SUBGRAPH_HEALTH_URL = "http://localhost:8000"
+SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest"
+SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
 
 # ⚠️ Sensitive information should use secrets instead of vars
 # Run this command to set secret:
-# wrangler secret put KEY
+# wrangler secret put SUBGRAPH_AUTH_TOKEN
+# （输入你的 Bearer token，例如 <The Graph Api KEY> ）
 
 # 🔧 Production AI binding - Enabled for AI functionality
 [ai]
@@ -58,11 +59,11 @@ binding = "AI"
 
 # 🔧 Development environment configuration (minimal for testing)
 [env.development]
-vars = { NODE_ENV = "development", SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet", SUBGRAPH_HEALTH_URL = "http://localhost:8000" }
+vars = { NODE_ENV = "development", SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest", SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status" }
 
 # 🔧 Staging environment configuration
 [env.staging]
-vars = { NODE_ENV = "staging", SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet", SUBGRAPH_HEALTH_URL = "http://localhost:8000" }
+vars = { NODE_ENV = "staging", SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest", SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status" }
 
 [env.staging.ai]
 binding = "AI"
@@ -73,7 +74,7 @@ binding = "AI"
 
 # ✅ Production environment configuration
 [env.production]
-vars = { NODE_ENV = "production", SUBGRAPH_URL = "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb", SUBGRAPH_HEALTH_URL = "http://localhost:8000" }
+vars = { NODE_ENV = "production", SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest", SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status" }
 
 [env.production.ai]
 binding = "AI"

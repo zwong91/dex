@@ -524,19 +524,23 @@ test_menu() {
                 # 测试1: 查询流动性池数量
                 echo ""
                 echo -e "${BLUE}1. 查询流动性池总数:${NC}"
-                pool_count=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                pool_count=$(curl -s -X POST \
                   -H "Content-Type: application/json" \
-                  -d '{"query":"{ lbPairs { id } }"}' \
-                  | jq '.data.lbPairs | length' 2>/dev/null)
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
+                  -d '{"query":"{ lbpairs { id } }"}' \
+                  | jq '.data.lbpairs | length' 2>/dev/null)
                 
                 if [ "$pool_count" != "null" ] && [ "$pool_count" != "" ]; then
                     echo -e "${GREEN}✅ 找到 $pool_count 个流动性池${NC}"
                     if [ "$pool_count" -gt 0 ]; then
                         echo -e "${BLUE}前5个流动性池详情:${NC}"
-                        curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                        curl -s -X POST \
                           -H "Content-Type: application/json" \
-                          -d '{"query":"{ lbPairs(first: 5) { id name tokenX { symbol } tokenY { symbol } reserveX reserveY } }"}' \
-                          | jq '.data.lbPairs' 2>/dev/null
+                          -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                          https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
+                          -d '{"query":"{ lbpairs(first: 5) { id name tokenX { symbol } tokenY { symbol } reserveX reserveY } }"}' \
+                          | jq '.data.lbpairs' 2>/dev/null
                     fi
                 else
                     echo -e "${RED}❌ 查询失败或无数据${NC}"
@@ -545,8 +549,10 @@ test_menu() {
                 # 测试2: 查询代币数量
                 echo ""
                 echo -e "${BLUE}2. 查询代币总数:${NC}"
-                token_count=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                token_count=$(curl -s -X POST \
                   -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
                   -d '{"query":"{ tokens { id } }"}' \
                   | jq '.data.tokens | length' 2>/dev/null)
                 
@@ -554,8 +560,10 @@ test_menu() {
                     echo -e "${GREEN}✅ 找到 $token_count 个代币${NC}"
                     if [ "$token_count" -gt 0 ]; then
                         echo -e "${BLUE}前5个代币详情:${NC}"
-                        curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                        curl -s -X POST \
                           -H "Content-Type: application/json" \
+                          -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                          https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
                           -d '{"query":"{ tokens(first: 5) { id symbol name decimals } }"}' \
                           | jq '.data.tokens' 2>/dev/null
                     fi
@@ -566,8 +574,10 @@ test_menu() {
                 # 测试3: 查询交易记录
                 echo ""
                 echo -e "${BLUE}3. 查询交易记录:${NC}"
-                trace_count=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                trace_count=$(curl -s -X POST \
                   -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
                   -d '{"query":"{ traces { id } }"}' \
                   | jq '.data.traces | length' 2>/dev/null)
                 
@@ -575,8 +585,10 @@ test_menu() {
                     echo -e "${GREEN}✅ 找到 $trace_count 条交易记录${NC}"
                     if [ "$trace_count" -gt 0 ]; then
                         echo -e "${BLUE}最新5条交易记录:${NC}"
-                        curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                        curl -s -X POST \
                           -H "Content-Type: application/json" \
+                          -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                          https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
                           -d '{"query":"{ traces(first: 5, orderBy: id, orderDirection: desc) { id type lbPair binId txHash } }"}' \
                           | jq '.data.traces' 2>/dev/null
                     fi
@@ -587,9 +599,11 @@ test_menu() {
                 # 测试4: 查询Factory统计
                 echo ""
                 echo -e "${BLUE}4. 查询Factory统计信息:${NC}"
-                factory_data=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                factory_data=$(curl -s -X POST \
                   -H "Content-Type: application/json" \
-                  -d '{"query":"{ lbFactories { id pairCount volumeUSD totalValueLockedUSD txCount tokenCount userCount } }"}' 2>/dev/null)
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
+                  -d '{"query":"{ lbfactories { id pairCount volumeUSD totalValueLockedUSD txCount tokenCount userCount } }"}' 2>/dev/null)
                 
                 if echo "$factory_data" | jq '.data.lbFactories[0]' >/dev/null 2>&1; then
                     echo -e "${GREEN}✅ Factory统计信息:${NC}"
@@ -717,7 +731,10 @@ query_menu() {
                 echo ""
                 
                 # 使用正确的GraphQL端点和字段名
-                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                response=$(curl -s -X POST \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
                   -H "Content-Type: application/json" \
                   -d '{"query":"{ lbfactories { id pairCount volumeUSD totalValueLockedUSD txCount tokenCount userCount } }"}')
                 
@@ -744,7 +761,10 @@ query_menu() {
                 echo -e "${BLUE}💱 查询流动性池...${NC}"
                 echo ""
                 
-                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                response=$(curl -s -X POST \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
                   -H "Content-Type: application/json" \
                   -d '{"query":"{ lbpairs(first: 5) { id name tokenX { symbol } tokenY { symbol } reserveX reserveY } }"}')
                 
@@ -764,8 +784,10 @@ query_menu() {
                 echo -e "${BLUE}🪙 查询代币信息...${NC}"
                 echo ""
                 
-                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                response=$(curl -s -X POST \
                   -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
                   -d '{"query":"{ tokens(first: 5) { id symbol name decimals totalSupply } }"}')
                 
                 if echo "$response" | jq -e '.data.tokens' >/dev/null 2>&1; then
@@ -784,9 +806,11 @@ query_menu() {
                 echo -e "${BLUE}📝 查询交易记录...${NC}"
                 echo ""
                 
-                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                response=$(curl -s -X POST \
                   -H "Content-Type: application/json" \
-                  -d '{"query":"{ transactions(first: 5, orderBy: timestamp, orderDirection: desc) { id blockNumber timestamp } swaps(first: 5, orderBy: timestamp, orderDirection: desc) { id amountXIn amountXOut amountYIn amountYOut } }"}')
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  -d '{"query":"{ transactions(first: 5, orderBy: timestamp, orderDirection: desc) { id blockNumber timestamp } swaps(first: 5, orderBy: timestamp, orderDirection: desc) { id amountXIn amountXOut amountYIn amountYOut } }"}' \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest)
                 
                 if echo "$response" | jq -e '.data' >/dev/null 2>&1; then
                     tx_count=$(echo "$response" | jq '.data.transactions | length')
@@ -821,8 +845,10 @@ query_menu() {
                 echo -e "${BLUE}📊 查询流动性 Bins...${NC}"
                 echo ""
                 
-                response=$(curl -s -X POST http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet \
+                response=$(curl -s -X POST \
                   -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer 74cfb5d850c776403db7d187d3e262fb" \
+                  https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest \
                   -d '{"query":"{ bins(first: 10, where: {totalSupply_gt: \"0\"}, orderBy: binId) { id binId totalSupply reserveX reserveY lbPair { name } } }"}')
                 
                 if echo "$response" | jq -e '.data.bins' >/dev/null 2>&1; then
