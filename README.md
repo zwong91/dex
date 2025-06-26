@@ -92,7 +92,7 @@ A sophisticated, multi-chain DEX platform featuring concentrated liquidity manag
 
 ### Quick Start
 
-[![Deploy to Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/EntySquare/dex/tree/main)
+[![Deploy to Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/EntySquare/dex)
 
 
 ```bash

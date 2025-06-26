@@ -57,7 +57,7 @@ export const useApiDexPoolDetails = (poolId: string | undefined) => {
     setLoading(true);
     setError(null);
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.dex.jongun2038.win';
+      const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || 'https://api.dex.jongun2038.win';
       const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       const url = `${apiBaseUrl}/v1/api/dex/pools/bsc/${poolId}`;
       const res = await fetch(url, {

@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 
+.env
+.env.local
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -25,4 +27,4 @@ dist-ssr
 .vercel
 *tsbuildinfo
 *backend/**/*.map
-backend/indexer/graph_data/postgres/
+backend/indexer/graph_data/
