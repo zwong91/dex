@@ -78,10 +78,10 @@ export function createDexRoutes() {
 	// === CORE DATA ENDPOINTS (GraphQL-only) ===
 	
 	// Pools endpoints
-	app.get('/pools', createPoolsHandler('list'));
-	app.get('/pools/:poolId', createPoolsHandler('details'));
-	app.get('/tokens', createPoolsHandler('tokens'));
-	app.get('/analytics', createPoolsHandler('analytics'));
+	app.get('/pools/:chain', createPoolsHandler('list'));
+	app.get('/pools/:chain/:poolId', createPoolsHandler('details'));
+	app.get('/tokens/:chain', createPoolsHandler('tokens'));
+	app.get('/analytics/:chain', createPoolsHandler('analytics'));
 
 	// DEX extra endpoints
 	app.get('/swaps', createSwapsHandler('list'));
@@ -91,12 +91,12 @@ export function createDexRoutes() {
 
 	// === USER DATA ENDPOINTS (GraphQL-only) ===
 	
-	app.get('/user/:address/bin-ids', createUsersHandler('binIds'));
-	app.get('/user/:address/pool-ids', createUsersHandler('poolIds'));
-	app.get('/user/:address/history', createUsersHandler('history'));
-	app.get('/user/:address/lifetime-stats', createUsersHandler('lifetimeStats'));
-	app.get('/user/:address/fees-earned', createUsersHandler('feesEarned'));
-	app.get('/pool/:poolId/user/:address/balances', createUsersHandler('poolBalances'));
+	app.get('/user/bin-ids/:user_address/:chain/:pool_address', createUsersHandler('binIds'));
+	app.get('/user/pool-ids/:user_address/:chain', createUsersHandler('poolIds'));
+	app.get('/user/pool-user-balances', createUsersHandler('poolUserBalances')); // 如有参数请用 query
+	app.get('/user/fees-earned/:chain/:user_address/:pool_address', createUsersHandler('feesEarned'));
+	app.get('/user/:chain/history/:user_address/:pool_address', createUsersHandler('history'));
+	app.get('/user-lifetime-stats/:chain/users/:user_address/swap-stats', createUsersHandler('lifetimeStats'));
 
 	// === VAULTS ENDPOINTS (GraphQL-only) ===
 	

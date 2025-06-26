@@ -34,40 +34,39 @@ EntySquare 是一个领先的去中心化交易所，让用户可以：
 const supportedChains = [
   "binance",      // 币安智能链
   "ethereum",     // 以太坊
-  "solana",       // Solana
 ];
 ```
 
 ## 🏷️ API 分类
 
 ### 1. 📊 DEX Analytics (1个接口)
-- **GET** `/v1/api/dex/dex/analytics/{chain}` - 获取每日交易所分析数据
+- **GET** `/v1/api/dex/analytics/{chain}` - 获取每日交易所分析数据 ✅ (已完整实现)
   - 支持参数：startTime, endTime, version
   - 权限要求：`analytics_read`
 
-### 2. 🏊 Pools (流动性池相关接口) (3个接口)
-- **GET** `/v1/api/dex/pools` - 基础池列表 ✅ (已完整实现)
+### 2. 🏊 Pools (流动性池相关接口) (2个接口)
 - **GET** `/v1/api/dex/pools/{chain}` - 按链获取池列表 ✅ (已完整实现)
 - **GET** `/v1/api/dex/pools/{chain}/{address}` - 获取指定池详情 ✅ (已完整实现)
   - 支持分页、排序、过滤
   - 权限要求：`pools_read`
 
-### 3. 🎁 Rewards (奖励相关接口) (4个接口)
+### 3. 👤 User (用户相关接口) (7个接口)
+- **GET** `/v1/api/dex/user/bin-ids/{user_address}/{chain}/{pool_address}` - 获取用户Bin IDs ✅ (已完整实现)
+- **GET** `/v1/api/dex/user/pool-ids/{user_address}/{chain}` - 获取用户池IDs ✅ (已完整实现)
+- **GET** `/v1/api/dex/user/pool-user-balances` - 池用户余额查询 ✅ (已完整实现)
+- **GET** `/v1/api/dex/user/fees-earned/{chain}/{user_address}/{pool_address}` - 获取用户费用收益 ✅ (已完整实现)
+
+- **GET** `/v1/api/dex/user/{chain}/{user_address}/farms` - 获取用户农场仓位
+- **GET** `/v1/api/dex/user/{chain}/{user_address}/farms/{vault_id}` - 获取用户指定农场仓位
+- **GET** `/v1/api/dex/user/{chain}/history/{user_address}/{pool_address}` - 获取用户历史记录
+  - 权限要求：`user_read`
+
+### 4. 🎁 Rewards (奖励相关接口) (4个接口)
 - **GET** `/v1/api/dex/rewards/{chain}/{user_address}` - 获取用户奖励证明
 - **POST** `/v1/api/dex/rewards/batch-proof/{chain}/{user_address}` - 批量获取奖励证明
 - **GET** `/v1/api/dex/rewards/claimable/{chain}/{user_address}` - 获取可领取奖励
 - **GET** `/v1/api/dex/rewards/history/{chain}/{user_address}` - 获取奖励历史记录
   - 权限要求：`rewards_read`
-
-### 4. 👤 User (用户相关接口) (7个接口)
-- **GET** `/v1/api/dex/user/bin-ids/{user_address}/{chain}/{pool_address}` - 获取用户Bin IDs
-- **GET** `/v1/api/dex/user/pool-ids/{user_address}/{chain}` - 获取用户池IDs
-- **GET** `/v1/api/dex/user/pool-user-balances` - 池用户余额查询
-- **GET** `/v1/api/dex/user/{chain}/{user_address}/farms` - 获取用户农场仓位
-- **GET** `/v1/api/dex/user/{chain}/{user_address}/farms/{vault_id}` - 获取用户指定农场仓位
-- **GET** `/v1/api/dex/user/{chain}/history/{user_address}/{pool_address}` - 获取用户历史记录
-- **GET** `/v1/api/dex/user/fees-earned/{chain}/{user_address}/{pool_address}` - 获取用户费用收益
-  - 权限要求：`user_read`
 
 ### 5. 📈 User Lifetime Stats (用户汇总统计) (1个接口)
 - **GET** `/v1/api/dex/user-lifetime-stats/{chain}/users/{user_address}/swap-stats` - 用户交易统计数据
@@ -165,7 +164,7 @@ Entysquare DEX API后端v1.0，采用基于数据库的架构，通过监听Trad
 ### 1. 交易分析
 
 ```http
-GET /v1/dex/analytics/{chain}
+GET /v1/api/dex/analytics/{chain}
 ```
 
 **参数**:
@@ -180,7 +179,7 @@ GET /v1/dex/analytics/{chain}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/dex/analytics/bsc?startTime=1672531200" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/analytics/bsc?startTime=1672531200" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -222,7 +221,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/dex/analytics/bsc?startTime=16725
 ### 2. 流动性池列表
 
 ```http
-GET /v1/pools/{chain}
+GET /v1/api/pools/{chain}
 ```
 
 **参数**:
@@ -241,7 +240,7 @@ GET /v1/pools/{chain}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/pools/bsc?pageSize=10&orderBy=volume&filterBy=1d" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/pools/bsc?pageSize=10&orderBy=volume&filterBy=1d" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -311,7 +310,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/pools/bsc?pageSize=10&orderBy=vol
 ### 3. 获取指定池信息
 
 ```http
-GET /v1/pools/{chain}/{address}
+GET /v1/api/pools/{chain}/{address}
 ```
 
 **参数**:
@@ -325,7 +324,7 @@ GET /v1/pools/{chain}/{address}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/pools/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?filterBy=1d" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/pools/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?filterBy=1d" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -393,7 +392,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/pools/bsc/0xe785e0899e7acd50a55f6
 ### 4. 获取用户奖励证明 Get Proof
 
 ```http
-GET /v1/rewards/{chain}/{user_address}
+GET /v1/api/rewards/{chain}/{user_address}
 ```
 
 **参数**:
@@ -409,7 +408,7 @@ GET /v1/rewards/{chain}/{user_address}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/rewards/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?market=lb&epoch=15&token=0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?market=lb&epoch=15&token=0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -439,7 +438,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/rewards/bsc/0xe785e0899e7acd50a55
 ### 4.1 批量获取用户奖励证明 Get User Proofs
 
 ```http
-POST /v1/rewards/batch-proof/{chain}/{user_address}
+POST /v1/api/rewards/batch-proof/{chain}/{user_address}
 ```
 
 **参数**:
@@ -471,7 +470,7 @@ POST /v1/rewards/batch-proof/{chain}/{user_address}
 **示例请求**:
 
 ```bash
-curl -X POST "https://api.dex.jongun2038.win/v1/rewards/batch-proof/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
+curl -X POST "https://api.dex.jongun2038.win/v1/api/rewards/batch-proof/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
   -H "x-api-key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -520,7 +519,7 @@ curl -X POST "https://api.dex.jongun2038.win/v1/rewards/batch-proof/bsc/0xe785e0
 ### 4.2 用户可领取奖励
 
 ```http
-GET /v1/rewards/claimable/{chain}/{user_address}
+GET /v1/api/rewards/claimable/{chain}/{user_address}
 ```
 
 **参数**:
@@ -534,7 +533,7 @@ GET /v1/rewards/claimable/{chain}/{user_address}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/rewards/claimable/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?market=lb" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/claimable/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?market=lb" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -576,7 +575,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/rewards/claimable/bsc/0xe785e0899
 ### 4.3 用户奖励历史记录
 
 ```http
-GET /v1/rewards/history/{chain}/{user_address}
+GET /v1/api/rewards/history/{chain}/{user_address}
 ```
 
 **参数**:
@@ -590,7 +589,7 @@ GET /v1/rewards/history/{chain}/{user_address}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/rewards/history/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?market=lb" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/history/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?market=lb" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -650,7 +649,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/rewards/history/bsc/0xe785e0899e7
 #### 5.1 获取用户当前 Bin IDs
 
 ```http
-GET /v1/user/bin-ids/{user_address}/{chain}/{pool_address}
+GET /v1/api/user/bin-ids/{user_address}/{chain}/{pool_address}
 ```
 
 **参数**:
@@ -664,7 +663,7 @@ GET /v1/user/bin-ids/{user_address}/{chain}/{pool_address}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user/bin-ids/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bin-ids/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -682,7 +681,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/user/bin-ids/0xe785e0899e7acd50a5
 #### 5.2 获取用户池 IDs
 
 ```http
-GET /v1/user/pool-ids/{user_address}/{chain}
+GET /v1/api/user/pool-ids/{user_address}/{chain}
 ```
 
 **参数**:
@@ -697,7 +696,7 @@ GET /v1/user/pool-ids/{user_address}/{chain}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user/pool-ids/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/bsc?pageSize=20&pageNum=1" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user/pool-ids/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/bsc?pageSize=20&pageNum=1" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -741,7 +740,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/user/pool-ids/0xe785e0899e7acd50a
 #### 5.3 获取池用户余额
 
 ```http
-GET /v1/user/pool-user-balances
+GET /v1/api/user/pool-user-balances
 ```
 
 **注意**: 此API仅对拥有合作伙伴API密钥的用户开放。
@@ -757,7 +756,7 @@ GET /v1/user/pool-user-balances
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user/pool-user-balances?chainId=43114&lpAddress=0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c&poolAddress=0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user/pool-user-balances?chainId=43114&lpAddress=0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c&poolAddress=0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
   -H "x-api-key: your-partner-api-key"
 ```
 
@@ -782,7 +781,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/user/pool-user-balances?chainId=4
 #### 5.4 获取用户农场仓位列表
 
 ```http
-GET /v1/user/{chain}/{user_address}/farms
+GET /v1/api/user/{chain}/{user_address}/farms
 ```
 
 **参数**:
@@ -795,7 +794,7 @@ GET /v1/user/{chain}/{user_address}/farms
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/farms" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/farms" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -824,7 +823,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/user/bsc/0xe785e0899e7acd50a55f6b
 #### 5.5 获取用户指定农场仓位
 
 ```http
-GET /v1/user/{chain}/{user_address}/farms/{vault_id}
+GET /v1/api/user/{chain}/{user_address}/farms/{vault_id}
 ```
 
 **参数**:
@@ -838,7 +837,7 @@ GET /v1/user/{chain}/{user_address}/farms/{vault_id}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/farms/farm_001" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/farms/farm_001" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -885,7 +884,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/user/bsc/0xe785e0899e7acd50a55f6b
 #### 5.6 获取用户历史仓位
 
 ```http
-GET /v1/user/{chain}/history/{user_address}/{pool_address}
+GET /v1/api/user/{chain}/history/{user_address}/{pool_address}
 ```
 
 **参数**:
@@ -903,7 +902,7 @@ GET /v1/user/{chain}/history/{user_address}/{pool_address}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user/bsc/history/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?pageSize=20&pageNum=1&startTime=1672531200&endTime=1704067200" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bsc/history/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c?pageSize=20&pageNum=1&startTime=1672531200&endTime=1704067200" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -963,7 +962,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/user/bsc/history/0xe785e0899e7acd
 #### 5.7 获取用户每个 Bin 的手续费收益
 
 ```http
-GET /v1/user/fees-earned/{chain}/{user_address}/{pool_address}
+GET /v1/api/user/fees-earned/{chain}/{user_address}/{pool_address}
 ```
 
 **参数**:
@@ -977,14 +976,14 @@ GET /v1/user/fees-earned/{chain}/{user_address}/{pool_address}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user/fees-earned/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user/fees-earned/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
   -H "x-api-key: your-api-key"
 ```
 
 **示例请求 (查询所有链)**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user/fees-earned/all/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user/fees-earned/all/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -1034,7 +1033,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/user/fees-earned/all/0xe785e0899e
 ### 5.8. 用户交易统计
 
 ```http
-GET /v1/user-lifetime-stats/{chain}/users/{user_address}/swap-stats
+GET /v1/api/user-lifetime-stats/{chain}/users/{user_address}/swap-stats
 ```
 
 **参数**:
@@ -1049,7 +1048,7 @@ GET /v1/user-lifetime-stats/{chain}/users/{user_address}/swap-stats
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/user-lifetime-stats/bsc/users/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/swap-stats?from_date=2024-01-01&to_date=2024-12-31" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/user-lifetime-stats/bsc/users/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/swap-stats?from_date=2024-01-01&to_date=2024-12-31" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -1128,7 +1127,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/user-lifetime-stats/bsc/users/0xe
 ### 6. 资金库列表 List Vaults
 
 ```http
-GET /v1/vaults
+GET /v1/api/vaults
 ```
 
 **参数**:
@@ -1141,7 +1140,7 @@ GET /v1/vaults
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/vaults?pageSize=20&pageNum=1" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults?pageSize=20&pageNum=1" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -1237,7 +1236,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/vaults?pageSize=20&pageNum=1" \
 ### 6.1 按链获取资金库列表 List Vaults By Chain
 
 ```http
-GET /v1/vaults/{chain}
+GET /v1/api/vaults/{chain}
 ```
 
 **参数**:
@@ -1252,14 +1251,14 @@ GET /v1/vaults/{chain}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/vaults/bsc?pageSize=20&pageNum=1" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc?pageSize=20&pageNum=1" \
   -H "x-api-key: your-api-key"
 ```
 
 **示例请求（查询所有链）**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/vaults/all?pageSize=50&pageNum=1" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/all?pageSize=50&pageNum=1" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -1355,7 +1354,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/vaults/all?pageSize=50&pageNum=1"
 ### 6.2 获取资金库份额价格 Get Vault Share Price
 
 ```http
-GET /v1/vaults/{chain}/{vault_address}/share-price
+GET /v1/api/vaults/{chain}/{vault_address}/share-price
 ```
 
 **参数**:
@@ -1370,14 +1369,14 @@ GET /v1/vaults/{chain}/{vault_address}/share-price
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/vaults/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/share-price?fromTimestamp=1672531200&toTimestamp=1704067200" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/share-price?fromTimestamp=1672531200&toTimestamp=1704067200" \
   -H "x-api-key: your-api-key"
 ```
 
 **示例请求 (仅开始时间)**:
 
 ```bash
-curl -X GET "https://api.entySquare.dev/v1/vaults/b s c/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/share-price?fromTimestamp=1672531200" \
+curl -X GET "https://api.entySquare.dev/v1/api/vaults/b s c/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/share-price?fromTimestamp=1672531200" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -1412,7 +1411,7 @@ curl -X GET "https://api.entySquare.dev/v1/vaults/b s c/0xe785e0899e7acd50a55f6b
 ### 6.3 获取指定资金库信息 Get Vault
 
 ```http
-GET /v1/vaults/{chain}/{vault_address}
+GET /v1/api/vaults/{chain}/{vault_address}
 ```
 
 **参数**:
@@ -1425,7 +1424,7 @@ GET /v1/vaults/{chain}/{vault_address}
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/vaults/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -1520,7 +1519,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/vaults/bsc/0xe785e0899e7acd50a55f
 ### 6.4 获取资金库 TVL 历史 Get Vault TVL History
 
 ```http
-GET /v1/vaults/{chain}/{vault_address}/tvl-history
+GET /v1/api/vaults/{chain}/{vault_address}/tvl-history
 ```
 
 **参数**:
@@ -1539,14 +1538,14 @@ GET /v1/vaults/{chain}/{vault_address}/tvl-history
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/vaults/bsc/0xe755e0899e7acd50a55f6b517f1f9c46574c9d7c/tvl-history?startTime=1672531200&endTime=1704067200" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50a55f6b517f1f9c46574c9d7c/tvl-history?startTime=1672531200&endTime=1704067200" \
   -H "x-api-key: your-api-key"
 ```
 
 **示例请求 (仅开始时间)**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/vaults/bsc/0xe755e0899e7acd50a55f6b517f1f9c46574c9d7c/tvl-history?startTime=1672531200" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50a55f6b517f1f9c46574c9d7c/tvl-history?startTime=1672531200" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -1596,7 +1595,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/vaults/bsc/0xe755e0899e7acd50a55f
 ##6.5 获取资金库最近活动 Get Vault Recent Activity
 
 ```http
-GET /v1/vaults/{chain}/{vault_address}/recent-activity
+GET /v1/api/vaults/{chain}/{vault_address}/recent-activity
 ```
 
 **参数**:
@@ -1615,7 +1614,7 @@ GET /v1/vaults/{chain}/{vault_address}/recent-activity
 **示例请求**:
 
 ```bash
-curl -X GET "https://api.dex.jongun2038.win/v1/vaults/bsc/0xe755e0899e7acd50a55f6b517f1f9c46574c9d7c/recent-activity?pageSize=20&pageNum=1" \
+curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50a55f6b517f1f9c46574c9d7c/recent-activity?pageSize=20&pageNum=1" \
   -H "x-api-key: your-api-key"
 ```
 
@@ -1714,7 +1713,7 @@ Returned when request parameters are invalid or missing required fields.
 ## Example Usage
 
 ```bash
-curl -X GET "https://api.example.com/v1/vaults/bsc/withdrawals/0xe785E0899E7aCD50a55F6B517F1F9C46574c9D7C?pageSize=20&pageNum=1" \
+curl -X GET "https://api.example.com/v1/api/vaults/bsc/withdrawals/0xe785E0899E7aCD50a55F6B517F1F9C46574c9D7C?pageSize=20&pageNum=1" \
   -H "accept: application/json"
 ```
 
@@ -1816,3 +1815,19 @@ EntySquare Dex API 提供了完整的去中心化交易所功能：
 - **投资组合管理**: 跟踪和管理 DeFi 投资
 
 这个 API 为开发者提供了构建下一代 DeFi 应用所需的所有工具和数据。
+
+## 🧪 API Testing
+
+All major API endpoints can be tested directly using `curl` commands as shown in the documentation above.  
+You can copy and run the provided `curl` examples for each endpoint to verify the API responses.
+
+- Each endpoint section includes a **示例请求** (example request) using `curl`.
+- The API supports standard HTTP methods and returns JSON responses.
+- Make sure to replace `your-api-key` with your actual API key in the `x-api-key` header.
+
+**Automated tests:**  
+If you want to automate endpoint testing, you can use tools like [Postman](https://www.postman.com/), [Hoppscotch](https://hoppscotch.io/), or write your own integration tests using frameworks such as [Vitest](https://vitest.dev/) or [Jest](https://jestjs.io/).
+
+**Note:**  
+- The backend project includes a `test/` directory for automated test cases, but you can always use `curl` for manual endpoint verification.
+- For production or CI/CD, consider writing scripts that use `curl` to check endpoint health and correctness.

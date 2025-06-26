@@ -69,10 +69,10 @@ if (health.healthy) {
 
 #### 1. 池相关端点 (4个)
 
-- `GET /v1/api/dex/pools` - 池列表
-- `GET /v1/api/dex/pools/{poolId}` - 池详情
+- `GET /v1/api/dex/pools/{chain}` - 池列表
+- `GET /v1/api/dex/pools/{chain}/{poolId}` - 池详情
 - `GET /v1/api/dex/tokens` - 代币列表
-- `GET /v1/api/dex/analytics` - 分析数据
+- `GET /v1/api/dex/{chain}/analytics` - 分析数据
 
 #### 2. 用户相关端点 (6个)
 

@@ -65,7 +65,13 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 	const offset = (page - 1) * limit;
 	
 	console.log('🔗 Fetching pools from subgraph...');
-	
+
+	// 获取 chain 路径参数
+    const chain = c.req.param('chain') || 'none';
+
+    // 你可以根据 chain 做不同处理，比如切换 subgraphClient，或校验
+    console.log('Request chain:', chain);
+
 	const subgraphPools = await subgraphClient.getPools(limit, offset, 'timestamp', 'desc');
 	
 	// Transform subgraph data to API format
@@ -130,6 +136,12 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
  * Get pool details by ID
  */
 async function handlePoolDetails(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	// 获取 chain 路径参数
+    const chain = c.req.param('chain') || 'none';
+
+    // 你可以根据 chain 做不同处理，比如切换 subgraphClient，或校验
+    console.log('Request chain:', chain);
+	// 获取 poolId 路径参数
 	const poolId = c.req.param('poolId');
 	
 	if (!poolId) {
@@ -251,7 +263,13 @@ async function handleTokensList(c: Context<{ Bindings: Env }>, subgraphClient: a
  */
 async function handleAnalytics(c: Context<{ Bindings: Env }>, subgraphClient: any) {
 	console.log('🔗 Fetching DEX analytics from subgraph...');
-	
+
+	// 获取 chain 路径参数
+    const chain = c.req.param('chain') || 'none';
+
+    // 你可以根据 chain 做不同处理，比如切换 subgraphClient，或校验
+    console.log('Request chain:', chain);
+
 	const [pools, tokens] = await Promise.all([
 		subgraphClient.getPools(1000, 0), // Get many pools for analytics
 		subgraphClient.getTokens()
@@ -296,6 +314,7 @@ async function handleAnalytics(c: Context<{ Bindings: Env }>, subgraphClient: an
 
 	return c.json({
 		success: true,
+		chain,
 		data: analytics,
 		timestamp: new Date().toISOString()
 	});

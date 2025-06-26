@@ -34,14 +34,14 @@ export function createUsersHandler(action: string) {
 					return await handleUserBinIds(c, subgraphClient);
 				case 'poolIds':
 					return await handleUserPoolIds(c, subgraphClient);
+				case 'feesEarned':
+					return await handleUserFeesEarned(c, subgraphClient);
+				case 'poolUserBalances':
+					return await handleUserPoolBalances(c, subgraphClient);
 				case 'history':
 					return await handleUserHistory(c, subgraphClient);
 				case 'lifetimeStats':
 					return await handleUserLifetimeStats(c, subgraphClient);
-				case 'feesEarned':
-					return await handleUserFeesEarned(c, subgraphClient);
-				case 'poolBalances':
-					return await handleUserPoolBalances(c, subgraphClient);
 				default:
 					return c.json({
 						error: 'Invalid action',
@@ -64,7 +64,7 @@ export function createUsersHandler(action: string) {
  * Get user bin IDs
  */
 async function handleUserBinIds(c: Context<{ Bindings: Env }>, subgraphClient: any) {
-	const userAddress = c.req.param('address');
+	const userAddress = c.req.param('user_address');
 	
 	if (!userAddress || !isValidAddress(userAddress)) {
 		return c.json({
@@ -103,8 +103,14 @@ async function handleUserBinIds(c: Context<{ Bindings: Env }>, subgraphClient: a
  * Get user pool IDs
  */
 async function handleUserPoolIds(c: Context<{ Bindings: Env }>, subgraphClient: any) {
-	const userAddress = c.req.param('address');
-	
+	const userAddress = c.req.param('user_address');
+	const chain = c.req.param('chain');
+	if (!chain || !['bsc', 'chapel'].includes(chain)) {
+		return c.json({
+			error: 'Valid chain is required',
+			timestamp: new Date().toISOString()
+		}, 400);
+	}
 	if (!userAddress || !isValidAddress(userAddress)) {
 		return c.json({
 			error: 'Valid user address is required',
@@ -138,7 +144,7 @@ async function handleUserPoolIds(c: Context<{ Bindings: Env }>, subgraphClient: 
  * Get user transaction history
  */
 async function handleUserHistory(c: Context<{ Bindings: Env }>, subgraphClient: any) {
-	const userAddress = c.req.param('address');
+	const userAddress = c.req.param('user_address');
 	const page = parseInt(c.req.query('page') || '1');
 	const limit = Math.min(parseInt(c.req.query('limit') || '50'), 100);
 	
@@ -230,8 +236,8 @@ async function handleUserHistory(c: Context<{ Bindings: Env }>, subgraphClient: 
  * Get user lifetime stats
  */
 async function handleUserLifetimeStats(c: Context<{ Bindings: Env }>, subgraphClient: any) {
-	const userAddress = c.req.param('address');
-	
+	const userAddress = c.req.param('user_address');
+
 	if (!userAddress || !isValidAddress(userAddress)) {
 		return c.json({
 			error: 'Valid user address is required',
@@ -285,8 +291,8 @@ async function handleUserLifetimeStats(c: Context<{ Bindings: Env }>, subgraphCl
  * Get user fees earned
  */
 async function handleUserFeesEarned(c: Context<{ Bindings: Env }>, subgraphClient: any) {
-	const userAddress = c.req.param('address');
-	
+	const userAddress = c.req.param('user_address');
+
 	if (!userAddress || !isValidAddress(userAddress)) {
 		return c.json({
 			error: 'Valid user address is required',
@@ -336,12 +342,12 @@ async function handleUserFeesEarned(c: Context<{ Bindings: Env }>, subgraphClien
  * Get user balances in a specific pool
  */
 async function handleUserPoolBalances(c: Context<{ Bindings: Env }>, subgraphClient: any) {
-	const userAddress = c.req.param('address');
-	const poolId = c.req.param('poolId');
-	
+	const userAddress = c.req.query('lpAddress');
+	const poolId = c.req.query('poolAddress');
+	const chainId = c.req.query('chainId');
 	if (!userAddress || !isValidAddress(userAddress)) {
 		return c.json({
-			error: 'Valid user address is required',
+			error: 'Valid lp address is required',
 			timestamp: new Date().toISOString()
 		}, 400);
 	}
@@ -353,7 +359,7 @@ async function handleUserPoolBalances(c: Context<{ Bindings: Env }>, subgraphCli
 		}, 400);
 	}
 
-	console.log('🔗 Fetching user pool balances from subgraph...', userAddress, poolId);
+	console.log('🔗 Fetching user pool balances from subgraph...', chainId, userAddress, poolId);
 	
 	const userPositions = await subgraphClient.getUserPositionsInPool(userAddress, poolId);
 	
