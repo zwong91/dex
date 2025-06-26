@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { createAuthMiddleware } from './middleware/auth';
+import { createAuthMiddleware } from '../middleware/auth';
 import { createSubgraphClient } from './graphql/client';
 import type { Env } from '../index';
 

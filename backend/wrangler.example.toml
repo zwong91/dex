@@ -4,17 +4,21 @@
 # This is the pure GraphQL configuration for DEX API V1
 # 
 # Major changes in V1:
-# 1. Removed all database dependencies
-# 2. Pure GraphQL architecture using subgraph as single source of truth
-# 3. Simplified cron jobs for monitoring and metrics
-# 4. Streamlined authentication without database
-# 5. All data aggregated from blockchain via GraphQL
+# 1. New D1 database with 15 tables for authentication and analytics
+# 2. API key-based authentication system
+# 3. Scheduled cron jobs for data synchronization
+# 4. Permission-based access control with subscription tiers
+# 5. Comprehensive rate limiting and usage tracking
 #
 # Setup Instructions:
 # 1. Copy this file to wrangler.toml
-# 2. Set secrets: wrangler secret put KEY
-# 3. Deploy subgraph to The Graph network
-# 4. Update SUBGRAPH_URL in vars section
+# 2. Replace YOUR_*_HERE placeholders with actual values
+# 3. Create D1 databases: wrangler d1 create d1-dex-database
+# 4. Run migrations: npm run migrate:local
+# 5. Initialize data: npm run db:init
+# 6. Set secrets: wrangler secret put KEY && wrangler secret put SUBGRAPH_AUTH_TOKEN
+# 7. Deploy subgraph to The Graph network
+# 8. Update SUBGRAPH_URL in vars section
 # ==================================================
 
 name = "dex-backend-serverless"
@@ -23,7 +27,7 @@ compatibility_date = "2025-06-20"
 compatibility_flags = ["nodejs_compat"]
 
 # Replace with your Cloudflare account ID
-account_id = "ec9b597fa02615ca6a0e62b7ff35d0cc"
+account_id = "YOUR_ACCOUNT_ID_HERE"
 
 # ✅ Scheduled jobs for data synchronization - Multiple cron triggers
 #[triggers]
@@ -61,34 +65,46 @@ SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
 [ai]
 binding = "AI"
 
+# ✅ Database configuration - Consistent binding names
+[[d1_databases]]
+binding = "D1_DATABASE"  # Matches env.D1_DATABASE in code
+database_name = "d1-dex-database"
+database_id = "YOUR_NEW_DEX_DATABASE_ID_HERE"
+migrations_dir = "drizzle"
+
 # 🔧 Production R2 storage binding - Disabled for initial deployment
-# [[r2_buckets]]
-# binding = "R2"
-# bucket_name = "dex-storage"
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "dex-storage"
 # preview_bucket_name = "dex-storage-preview"  # Optional
 
 # 🔧 Development environment configuration (minimal for testing)
 [env.development]
-vars = { NODE_ENV = "development", SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest", SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status" }
+[env.development.vars]
+NODE_ENV = "development"
+LOG_LEVEL = "debug"
+ENABLE_CONSOLE_LOGS = "true"
+ENABLE_STRUCTURED_LOGS = "true"
+# Development can use different RPC endpoints or test networks
+SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest"
+SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
 
-# 🔧 Staging environment configuration
-[env.staging]
-vars = { NODE_ENV = "staging", SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest", SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status" }
-
-[env.staging.ai]
+[env.development.ai]
 binding = "AI"
-
-# [[env.staging.r2_buckets]]
-# binding = "R2"
-# bucket_name = "dex-storage-staging"
 
 # ✅ Production environment configuration
 [env.production]
-vars = { NODE_ENV = "production", SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest", SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status" }
+[env.production.vars]
+NODE_ENV = "production"
+LOG_LEVEL = "warn"
+ENABLE_CONSOLE_LOGS = "false"
+ENABLE_STRUCTURED_LOGS = "true"
+SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest"
+SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
 
 [env.production.ai]
 binding = "AI"
 
-# [[env.production.r2_buckets]]
-# binding = "R2"
-# bucket_name = "dex-storage"
+[[env.production.r2_buckets]]
+binding = "R2"
+bucket_name = "dex-storage"

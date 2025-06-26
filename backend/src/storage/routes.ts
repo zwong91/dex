@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { createAuthMiddleware } from '../dex/middleware/auth';
+import { createAuthMiddleware } from '../middleware/auth';
 import type { Env } from '../index';
 
 // Storage request schemas
@@ -380,7 +380,7 @@ async function createProjectStructure(template: string, name: string, descriptio
 		name: name.toLowerCase().replace(/\s+/g, '-'),
 		version: '1.0.0',
 		description: description || 'A blockchain project',
-		main: 'index.js',
+		main: 'index.ts',
 		scripts: {
 			test: 'echo "Error: no test specified" && exit 1'
 		},
@@ -402,7 +402,7 @@ async function createProjectStructure(template: string, name: string, descriptio
 			structure['contracts/NFT.sol'] = `// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\nimport "@openzeppelin/contracts/token/ERC721/ERC721.sol";\n\ncontract NFT is ERC721 {\n    constructor() ERC721("MyNFT", "MNFT") {}\n}\n`;
 			break;
 		default:
-			structure['src/index.js'] = `console.log('Hello, ${name}!');\n`;
+			structure['src/index.ts'] = `console.log('Hello, ${name}!');\n`;
 	}
 
 	return structure;
