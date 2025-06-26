@@ -33,10 +33,21 @@ account_id = "ec9b597fa02615ca6a0e62b7ff35d0cc"
 #    "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
 #]
 
+# ✅ Logging configuration - Enable Workers logs
+# This enables automatic logging in Cloudflare Workers dashboard
+# Logs will be available in: Cloudflare Dashboard > Workers & Pages > Your Worker > LogsMore actions
+[observability]
+enabled = true
+
 # ✅ Environment variables - Pure GraphQL configuration
 [vars]
 # Basic configuration
 NODE_ENV = "production"
+
+# Logging configuration
+LOG_LEVEL = "info"  # debug, info, warn, error
+ENABLE_CONSOLE_LOGS = "true"More actions
+ENABLE_STRUCTURED_LOGS = "true"
 
 # GraphQL configuration
 SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest"
