@@ -46,10 +46,10 @@ interface PoolData {
 // 转换函数
 const apiPoolToPoolData = (pool: any): PoolData => ({
   id: pool.id,
-  token0: pool.token0,
-  token1: pool.token1,
-  icon0: pool.icon0,
-  icon1: pool.icon1,
+  token0: pool.tokenX?.symbol || '',
+  token1: pool.tokenY?.symbol || '',
+  icon0: pool.tokenX?.icon || '',
+  icon1: pool.tokenY?.icon || '',
   tvl: pool.tvl,
   apr: pool.apr,
   volume24h: pool.volume24h,
@@ -57,8 +57,8 @@ const apiPoolToPoolData = (pool: any): PoolData => ({
   userLiquidity: pool.userLiquidity,
   pairAddress: pool.pairAddress,
   binStep: pool.binStep,
-  tokenXAddress: pool.tokenXAddress,
-  tokenYAddress: pool.tokenYAddress,
+  tokenXAddress: pool.tokenXAddress || pool.tokenX?.address,
+  tokenYAddress: pool.tokenYAddress || pool.tokenY?.address,
 });
 
 const PoolPage = () => {
