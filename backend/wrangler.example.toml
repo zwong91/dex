@@ -78,6 +78,16 @@ binding = "R2"
 bucket_name = "dex-storage"
 # preview_bucket_name = "dex-storage-preview"  # Optional
 
+# Durable Objects & Migrations
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["D1Agent"]
+
+[durable_objects]
+bindings = [
+  { name = "MCP_OBJECT", class_name = "D1Agent" }
+]
+
 # 🔧 Development environment configuration (minimal for testing)
 [env.development]
 [env.development.vars]

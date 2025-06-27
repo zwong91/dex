@@ -69,6 +69,8 @@
     "drizzle-orm": "^0.44.2",
     "hono": "^4.8.3",
     "viem": "^2.21.54",
+    "@modelcontextprotocol/sdk": "^1.13.2",
+    "agents": "^0.0.99",
     "zod": "^3.25.67"
   }
 }
