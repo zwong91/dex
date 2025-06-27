@@ -55,7 +55,8 @@ export function createStorageRoutes() {
 
 				// Create project structure
 				const projectId = generateProjectId();
-				const projectPath = `projects/${projectId}`;
+				const user = c.get('user') as any;
+				const projectPath = `projects/user-${user.id}/${projectId}`;
 				
 				// Create basic project files based on template
 				const projectStructure = await createProjectStructure(template, name, description);

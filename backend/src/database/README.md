@@ -27,7 +27,7 @@ curl -X POST "http://localhost:8787/v1/api/d1/users" \
 curl -X PUT "http://localhost:8787/v1/api/d1/users/user_xxx" \
   -H "Authorization: Bearer test-key" \
   -H "Content-Type: application/json" \
-  -d '{"name":"新名字"}'
+  -d '{"name":"new name"}'
 ```
 
 5. 删除用户（软删除）  
@@ -39,13 +39,13 @@ curl -X DELETE "http://localhost:8787/v1/api/d1/users/user_xxx" \
 6. 查询所有 API Key（分页）  
 ```sh
 curl -X GET "http://localhost:8787/v1/api/d1/api-keys?page=1&limit=20" \
-  -H "Authorization: Bearer test-key"
+  -H "Authorization: Bearer test-key" | jq
 ```
 
 7. 查询单个 API Key  
 ```sh
 curl -X GET "http://localhost:8787/v1/api/d1/api-keys/key_xxx" \
-  -H "Authorization: Bearer test-key"
+  -H "Authorization: Bearer test-key" | jq
 ```
 
 8. 创建 API Key  
@@ -61,7 +61,7 @@ curl -X POST "http://localhost:8787/v1/api/d1/api-keys" \
 curl -X PUT "http://localhost:8787/v1/api/d1/api-keys/key_xxx" \
   -H "Authorization: Bearer test-key" \
   -H "Content-Type: application/json" \
-  -d '{"name":"新Key名"}'
+  -d '{"name":"new key name"}'
 ```
 
 10. 删除（撤销）API Key  
@@ -85,7 +85,7 @@ curl -X GET "http://localhost:8787/v1/api/d1/applications" \
 13. 查询统计信息  
 ```sh
 curl -X GET "http://localhost:8787/v1/api/d1/analytics" \
-  -H "Authorization: Bearer test-key"
+  -H "Authorization: Bearer test-key" | jq
 ```
 
 ---
