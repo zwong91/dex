@@ -59,7 +59,8 @@ curl -X GET "http://localhost:8787/v1/api/r2/project" \
 ### 3. 读取文件内容
 
 ```bash
-curl -X GET "http://localhost:8787/v1/api/r2/file/projects/proj_xxx/README.md"
+curl -X GET "http://localhost:8787/v1/api/r2/file/projects/proj_xxx/README.md" \
+  -H "x-api-key: test-key" | jq
 ```
 > README.md 替换为实际文件路径
 
@@ -70,6 +71,7 @@ curl -X GET "http://localhost:8787/v1/api/r2/file/projects/proj_xxx/README.md"
 ```bash
 curl -X PUT "http://localhost:8787/v1/api/r2/file/projects/proj_xxx/README.md" \
   -H "Content-Type: application/json" \
+  -H "x-api-key: test-key" \
   -d '{"content": "New content for README"}'
 ```
 
@@ -80,6 +82,7 @@ curl -X PUT "http://localhost:8787/v1/api/r2/file/projects/proj_xxx/README.md" \
 ```bash
 curl -X POST "http://localhost:8787/v1/api/r2/rename" \
   -H "Content-Type: application/json" \
+  -H "x-api-key: test-key" \
   -d '{
     "oldPath": "projects/proj_xxx/README.md",
     "newPath": "projects/proj_xxx/README-NEW.md"
