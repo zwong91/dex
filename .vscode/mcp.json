@@ -5,7 +5,23 @@
             "command": "npx",
             "args": [
                 "mcp-remote",
-                "http://localhost:8787/sse"// or remote-mcp-server.your-account.workers.dev/sse
+                "http://localhost:8787/mcp"// or remote-mcp-server.your-account.workers.dev/mcp
+            ]
+        },
+        "cf-docs": {
+            "type": "sse",
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "https://docs.mcp.cloudflare.com/sse"
+            ]
+        },
+        "cf-graphql": {
+            "type": "sse",
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "https://graphql.mcp.cloudflare.com/sse"
             ]
         }
     }
