@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { createAuthMiddleware } from '../dex/middleware/auth';
+import { createAuthMiddleware } from '../middleware/auth';
 import type { Env } from '../index';
 
 // Storage request schemas
@@ -55,7 +55,8 @@ export function createStorageRoutes() {
 
 				// Create project structure
 				const projectId = generateProjectId();
-				const projectPath = `projects/${projectId}`;
+				const user = c.get('user') as any;
+				const projectPath = `projects/user-${user.id}/${projectId}`;
 				
 				// Create basic project files based on template
 				const projectStructure = await createProjectStructure(template, name, description);
@@ -151,10 +152,27 @@ export function createStorageRoutes() {
 		}
 	});
 
+
+	// 支持带或不带 projects/ 前缀的路径
+	function parseProjectFilePath(path: string): { projectId: string, relativePath: string } {
+		let parts = path.split('/');
+		// 兼容前缀
+		if (parts[0] === 'projects') {
+			parts = parts.slice(1);
+		}
+		if (parts.length < 2) throw new Error('Invalid file path');
+		const projectId = parts[0];
+		const relativePath = parts.slice(1).join('/');
+		return { projectId, relativePath };
+	}
+
 	// File operations
 	app.get('/file/:path{.+}', async (c) => {
 		try {
 			const filePath = c.req.param('path');
+			const user = c.get('user') as any;
+			const { projectId, relativePath } = parseProjectFilePath(filePath);
+			const fullR2Path = `projects/user-${user.id}/${projectId}/${relativePath}`;
 			
 			if (!c.env.R2) {
 				return c.json({
@@ -163,12 +181,12 @@ export function createStorageRoutes() {
 				}, 503);
 			}
 
-			const object = await c.env.R2.get(filePath);
+			const object = await c.env.R2.get(fullR2Path);
 			
 			if (!object) {
 				return c.json({
 					error: 'File not found',
-					path: filePath,
+					path: fullR2Path,
 					timestamp: new Date().toISOString()
 				}, 404);
 			}
@@ -206,6 +224,9 @@ export function createStorageRoutes() {
 			try {
 				const filePath = c.req.param('path');
 				const { content } = c.req.valid('json');
+				const user = c.get('user') as any;
+				const { projectId, relativePath } = parseProjectFilePath(filePath);
+				const fullR2Path = `projects/user-${user.id}/${projectId}/${relativePath}`;
 				
 				if (!c.env.R2) {
 					return c.json({
@@ -214,9 +235,9 @@ export function createStorageRoutes() {
 					}, 503);
 				}
 
-				await c.env.R2.put(filePath, content, {
+				await c.env.R2.put(fullR2Path, content, {
 					httpMetadata: {
-						contentType: getContentType(filePath),
+						contentType: getContentType(relativePath),
 					},
 				});
 
@@ -246,6 +267,11 @@ export function createStorageRoutes() {
 		async (c) => {
 			try {
 				const { oldPath, newPath } = c.req.valid('json');
+				const user = c.get('user') as any;
+				const { projectId: oldProjectId, relativePath: oldRel } = parseProjectFilePath(oldPath);
+				const { projectId: newProjectId, relativePath: newRel } = parseProjectFilePath(newPath);
+				const fullOldPath = `projects/user-${user.id}/${oldProjectId}/${oldRel}`;
+				const fullNewPath = `projects/user-${user.id}/${newProjectId}/${newRel}`;
 				
 				if (!c.env.R2) {
 					return c.json({
@@ -255,7 +281,7 @@ export function createStorageRoutes() {
 				}
 
 				// Get the old file
-				const oldObject = await c.env.R2.get(oldPath);
+				const oldObject = await c.env.R2.get(fullOldPath);
 				if (!oldObject) {
 					return c.json({
 						error: 'Source file not found',
@@ -266,14 +292,14 @@ export function createStorageRoutes() {
 
 				// Copy to new location
 				const content = await oldObject.text();
-				await c.env.R2.put(newPath, content, {
+				await c.env.R2.put(fullNewPath, content, {
 					httpMetadata: {
-						contentType: getContentType(newPath),
+						contentType: getContentType(newRel),
 					},
 				});
 
 				// Delete old file
-				await c.env.R2.delete(oldPath);
+				await c.env.R2.delete(fullOldPath);
 
 				return c.json({
 					success: true,
@@ -380,7 +406,7 @@ async function createProjectStructure(template: string, name: string, descriptio
 		name: name.toLowerCase().replace(/\s+/g, '-'),
 		version: '1.0.0',
 		description: description || 'A blockchain project',
-		main: 'index.js',
+		main: 'index.ts',
 		scripts: {
 			test: 'echo "Error: no test specified" && exit 1'
 		},
@@ -402,7 +428,7 @@ async function createProjectStructure(template: string, name: string, descriptio
 			structure['contracts/NFT.sol'] = `// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\nimport "@openzeppelin/contracts/token/ERC721/ERC721.sol";\n\ncontract NFT is ERC721 {\n    constructor() ERC721("MyNFT", "MNFT") {}\n}\n`;
 			break;
 		default:
-			structure['src/index.js'] = `console.log('Hello, ${name}!');\n`;
+			structure['src/index.ts'] = `console.log('Hello, ${name}!');\n`;
 	}
 
 	return structure;

@@ -7,7 +7,7 @@
 export * from './types';
 
 // Authentication
-export * from './auth';
+export * from '../middleware/auth';
 
 // Handlers (only export GraphQL-based handlers)
 export * from './handlers/pools-graphql';

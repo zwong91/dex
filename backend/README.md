@@ -66,23 +66,40 @@ npm install
 ### 2. Environment Configuration
 
 ```bash
+# Copy configuration template
 cp wrangler.example.toml wrangler.toml
-# Edit wrangler.toml and fill in Cloudflare account, D1 database, R2 storage, API Key, etc.
+
+# Edit wrangler.toml with the following information:
+# - Cloudflare Account ID
+# - D1 database connections
+# - R2 storage bucket settings
+# - API keys and environment variables
 ```
 
 ### 3. Database Setup
 
 ```bash
+# Create D1 database
 wrangler d1 create d1-dex-database
+
+# Generate type definitions
 npm run cf-typegen
+
+# Generate migration files
 npm run generate
-npm run migrate:local
+
+# Apply database migrations
+npm run migrate:local        # Local development
+npm run migrate:prod         # Production environment
+
+# Initialize database data
 npm run db:init
 ```
 
 ### 4. Start Development Server
 
 ```bash
+# Start local development server
 npm run dev
 # Service runs at http://localhost:8787 by default
 ```
@@ -92,7 +109,8 @@ npm run dev
 ### Common Commands
 
 ```bash
-npm run dev              # Start local development server
+# Start development server (with hot reload)
+npm run dev
 npm run test             # Run all tests
 npm run test:unit        # Unit tests
 npm run test:integration # Integration tests
