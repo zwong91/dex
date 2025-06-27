@@ -1,0 +1,12 @@
+{
+    "servers": {
+        "d1-agent": {
+            "type": "sse",
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "http://localhost:8787/sse"// or remote-mcp-server.your-account.workers.dev/sse
+            ]
+        }
+    }
+}
