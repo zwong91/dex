@@ -1,11 +1,11 @@
-`/storage` 路由的常用 curl 调用示例（假设本地服务端口为 8787，API 路径为 `/v1/api/storage`，如有 x-api-key 鉴权请加上 `-H "x-api-key: test-key"`）：
+`/storage` 路由的常用 curl 调用示例（假设本地服务端口为 8787，API 路径为 `/v1/api/r2`，如有 x-api-key 鉴权请加上 `-H "x-api-key: test-key"`）：
 
 ---
 
 ### 1. 创建项目
 
 ```bash
-curl -X POST "http://localhost:8787/v1/api/storage/create" \
+curl -X POST "http://localhost:8787/v1/api/r2/create" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "MyProject",
@@ -19,7 +19,7 @@ curl -X POST "http://localhost:8787/v1/api/storage/create" \
 ### 2. 获取项目列表
 
 ```bash
-curl -X GET "http://localhost:8787/v1/api/storage/project"
+curl -X GET "http://localhost:8787/v1/api/r2/project"
 ```
 
 ---
@@ -27,7 +27,7 @@ curl -X GET "http://localhost:8787/v1/api/storage/project"
 ### 3. 读取文件内容
 
 ```bash
-curl -X GET "http://localhost:8787/v1/api/storage/file/projects/proj_xxx/README.md"
+curl -X GET "http://localhost:8787/v1/api/r2/file/projects/proj_xxx/README.md"
 ```
 > README.md 替换为实际文件路径
 
@@ -36,7 +36,7 @@ curl -X GET "http://localhost:8787/v1/api/storage/file/projects/proj_xxx/README.
 ### 4. 写入（或覆盖）文件
 
 ```bash
-curl -X PUT "http://localhost:8787/v1/api/storage/file/projects/proj_xxx/README.md" \
+curl -X PUT "http://localhost:8787/v1/api/r2/file/projects/proj_xxx/README.md" \
   -H "Content-Type: application/json" \
   -d '{"content": "New content for README"}'
 ```
@@ -46,7 +46,7 @@ curl -X PUT "http://localhost:8787/v1/api/storage/file/projects/proj_xxx/README.
 ### 5. 重命名文件
 
 ```bash
-curl -X POST "http://localhost:8787/v1/api/storage/rename" \
+curl -X POST "http://localhost:8787/v1/api/r2/rename" \
   -H "Content-Type: application/json" \
   -d '{
     "oldPath": "projects/proj_xxx/README.md",
@@ -59,7 +59,7 @@ curl -X POST "http://localhost:8787/v1/api/storage/rename" \
 ### 6. 获取存储空间用量
 
 ```bash
-curl -X GET "http://localhost:8787/v1/api/storage/size"
+curl -X GET "http://localhost:8787/v1/api/r2/size"
 ```
 
 ---

@@ -48,7 +48,7 @@ app.get('/health', (c) => {
 	return c.json({
 		status: 'ok',
 		timestamp: new Date().toISOString(),
-		services: ['ai', 'storage', 'dex-graphql'],
+		services: ['ai', 'd1', 'r2', 'dex-graphql'],
 		architecture: 'pure-graphql',
 		framework: 'hono'
 	});
@@ -57,8 +57,8 @@ app.get('/health', (c) => {
 // Mount route modules using unified routes
 app.route('/v1/api/dex', createDexRoutes());
 app.route('/v1/api/ai', createAIRoutes());
-app.route('/v1/api/storage', createStorageRoutes());
-app.route('/v1/api/database', createDBRoutes());
+app.route('/v1/api/d1', createDBRoutes());
+app.route('/v1/api/r2', createStorageRoutes());
 
 // 404 handler
 app.notFound((c) => {

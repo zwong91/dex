@@ -1,6 +1,18 @@
 import type { Context, Next } from 'hono';
 import type { Env } from '../index';
 import type { ApiKeyValidationResult, RateLimitResult } from '../dex/types';
+import { users, apiKeys } from '../database/schema';
+import { eq } from 'drizzle-orm';
+
+// Extend Hono Context to allow custom keys
+type AuthContext = Context<{
+  Bindings: Env;
+  Variables: {
+	user?: { id: string; email: string };
+	permissions?: string[];
+	tier?: string;
+  };
+}>;
 
 // Helper function to check permissions
 export function hasPermission(userPermissions: string[], required: string): boolean {
@@ -12,7 +24,7 @@ export function hasPermission(userPermissions: string[], required: string): bool
  * Validates API keys and checks permissions
  */
 export function createAuthMiddleware() {
-	return async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
+	return async function authMiddleware(c: AuthContext, next: Next) {
 		// Extract API key from headers
 		const apiKey = c.req.header('X-API-Key') || 
 					  c.req.header('Authorization')?.replace('Bearer ', '');
@@ -39,8 +51,8 @@ export function createAuthMiddleware() {
 		// Check rate limits
 		const rateLimit = await checkRateLimit(
 			c.env,
-			isValid.user.id,
-			isValid.tier
+			isValid.user?.id ?? '',
+			isValid.tier ?? 'free'
 		);
 		
 		if (rateLimit.exceeded) {
@@ -59,10 +71,10 @@ export function createAuthMiddleware() {
 		// Track API usage
 		await trackApiUsage(
 			c.env,
-			apiKey,
+			isValid.apiKeyId ?? '', // pass the real api_key_id, fallback to ''
 			c.req.path,
 			c.req.method,
-			isValid.user.id
+			isValid.user?.id ?? ''
 		);
 
 		await next();
@@ -73,7 +85,7 @@ export function createAuthMiddleware() {
  * Validate API key
  */
 // API key validation function
-export async function validateApiKey(env: any, apiKey: string): Promise<ApiKeyValidationResult> {
+export async function validateApiKey(env: any, apiKey: string): Promise<ApiKeyValidationResult & { apiKeyId?: string }> {
   if (!apiKey) {
 	return { valid: false, error: 'API key is required' };
   }
@@ -81,14 +93,37 @@ export async function validateApiKey(env: any, apiKey: string): Promise<ApiKeyVa
   try {
 	// Support demo API keys for testing
 	if (apiKey === 'test-key') {
+	  const testUserId = 'test-user-001';
+	  const testApiKeyId = 'test-api-key-id';
+
+	  // Ensure test user exists
+	  let testUser = await env.D1_DATABASE.prepare('SELECT * FROM users WHERE id = ?').bind(testUserId).first();
+	  if (!testUser) {
+		console.log('Inserting test user...');
+		await env.D1_DATABASE.prepare('INSERT INTO users (id, email, status) VALUES (?, ?, ?)')
+		  .bind(testUserId, 'test@entysquare.com', 'active')
+		  .run();
+		testUser = { id: testUserId, email: 'test@entysquare.com' };
+	  }
+
+	  // Ensure test API key exists
+	  let testApiKey = await env.D1_DATABASE.prepare('SELECT * FROM api_keys WHERE id = ?').bind(testApiKeyId).first();
+	  if (!testApiKey) {
+		console.log('Inserting test API key...');
+		await env.D1_DATABASE.prepare('INSERT INTO api_keys (id, user_id, key_hash, key_prefix, name, tier, permissions, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+		  .bind(testApiKeyId, testUserId, 'test-key', 'test_', 'Test Key', 'basic', JSON.stringify(['pools_read', 'analytics_read']), 'active')
+		  .run();
+	  }
+
 	  return {
 		valid: true,
 		user: {
-		  id: 'test-user-001',
+		  id: testUserId,
 		  email: 'test@entysquare.com'
 		},
 		permissions: ['pools_read', 'analytics_read'],
-		tier: 'basic'
+		tier: 'basic',
+		apiKeyId: testApiKeyId
 	  };
 	}
 
@@ -100,7 +135,8 @@ export async function validateApiKey(env: any, apiKey: string): Promise<ApiKeyVa
 		  email: 'admin@entysquare.com'
 		},
 		permissions: ['admin_system', 'analytics_read', 'pools_read', 'rewards_read', 'user_read', 'vaults_read'],
-		tier: 'enterprise'
+		tier: 'enterprise',
+		apiKeyId: 'admin-api-key-id' // <-- must match a real id in your test db or use a dummy for dev
 	  };
 	}
 
@@ -142,12 +178,15 @@ export async function validateApiKey(env: any, apiKey: string): Promise<ApiKeyVa
 		email: keyRecord.email
 	  },
 	  permissions,
-	  tier: keyRecord.tier
+	  tier: keyRecord.tier,
+	  apiKeyId: keyRecord.id // <-- use the real api_keys.id
 	};
   } catch (error) {
 	console.error('API key validation error:', error);
 	return { valid: false, error: 'Validation failed' };
   }
+  // Fallback for all code paths
+  return { valid: false, error: 'Unknown error' };
 }
 
 /**
@@ -156,41 +195,45 @@ export async function validateApiKey(env: any, apiKey: string): Promise<ApiKeyVa
 export async function checkRateLimit(env: any, userId: string, tier: string): Promise<RateLimitResult> {
   // Simplified rate limiting - in production use Redis or more sophisticated approach
   const limits = {
-    free: 50,
-    basic: 1000,
-    pro: 10000,
-    enterprise: 999999
+	free: 50,
+	basic: 1000,
+	pro: 10000,
+	enterprise: 999999
   };
 
   const limit = limits[tier as keyof typeof limits] || limits.free;
   
   // For now, return not exceeded (implement proper rate limiting later)
   return {
-    exceeded: false,
-    limit,
-    resetTime: new Date(Date.now() + 3600000).toISOString() // 1 hour from now
+	exceeded: false,
+	limit,
+	resetTime: new Date(Date.now() + 3600000).toISOString() // 1 hour from now
   };
 }
 
 /**
  * Track API usage
  */
-export async function trackApiUsage(env: any, apiKey: string, endpoint: string, method: string, userId: string): Promise<void> {
+import { nanoid } from 'nanoid';
+
+export async function trackApiUsage(env: any, apiKeyId: string, endpoint: string, method: string, userId: string): Promise<void> {
 	// In production, this would track usage statistics
-	console.log(`API Usage: ${apiKey} -> ${endpoint} at ${new Date().toISOString()}`);
+	console.log(`API Usage: ${apiKeyId} -> ${endpoint} at ${new Date().toISOString()}`);
 	try {
 		if (!env.D1_DATABASE) return;
 
+		const id = nanoid();
 		await env.D1_DATABASE.prepare(`
-		INSERT INTO api_usage (api_key_id, user_id, endpoint, method, status_code, timestamp, date)
-		VALUES (?, ?, ?, ?, 200, ?, ?)
+		INSERT INTO api_usage (id, api_key_id, user_id, endpoint, method, status_code, timestamp, date)
+		VALUES (?, ?, ?, ?, ?, 200, ?, ?)
 		`).bind(
-		apiKey, // Simplified - should be actual API key ID
-		userId,
-		endpoint,
-		method,
-		Date.now(),
-		new Date().toISOString().split('T')[0]
+			id,
+			apiKeyId, // now the real api_key_id
+			userId,
+			endpoint,
+			method,
+			Date.now(),
+			new Date().toISOString().split('T')[0]
 		).run();
 	} catch (error) {
 		console.error('Failed to track API usage:', error);
@@ -201,17 +244,15 @@ export async function trackApiUsage(env: any, apiKey: string, endpoint: string, 
  * Permission check middleware
  */
 export function requirePermission(permission: string) {
-	return async function permissionMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
-		const permissions = c.get('permissions') as string[] || [];
-		
-		if (!permissions.includes(permission) && !permissions.includes('admin')) {
-			return c.json({
-				error: 'Insufficient permissions',
-				message: `This endpoint requires '${permission}' permission`,
-				timestamp: new Date().toISOString()
-			}, 403);
-		}
-
-		await next();
-	};
+  return async function permissionMiddleware(c: AuthContext, next: Next) {
+	const permissions = c.get('permissions') ?? [];
+	if (!permissions.includes(permission) && !permissions.includes('admin')) {
+	  return c.json({
+		error: 'Insufficient permissions',
+		message: `This endpoint requires '${permission}' permission`,
+		timestamp: new Date().toISOString()
+	  }, 403);
+	}
+	await next();
+  };
 }
