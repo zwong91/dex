@@ -1,3 +1,5 @@
+
+
 import {
   Avatar,
   Box,
@@ -10,6 +12,10 @@ import {
   Typography,
   Skeleton,
 } from '@mui/material';
+import {
+  Pool as PoolIcon,
+  AccountBalanceWallet as WalletIcon,
+} from '@mui/icons-material';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import Navigation from '../components/Navigation';
@@ -21,7 +27,7 @@ import { useApiDexUserPoolUserBalances } from '../dex/hooks/useApiDexUserPoolUse
 import { useApiDexUserFeesEarned } from '../dex/hooks/useApiDexUserFeesEarned';
 
 
-const PortfolioPage = () => {
+function PortfolioPage() {
 
   const { address } = useAccount();
 
@@ -56,41 +62,7 @@ const PortfolioPage = () => {
   // };
 
   // Render loading skeleton for token balances
-  const renderTokenLoadingSkeleton = () => (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {[1, 2, 3].map((i) => (
-        <Card key={i} elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Skeleton variant="circular" width={48} height={48} />
-              <Box>
-                <Skeleton variant="text" width={80} height={24} />
-                <Skeleton variant="text" width={120} height={20} />
-              </Box>
-            </Box>
-            <Box sx={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              <Box sx={{ textAlign: 'right' }}>
-                <Skeleton variant="text" width={80} height={20} />
-                <Skeleton variant="text" width={100} height={24} />
-              </Box>
-              <Box sx={{ textAlign: 'right' }}>
-                <Skeleton variant="text" width={60} height={20} />
-                <Skeleton variant="text" width={80} height={24} />
-              </Box>
-              <Box sx={{ textAlign: 'right' }}>
-                <Skeleton variant="text" width={60} height={20} />
-                <Skeleton variant="text" width={80} height={24} />
-              </Box>
-              <Box sx={{ textAlign: 'right' }}>
-                <Skeleton variant="text" width={80} height={20} />
-                <Skeleton variant="text" width={60} height={24} />
-              </Box>
-            </Box>
-          </Box>
-        </Card>
-      ))}
-    </Box>
-  );
+
 
   // Render loading skeleton for positions
   const renderPositionsLoadingSkeleton = () => (
@@ -466,16 +438,12 @@ const PortfolioPage = () => {
             {/* User Pool User Balances Section */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                User Pool User Balances (for first Pool)
+                User Pool User Balances (for first pool)
               </Typography>
               {userPoolUserBalancesLoading ? (
                 <Skeleton width={120} />
-              ) : userPoolUserBalances.length > 0 ? (
-                <Box>
-                  {userPoolUserBalances.map((item: any, idx: number) => (
-                    <Typography key={idx} variant="body2">{JSON.stringify(item)}</Typography>
-                  ))}
-                </Box>
+              ) : userPoolUserBalances ? (
+                <pre style={{ fontSize: 12, background: '#f8f8f8', padding: 8, borderRadius: 4, overflow: 'auto' }}>{JSON.stringify(userPoolUserBalances, null, 2)}</pre>
               ) : (
                 <Typography variant="body2" color="text.secondary">No balances found.</Typography>
               )}
@@ -484,18 +452,14 @@ const PortfolioPage = () => {
             {/* User Fees Earned Section */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                User Fees Earned (for first Pool)
+                Fees Earned (for first pool)
               </Typography>
               {userFeesEarnedLoading ? (
                 <Skeleton width={120} />
-              ) : userFeesEarned.length > 0 ? (
-                <Box>
-                  {userFeesEarned.map((item: any, idx: number) => (
-                    <Typography key={idx} variant="body2">{JSON.stringify(item)}</Typography>
-                  ))}
-                </Box>
+              ) : userFeesEarned ? (
+                <pre style={{ fontSize: 12, background: '#f8f8f8', padding: 8, borderRadius: 4, overflow: 'auto' }}>{JSON.stringify(userFeesEarned, null, 2)}</pre>
               ) : (
-                <Typography variant="body2" color="text.secondary">No fees earned found.</Typography>
+                <Typography variant="body2" color="text.secondary">No fees found.</Typography>
               )}
             </Box>
 
@@ -613,7 +577,9 @@ const PortfolioPage = () => {
       </Container>
     </>
   );
-};
-
+}
 
 export default PortfolioPage;
+
+
+
