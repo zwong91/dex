@@ -1,13 +1,4 @@
 import {
-  Pool as PoolIcon,
-  Refresh as RefreshIcon,
-  SwapHoriz as SwapIcon,
-  TrendingDown as TrendingDownIcon,
-  TrendingUp as TrendingUpIcon,
-  AccountBalanceWallet as WalletIcon,
-} from '@mui/icons-material';
-import {
-  Alert,
   Avatar,
   Box,
   Button,
@@ -16,8 +7,6 @@ import {
   Chip,
   Container,
   Grid,
-  IconButton,
-  LinearProgress,
   Typography,
   Skeleton,
 } from '@mui/material';
@@ -43,7 +32,7 @@ const PortfolioPage = () => {
   const positionsLoading = poolsLoading;
 
   // 钱包资产数据
-  const { tokenBalances, loading: tokensLoading, error: tokensError, refetch: refetchTokens } = useWalletData();
+  const { tokenBalances, loading: tokensLoading } = useWalletData();
   // 防御性处理 tokenBalances 为空或 null
   const safeTokenBalances = Array.isArray(tokenBalances) ? tokenBalances : [];
 
@@ -137,13 +126,7 @@ const PortfolioPage = () => {
     </Box>
   );
 
-  const getChangeColor = (change: string) => {
-    return change.startsWith('+') ? 'success.main' : 'warning.main';
-  };
 
-  const getChangeIcon = (change: string) => {
-    return change.startsWith('+') ? <TrendingUpIcon /> : <TrendingDownIcon />;
-  };
 
   // 适配 DexUserPool，展示核心 DEX 数据
   const renderDetailedPositionCard = (position: any) => (
@@ -611,7 +594,7 @@ const PortfolioPage = () => {
                     variant="contained"
                     size="large"
                     href="/pool"
-                    sx={{ 
+                    sx={{
                       px: 6,
                       py: 2,
                       fontSize: '1.1rem',
