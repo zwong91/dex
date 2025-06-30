@@ -217,6 +217,11 @@ const AddLiquidityPage: React.FC = () => {
               <Typography variant="body2" color="text.secondary">
                 TVL: {selectedPool.tvl} • APR: {selectedPool.apr}
               </Typography>
+              {selectedPool.binStep !== undefined && (
+                <Typography variant="body2" color="text.secondary">
+                  Bin Step: {selectedPool.binStep}
+                </Typography>
+              )}
             </Box>
           </CardContent>
         </Card>

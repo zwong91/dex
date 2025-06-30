@@ -1,68 +1,203 @@
-
-
 import {
+  Pool as PoolIcon,
+  Refresh as RefreshIcon,
+  Remove as RemoveIcon,
+  SwapHoriz as SwapIcon,
+  TrendingDown as TrendingDownIcon,
+  TrendingUp as TrendingUpIcon,
+  AccountBalanceWallet as WalletIcon,
+  AutoGraph as AutoGraphIcon,
+} from '@mui/icons-material';
+import {
+  Alert,
   Avatar,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Container,
   Grid,
+  IconButton,
+  LinearProgress,
   Typography,
   Skeleton,
 } from '@mui/material';
-import {
-  Pool as PoolIcon,
-  AccountBalanceWallet as WalletIcon,
-} from '@mui/icons-material';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import Navigation from '../components/Navigation';
-import { useApiDexUserPools } from '../dex/hooks/useApiDexUserPools';
-import { useWalletData } from '../dex/hooks/useWalletData';
-import { useApiDexUserPoolIds } from '../dex/hooks/useApiDexUserPoolIds';
-import { useApiDexUserBinIds } from '../dex/hooks/useApiDexUserBinIds';
-import { useApiDexUserPoolUserBalances } from '../dex/hooks/useApiDexUserPoolUserBalances';
-import { useApiDexUserFeesEarned } from '../dex/hooks/useApiDexUserFeesEarned';
+import { useWalletData, useWalletSummary } from '../dex/hooks/useWalletData';
+import { useUserLiquidityPositions, type UserPosition } from '../dex/hooks/useUserPositions';
+import { useDexOperations } from '../dex/hooks/useDexOperations';
 
-
-function PortfolioPage() {
-
+const PortfolioPage = () => {
   const { address } = useAccount();
 
+  // Use real wallet data instead of mock data
+  const { tokenBalances, loading, error, refetch } = useWalletData();
+  const walletSummary = useWalletSummary();
 
-  // DEX API hooks
-  const { pools: userPools, loading: poolsLoading } = useApiDexUserPools(address || '');
-  const userPositions = Array.isArray(userPools) ? userPools : [];
-  const positionsLoading = poolsLoading;
+  // Get detailed user positions for liquidity management
+  const { positions: userPositions, loading: positionsLoading } = useUserLiquidityPositions(address);
+  
+  // Get dex operations for liquidity withdrawal
+  const { removeLiquidity } = useDexOperations();
 
-  // 钱包资产数据
-  const { tokenBalances, loading: tokensLoading } = useWalletData();
-  // 防御性处理 tokenBalances 为空或 null
-  const safeTokenBalances = Array.isArray(tokenBalances) ? tokenBalances : [];
+  const [refreshing, setRefreshing] = useState(false);
 
-  // DEX 用户相关 hooks
-  const { data: userPoolIdsRaw, loading: userPoolIdsLoading } = useApiDexUserPoolIds(address || '', 'bsc');
-  // 防御性处理 userPoolIds 为空或 null
-  const userPoolIds = Array.isArray(userPoolIdsRaw) ? userPoolIdsRaw : [];
-  // 以第一个 poolId 作为演示
-  const firstPoolId = userPoolIds.length > 0 ? userPoolIds[0] : '';
-  const { data: userBinIdsRaw, loading: userBinIdsLoading } = useApiDexUserBinIds(address || '', firstPoolId, 'bsc');
-  const userBinIds = Array.isArray(userBinIdsRaw) ? userBinIdsRaw : [];
-  const { data: userPoolUserBalancesRaw, loading: userPoolUserBalancesLoading } = useApiDexUserPoolUserBalances(address || '', firstPoolId, 'bsc');
-  const userPoolUserBalances = Array.isArray(userPoolUserBalancesRaw) ? userPoolUserBalancesRaw : [];
-  const { data: userFeesEarnedRaw, loading: userFeesEarnedLoading } = useApiDexUserFeesEarned(address || '', firstPoolId, 'bsc');
-  const userFeesEarned = Array.isArray(userFeesEarnedRaw) ? userFeesEarnedRaw : [];
+  // Loading and error states for operations
+  const [isWithdrawingAndClosing, setIsWithdrawingAndClosing] = useState(false);
+  const [operationError, setOperationError] = useState<string | null>(null);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   // Handle collecting fees and withdrawing all liquidity (close position)
-  // NOTE: The legacy UserPosition type is not used anymore; userPositions now come from API (DexUserPool)
-  // const handleWithdrawAndClose = async (position: any) => {
-  //   // ...implementation, see previous version if needed
-  // };
+  const handleWithdrawAndClose = async (position: UserPosition) => {
+    console.log('🔍 Debug: handleWithdrawAndClose called with position:', position);
+    
+    if (!address || !position.binData || position.binData.length === 0) {
+      const errorMsg = !address 
+        ? 'Wallet not connected' 
+        : !position.binData 
+          ? 'Position binData is missing'
+          : 'Position binData is empty';
+      
+      console.error('❌ Validation failed:', errorMsg);
+      console.log('Debug info:', {
+        address,
+        hasBinData: !!position.binData,
+        binDataLength: position.binData?.length || 0,
+        position
+      });
+      
+      setOperationError(`Invalid position data: ${errorMsg}`);
+      return;
+    }
+
+    try {
+      setIsWithdrawingAndClosing(true);
+      setOperationError(null);
+
+      console.log('🔍 Position binData:', position.binData);
+      console.log('🔍 Position details:', {
+        token0: position.token0,
+        token1: position.token1,
+        token0Address: position.token0Address,
+        token1Address: position.token1Address,
+        pairAddress: position.pairAddress,
+        binStep: position.binStep
+      });
+
+      // Prepare bin data for withdrawal
+      const binIds: number[] = [];
+      const amounts: bigint[] = [];
+
+      position.binData.forEach(bin => {
+        console.log('🔍 Processing bin:', bin);
+        if (bin.shares > 0) {
+          binIds.push(bin.binId);
+          amounts.push(bin.shares); // Use full shares amount for complete withdrawal
+          console.log(`✅ Added bin ${bin.binId} with ${bin.shares.toString()} shares`);
+        } else {
+          console.log(`⚠️ Skipped bin ${bin.binId} - zero shares`);
+        }
+      });
+
+      if (binIds.length === 0 || amounts.length === 0) {
+        const errorMsg = 'No liquidity available to withdraw from this position';
+        console.error('❌ No valid bins found:', { binIds, amounts });
+        throw new Error(errorMsg);
+      }
+
+      console.log('🔍 Withdrawing all liquidity and collecting fees for position:', {
+        pair: `${position.token0}/${position.token1}`,
+        binIds,
+        amounts: amounts.map(a => a.toString()),
+        pairAddress: position.pairAddress,
+        token0Address: position.token0Address,
+        token1Address: position.token1Address,
+        binStep: position.binStep
+      });
+
+      // Validate all required parameters
+      if (!position.pairAddress) {
+        throw new Error('Missing pair address');
+      }
+      if (!position.token0Address || !position.token1Address) {
+        throw new Error('Missing token addresses');
+      }
+      if (!position.binStep) {
+        throw new Error('Missing bin step');
+      }
+
+      console.log('🚀 Calling removeLiquidity...');
+      await removeLiquidity(
+        position.pairAddress,
+        position.token0Address,
+        position.token1Address,
+        binIds,
+        amounts,
+        position.binStep
+      );
+
+      console.log('✅ Liquidity withdrawal successful');
+      // Refresh data after successful operation
+      await refetch();
+    } catch (error: any) {
+      console.error('❌ Position closure failed:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      });
+      setOperationError(`Position closure failed: ${error.message}`);
+    } finally {
+      setIsWithdrawingAndClosing(false);
+    }
+  };
 
   // Render loading skeleton for token balances
-
+  const renderTokenLoadingSkeleton = () => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {[1, 2, 3].map((i) => (
+        <Card key={i} elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Skeleton variant="circular" width={48} height={48} />
+              <Box>
+                <Skeleton variant="text" width={80} height={24} />
+                <Skeleton variant="text" width={120} height={20} />
+              </Box>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <Box sx={{ textAlign: 'right' }}>
+                <Skeleton variant="text" width={80} height={20} />
+                <Skeleton variant="text" width={100} height={24} />
+              </Box>
+              <Box sx={{ textAlign: 'right' }}>
+                <Skeleton variant="text" width={60} height={20} />
+                <Skeleton variant="text" width={80} height={24} />
+              </Box>
+              <Box sx={{ textAlign: 'right' }}>
+                <Skeleton variant="text" width={60} height={20} />
+                <Skeleton variant="text" width={80} height={24} />
+              </Box>
+              <Box sx={{ textAlign: 'right' }}>
+                <Skeleton variant="text" width={80} height={20} />
+                <Skeleton variant="text" width={60} height={24} />
+              </Box>
+            </Box>
+          </Box>
+        </Card>
+      ))}
+    </Box>
+  );
 
   // Render loading skeleton for positions
   const renderPositionsLoadingSkeleton = () => (
@@ -82,9 +217,9 @@ function PortfolioPage() {
             </Box>
             <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 2 }} />
           </Box>
-          <Grid container spacing={4} sx={{ mb: 4 }} component="div">
+          <Grid container spacing={4} sx={{ mb: 4 }}>
             {[1, 2, 3, 4].map((j) => (
-              <Grid key={j} sx={{ gridColumn: { xs: 'span 6', sm: 'span 3' } }}>
+              <Grid key={j} size={{ xs: 6, sm: 3 }}>
                 <Card elevation={0} sx={{ textAlign: 'center', p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
                   <Skeleton variant="text" width={60} height={20} sx={{ mx: 'auto', mb: 1 }} />
                   <Skeleton variant="text" width={80} height={24} sx={{ mx: 'auto' }} />
@@ -98,16 +233,21 @@ function PortfolioPage() {
     </Box>
   );
 
+  const getChangeColor = (change: string) => {
+    return change.startsWith('+') ? 'success.main' : 'warning.main';
+  };
 
+  const getChangeIcon = (change: string) => {
+    return change.startsWith('+') ? <TrendingUpIcon /> : <TrendingDownIcon />;
+  };
 
-  // 适配 DexUserPool，展示核心 DEX 数据
-  const renderDetailedPositionCard = (position: any) => (
-    <Card
-      key={position.id}
-      elevation={0}
-      sx={{
-        mb: 3,
-        border: '1px solid',
+  const renderDetailedPositionCard = (position: UserPosition) => (
+    <Card 
+      key={position.id} 
+      elevation={0} 
+      sx={{ 
+        mb: 3, 
+        border: '1px solid', 
         borderColor: 'divider',
         borderRadius: 3,
         background: 'white',
@@ -120,82 +260,175 @@ function PortfolioPage() {
     >
       <CardContent sx={{ p: 4 }}>
         {/* Header with token pair and status */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar sx={{ width: 40, height: 40, border: '2px solid white', boxShadow: 2 }}>
-              <img
-                src={`/src/assets/${position.tokenX.symbol?.toLowerCase()}.svg`}
-                alt={position.tokenX.symbol}
-                style={{ width: '100%', height: '100%', borderRadius: '50%' }}
-                onError={(e: any) => { e.target.onerror = null; e.target.src = '/src/assets/react.svg'; }}
-              />
-            </Avatar>
-            <Avatar sx={{ width: 40, height: 40, ml: -1.5, zIndex: 1, border: '2px solid white', boxShadow: 2 }}>
-              <img
-                src={`/src/assets/${position.tokenY.symbol?.toLowerCase()}.svg`}
-                alt={position.tokenY.symbol}
-                style={{ width: '100%', height: '100%', borderRadius: '50%' }}
-                onError={(e: any) => { e.target.onerror = null; e.target.src = '/src/assets/react.svg'; }}
-              />
-            </Avatar>
+            <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+              <Avatar sx={{ width: 40, height: 40, border: '2px solid white', boxShadow: 2 }}>
+                <img
+                  src={position.icon0}
+                  alt={position.token0}
+                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                />
+              </Avatar>
+              <Avatar sx={{ width: 40, height: 40, ml: -1.5, zIndex: 1, border: '2px solid white', boxShadow: 2 }}>
+                <img
+                  src={position.icon1}
+                  alt={position.token1}
+                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                />
+              </Avatar>
+            </Box>
             <Box>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-                {position.tokenX.symbol}/{position.tokenY.symbol}
+                {position.token0}/{position.token1}
               </Typography>
               <Chip
-                label={position.status === 'active' ? 'Active' : 'Inactive'}
-                color={position.status === 'active' ? 'success' : 'warning'}
+                label={position.inRange ? 'In Range' : 'Out of Range'}
+                color={position.inRange ? 'success' : 'warning'}
                 size="small"
                 variant="filled"
                 sx={{ fontWeight: 600, borderRadius: 1 }}
               />
             </Box>
           </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Pool Version: {position.version}
-            </Typography>
+        </Box>
+
+        {/* Price Range Section */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+            Price Range
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            p: 2,
+            bgcolor: 'grey.50',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'grey.200'
+          }}>
+            <Box>
+              <Typography variant="h6" fontWeight={700} color="text.primary">
+                {position.range.min} - {position.range.max}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {position.token1} per {position.token0}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: 'right' }}>
+              <Typography variant="body2" color="text.secondary">
+                Current Price
+              </Typography>
+              <Typography variant="body1" fontWeight={600}>
+                {position.range.current}
+              </Typography>
+            </Box>
           </Box>
         </Box>
 
-        {/* Pool Stats Section */}
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
-            <Typography variant="body2" color="text.secondary">TVL</Typography>
-            <Typography variant="h6" fontWeight={700}>{position.liquidityUsd ? `$${Number(position.liquidityUsd).toLocaleString()}` : '-'}</Typography>
+        {/* Position Liquidity Section */}
+        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+          Position Liquidity
+        </Typography>
+        
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          {/* Current Balance */}
+          <Grid size={6}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+                Current Balance
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 24, height: 24 }}>
+                    <img src={position.icon0} alt={position.token0} style={{ width: '100%', height: '100%' }} />
+                  </Avatar>
+                  <Typography variant="body1" fontWeight={600}>
+                    {position.amountX} {position.token0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    ({position.value})
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 24, height: 24 }}>
+                    <img src={position.icon1} alt={position.token1} style={{ width: '100%', height: '100%' }} />
+                  </Avatar>
+                  <Typography variant="body1" fontWeight={600}>
+                    {position.amountY} {position.token1}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
           </Grid>
-          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
-            <Typography variant="body2" color="text.secondary">24h Fees</Typography>
-            <Typography variant="h6" fontWeight={700}>{position.fees24hUsd ? `$${Number(position.fees24hUsd).toLocaleString()}` : '-'}</Typography>
-          </Grid>
-          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
-            <Typography variant="body2" color="text.secondary">24h Volume</Typography>
-            <Typography variant="h6" fontWeight={700}>{position.volume24hUsd ? `$${Number(position.volume24hUsd).toLocaleString()}` : '-'}</Typography>
-          </Grid>
-          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
-            <Typography variant="body2" color="text.secondary">APR</Typography>
-            <Typography variant="h6" fontWeight={700}>{position.apr ? `${position.apr}%` : '-'}</Typography>
-          </Grid>
-          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
-            <Typography variant="body2" color="text.secondary">APY</Typography>
-            <Typography variant="h6" fontWeight={700}>{position.apy ? `${position.apy}%` : '-'}</Typography>
-          </Grid>
-          <Grid sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
-            <Typography variant="body2" color="text.secondary">Swaps</Typography>
-            <Typography variant="h6" fontWeight={700}>{position.txCount ?? '-'}</Typography>
+
+          {/* Auto-Compounded Fees Info */}
+          <Grid size={6}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+                📈 Auto-Compounded Trading Fees
+              </Typography>
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'success.50', 
+                borderRadius: 2, 
+                border: '1px solid', 
+                borderColor: 'success.200' 
+              }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Avatar sx={{ width: 24, height: 24 }}>
+                      <img src={position.icon0} alt={position.token0} style={{ width: '100%', height: '100%' }} />
+                    </Avatar>
+                    <Typography variant="body2" fontWeight={600}>
+                      {position.feeX} {position.token0}
+                    </Typography>
+                    <Typography variant="caption" color="success.main" sx={{ ml: 'auto' }}>
+                      +{((parseFloat(position.feeX) / parseFloat(position.amountX)) * 100).toFixed(2)}%
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Avatar sx={{ width: 24, height: 24 }}>
+                      <img src={position.icon1} alt={position.token1} style={{ width: '100%', height: '100%' }} />
+                    </Avatar>
+                    <Typography variant="body2" fontWeight={600}>
+                      {position.feeY} {position.token1}
+                    </Typography>
+                    <Typography variant="caption" color="success.main" sx={{ ml: 'auto' }}>
+                      +{((parseFloat(position.feeY) / parseFloat(position.amountY)) * 100).toFixed(2)}%
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1, 
+                    mt: 1, 
+                    p: 1.5, 
+                    bgcolor: 'success.100', 
+                    borderRadius: 1 
+                  }}>
+                    <AutoGraphIcon sx={{ color: 'success.main', fontSize: 16 }} />
+                    <Typography variant="caption" color="success.dark" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+                      Fees automatically compound into your liquidity position. 
+                      They're included when you withdraw.
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
           </Grid>
         </Grid>
 
-        {/* Action Button (optional, can be disabled if无链上操作) */}
-        {/*
-        <Box sx={{ mt: 2 }}>
+        {/* Action Button */}
+        <Box sx={{ mt: 3 }}>
           <Button
             variant="contained"
             fullWidth
             startIcon={<RemoveIcon />}
             onClick={() => handleWithdrawAndClose(position)}
             disabled={isWithdrawingAndClosing}
-            sx={{
+            sx={{ 
               py: 1.5,
               borderRadius: 2,
               textTransform: 'none',
@@ -209,10 +442,75 @@ function PortfolioPage() {
               }
             }}
           >
-            Withdraw Liquidity
+            {isWithdrawingAndClosing ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={16} color="inherit" />
+                Withdrawing Liquidity...
+              </Box>
+            ) : (
+              'Withdraw Liquidity'
+            )}
           </Button>
         </Box>
-        */}
+
+        {/* Error Display */}
+        {operationError && (
+          <Alert 
+            severity="error" 
+            sx={{ mt: 2 }}
+            onClose={() => setOperationError(null)}
+          >
+            {operationError}
+          </Alert>
+        )}
+
+        {/* Performance Stats - Collapsed version */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mt: 3,
+          p: 2,
+          bgcolor: 'grey.50',
+          borderRadius: 2
+        }}>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              24h Fee
+            </Typography>
+            <Typography variant="body1" fontWeight={600}>
+              {position.fees24h}
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Total Value
+            </Typography>
+            <Typography variant="body1" fontWeight={600} color="primary">
+              {position.value}
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              APR
+            </Typography>
+            <Typography variant="body1" fontWeight={600} color="info.main">
+              {position.apr}
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Performance
+            </Typography>
+            <Typography
+              variant="body1"
+              fontWeight={600}
+              color={position.performance.startsWith('+') ? 'success.main' : 'error.main'}
+            >
+              {position.performance}
+            </Typography>
+          </Box>
+        </Box>
       </CardContent>
     </Card>
   );
@@ -381,205 +679,358 @@ function PortfolioPage() {
     <>
       <Navigation />
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Card 
-          elevation={0}
-          sx={{ 
-            borderRadius: 3,
-            border: '1px solid',
-            borderColor: 'divider',
-            background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)'
-          }}
-        >
-          <CardContent sx={{ p: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-              <PoolIcon sx={{ fontSize: 28, color: 'secondary.main', mr: 2 }} />
-              <Typography variant="h5" fontWeight={700}>
-                Your Positions ({userPositions.length})
+        {/* Performance Alert for slow loading */}
+        {(loading || positionsLoading) && (
+          <Alert 
+            severity="info" 
+            sx={{ 
+              mb: 3, 
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+              border: '1px solid #2196f3'
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              正在优化链上数据获取... 我们已实施了批处理和缓存来提升速度
+            </Typography>
+            <LinearProgress 
+              sx={{ 
+                mt: 1, 
+                borderRadius: 1,
+                '& .MuiLinearProgress-bar': {
+                  background: 'linear-gradient(90deg, #2196f3 0%, #21cbf3 100%)'
+                }
+              }} 
+            />
+          </Alert>
+        )}
+
+        {/* Portfolio Header */}
+        <Box sx={{ 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 3,
+          p: 4,
+          mb: 4,
+          color: 'white',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <Box sx={{ 
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 200,
+            height: 200,
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '50%',
+            transform: 'translate(50%, -50%)'
+          }} />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+            <Box>
+              <Typography variant="h3" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
+                Portfolio
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9, mb: 2 }}>
+                Your total portfolio value
+              </Typography>
+              <Typography variant="h2" fontWeight={800} sx={{ color: 'white' }}>
+                {loading ? <LinearProgress sx={{ width: 300, borderRadius: 1 }} /> : walletSummary.totalValue}
               </Typography>
             </Box>
+            <IconButton 
+              onClick={handleRefresh} 
+              disabled={refreshing}
+              sx={{ 
+                color: 'white',
+                bgcolor: 'rgba(255,255,255,0.2)',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
+                width: 56,
+                height: 56
+              }}
+            >
+              <RefreshIcon fontSize="large" />
+            </IconButton>
+          </Box>
+        </Box>
 
-
-            {/* User Pool IDs Section */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                User Pool IDs
-              </Typography>
-              {userPoolIdsLoading ? (
-                <Skeleton width={120} />
-              ) : userPoolIds.length > 0 ? (
-                <Box>
-                  {userPoolIds.map((id) => (
-                    <Typography key={id} variant="body2">{id}</Typography>
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No pool IDs found.</Typography>
-              )}
-            </Box>
-
-            {/* User Bin IDs Section */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                User Bin IDs (for first Pool)
-              </Typography>
-              {userBinIdsLoading ? (
-                <Skeleton width={120} />
-              ) : userBinIds.length > 0 ? (
-                <Box>
-                  {userBinIds.map((id: string) => (
-                    <Typography key={id} variant="body2">{id}</Typography>
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No bin IDs found.</Typography>
-              )}
-            </Box>
-
-            {/* User Pool User Balances Section */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                User Pool User Balances (for first pool)
-              </Typography>
-              {userPoolUserBalancesLoading ? (
-                <Skeleton width={120} />
-              ) : userPoolUserBalances ? (
-                <pre style={{ fontSize: 12, background: '#f8f8f8', padding: 8, borderRadius: 4, overflow: 'auto' }}>{JSON.stringify(userPoolUserBalances, null, 2)}</pre>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No balances found.</Typography>
-              )}
-            </Box>
-
-            {/* User Fees Earned Section */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                Fees Earned (for first pool)
-              </Typography>
-              {userFeesEarnedLoading ? (
-                <Skeleton width={120} />
-              ) : userFeesEarned ? (
-                <pre style={{ fontSize: 12, background: '#f8f8f8', padding: 8, borderRadius: 4, overflow: 'auto' }}>{JSON.stringify(userFeesEarned, null, 2)}</pre>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No fees found.</Typography>
-              )}
-            </Box>
-
-            {/* User Bin IDs Section */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                User Bin IDs (for first pool)
-              </Typography>
-              {userBinIdsLoading ? (
-                <Skeleton width={120} />
-              ) : userBinIds && userBinIds.length > 0 ? (
-                <Box>
-                  {userBinIds.map((id: string) => (
-                    <Typography key={id} variant="body2">{id}</Typography>
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No bin IDs found.</Typography>
-              )}
-            </Box>
-
-            {/* Pool User Balances Section */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                Pool User Balances (for first pool)
-              </Typography>
-              {userPoolUserBalancesLoading ? (
-                <Skeleton width={120} />
-              ) : userPoolUserBalances ? (
-                <pre style={{ fontSize: 12, background: '#f8f8f8', padding: 8, borderRadius: 4, overflow: 'auto' }}>{JSON.stringify(userPoolUserBalances, null, 2)}</pre>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No balances found.</Typography>
-              )}
-            </Box>
-
-            {/* Fees Earned Section */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                Fees Earned (for first pool)
-              </Typography>
-              {userFeesEarnedLoading ? (
-                <Skeleton width={120} />
-              ) : userFeesEarned ? (
-                <pre style={{ fontSize: 12, background: '#f8f8f8', padding: 8, borderRadius: 4, overflow: 'auto' }}>{JSON.stringify(userFeesEarned, null, 2)}</pre>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No fees found.</Typography>
-              )}
-            </Box>
-            {/* 钱包资产展示区块 */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                Wallet Token Balances
-              </Typography>
-              {tokensLoading ? (
-                <Skeleton width={180} />
-              ) : safeTokenBalances.length > 0 ? (
-                <Box>
-                  {safeTokenBalances.map((token: any, idx: number) => (
-                    <Typography key={idx} variant="body2">
-                      {token.symbol}: {token.balance} (≈ ${token.value})
-                    </Typography>
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No wallet tokens found.</Typography>
-              )}
-            </Box>
-
-            {positionsLoading ? (
-              renderPositionsLoadingSkeleton()
-            ) : userPositions.length > 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {userPositions.map(position => renderDetailedPositionCard(position))}
-              </Box>
-            ) : (
-              <Card 
-                elevation={0} 
-                sx={{ 
-                  textAlign: 'center', 
-                  py: 8, 
-                  border: '2px dashed', 
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  background: 'rgba(0,0,0,0.02)'
-                }}
-              >
-                <CardContent>
-                  <PoolIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 3, opacity: 0.5 }} />
-                  <Typography variant="h5" color="text.secondary" gutterBottom fontWeight={600}>
-                    No liquidity positions found
+        <Grid container spacing={4}>
+          {/* Token Holdings */}
+          <Grid size={{ xs: 12, lg: 8 }}>
+            <Card 
+              elevation={0} 
+              sx={{ 
+                mb: 4,
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)'
+              }}
+            >
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <WalletIcon sx={{ fontSize: 28, color: 'primary.main', mr: 2 }} />
+                  <Typography variant="h5" fontWeight={700}>
+                    Token Holdings
                   </Typography>
-                  <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 400, mx: 'auto' }}>
-                    Start providing liquidity to earn trading fees and contribute to the ecosystem.
+                </Box>
+                {loading ? (
+                  renderTokenLoadingSkeleton()
+                ) : error ? (
+                  <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+                    {error}
+                  </Alert>
+                ) : tokenBalances.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {tokenBalances.map((token) => (
+                      <Card 
+                        key={token.symbol} 
+                        elevation={0}
+                        sx={{ 
+                          p: 3,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 2,
+                          background: 'white',
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 8px 25px rgba(0,0,0,0.1)'
+                          }
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar sx={{ width: 48, height: 48, boxShadow: 2 }}>
+                              <img 
+                                src={token.icon} 
+                                alt={token.symbol} 
+                                style={{ width: '100%', height: '100%', borderRadius: '50%' }} 
+                              />
+                            </Avatar>
+                            <Box>
+                              <Typography variant="h6" fontWeight={700}>
+                                {token.symbol}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {token.name}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Balance
+                              </Typography>
+                              <Typography variant="h6" fontWeight={600}>
+                                {token.balanceFormatted}
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Price
+                              </Typography>
+                              <Typography variant="h6" fontWeight={600}>
+                                {token.price}
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Value
+                              </Typography>
+                              <Typography variant="h6" fontWeight={700} color="primary">
+                                ${token.value}
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ textAlign: 'right', minWidth: 100 }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                24h Change
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                                {getChangeIcon(token.change24h || '0%')}
+                                <Typography 
+                                  variant="body1" 
+                                  color={getChangeColor(token.change24h || '0%')} 
+                                  fontWeight={600}
+                                >
+                                  {token.change24h}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Card>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                    No token balances found
                   </Typography>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    href="/pool"
-                    sx={{
-                      px: 6,
-                      py: 2,
-                      fontSize: '1.1rem',
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Liquidity Positions */}
+            <Card 
+              elevation={0}
+              sx={{ 
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)'
+              }}
+            >
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <PoolIcon sx={{ fontSize: 28, color: 'secondary.main', mr: 2 }} />
+                  <Typography variant="h5" fontWeight={700}>
+                    Your Positions ({userPositions.length})
+                  </Typography>
+                </Box>
+                
+                {positionsLoading ? (
+                  renderPositionsLoadingSkeleton()
+                ) : userPositions.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {userPositions.map(position => renderDetailedPositionCard(position))}
+                  </Box>
+                ) : (
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      textAlign: 'center', 
+                      py: 8, 
+                      border: '2px dashed', 
+                      borderColor: 'divider',
                       borderRadius: 3,
-                      textTransform: 'none',
-                      fontWeight: 600
+                      background: 'rgba(0,0,0,0.02)'
                     }}
                   >
-                    Start Providing Liquidity
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </CardContent>
-        </Card>
+                    <CardContent>
+                      <PoolIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 3, opacity: 0.5 }} />
+                      <Typography variant="h5" color="text.secondary" gutterBottom fontWeight={600}>
+                        No liquidity positions found
+                      </Typography>
+                      <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 400, mx: 'auto' }}>
+                        Start providing liquidity to earn trading fees and contribute to the ecosystem.
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        size="large"
+                        href="/pool"
+                        sx={{ 
+                          px: 6,
+                          py: 2,
+                          fontSize: '1.1rem',
+                          borderRadius: 3,
+                          textTransform: 'none',
+                          fontWeight: 600
+                        }}
+                      >
+                        Start Providing Liquidity
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Quick Stats */}
+          <Grid size={{ xs: 12, lg: 4 }}>
+            <Box sx={{ position: 'sticky', top: 24 }}>
+              <Grid container spacing={3}>
+                <Grid size={12}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 3, 
+                      borderRadius: 3,
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white'
+                    }}
+                  >
+                    <CardContent>
+                      <SwapIcon sx={{ fontSize: 56, color: 'white', mb: 2, opacity: 0.9 }} />
+                      <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
+                        Token Types
+                      </Typography>
+                      <Typography variant="h2" fontWeight={800} sx={{ mb: 1, color: 'white' }}>
+                        {walletSummary.tokenCount}
+                      </Typography>
+                      <Typography variant="body1" sx={{ opacity: 0.8 }}>
+                        Different tokens
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={12}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 3, 
+                      borderRadius: 3,
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                      color: 'white'
+                    }}
+                  >
+                    <CardContent>
+                      <PoolIcon sx={{ fontSize: 56, color: 'white', mb: 2, opacity: 0.9 }} />
+                      <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
+                        LP Value
+                      </Typography>
+                      <Typography variant="h2" fontWeight={800} sx={{ mb: 1, color: 'white' }}>
+                        {walletSummary.lpValue || '$0.00'}
+                      </Typography>
+                      <Typography variant="body1" sx={{ opacity: 0.8 }}>
+                        Total liquidity
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={12}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 3, 
+                      borderRadius: 3,
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                      color: 'white'
+                    }}
+                  >
+                    <CardContent>
+                      <TrendingUpIcon sx={{ fontSize: 56, color: 'white', mb: 2, opacity: 0.9 }} />
+                      <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'white' }}>
+                        LP Positions
+                      </Typography>
+                      <Typography variant="h2" fontWeight={800} sx={{ mb: 1, color: 'white' }}>
+                        {walletSummary.positionCount}
+                      </Typography>
+                      <Typography variant="body1" sx={{ opacity: 0.8 }}>
+                        Active positions
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Box>
+          </Grid>
+        </Grid>
       </Container>
     </>
   );
-}
+};
 
 export default PortfolioPage;
-
-
-
