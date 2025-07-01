@@ -56,7 +56,7 @@ const apiPoolToPoolData = (pool: any): PoolData => ({
   fees24h: pool.fees24h,
   userLiquidity: pool.userLiquidity,
   pairAddress: pool.pairAddress,
-  binStep: pool.binStep,
+  binStep: pool.lbBinStep,
   tokenXAddress: pool.tokenXAddress || pool.tokenX?.address,
   tokenYAddress: pool.tokenYAddress || pool.tokenY?.address,
 });
@@ -95,7 +95,7 @@ const PoolPage = () => {
   const chainName = chainMap[chainId] || 'binance';
   const { pools: realPoolData, loading: poolsLoading /*, error: poolsError*/ } = useApiPoolData({
     chain: chainName,
-    pageSize: 50,
+    pageSize: 10,
     orderBy: 'volume',
     filterBy: '1d',
     status: 'main',
