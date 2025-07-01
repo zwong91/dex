@@ -78,29 +78,22 @@ binding = "R2"
 bucket_name = "dex-storage"
 # preview_bucket_name = "dex-storage-preview"  # Optional
 
+[durable_objects]
+bindings = [
+  { name = "MCP_OBJECT", class_name = "D1Agent" },
+  { name = "SANDBOX_SHELL_CONTAINER", class_name = "SandboxShellContainer" }
+]
+
 # Durable Objects & Migrations
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["D1Agent"]
-
-[durable_objects]
-bindings = [
-  { name = "MCP_OBJECT", class_name = "D1Agent" }
-]
+new_sqlite_classes = ["D1Agent", "SandboxShellContainer"]
 
 [[containers]]
-class_name = "MyContainer"
+class_name = "SandboxShellContainer"
 image = "./Dockerfile"
 instances = 5
-name = "hello-containers-py"
-
-[[durable_objects.bindings]]
-class_name = "MyContainer"
-name = "MY_CONTAINER"
-
-[[migrations]]
-new_sqlite_classes = [ "MyContainer" ]
-tag = "v1"
+name = "sandbox-shell"
 
 # 🔧 Development environment configuration (minimal for testing)
 [env.development]
