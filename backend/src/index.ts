@@ -9,6 +9,7 @@ import { createAIRoutes } from './ai/routes';
 import { createStorageRoutes } from './storage/routes';
 import { createDBRoutes } from './database/routes';
 
+import { createContainerRoutes } from './container/routes';
 export interface Env {
 	AI?: Ai;
 	D1_DATABASE?: D1Database;
@@ -126,6 +127,9 @@ app.get("/debug", async (c) => {
 app.route('/v1/api/ai', createAIRoutes());
 app.route('/v1/api/d1', createDBRoutes());
 app.route('/v1/api/r2', createStorageRoutes());
+
+
+app.route('/v1/api/container', createContainerRoutes());
 
 // 404 handler
 app.notFound((c) => {
