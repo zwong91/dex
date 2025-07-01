@@ -88,6 +88,20 @@ bindings = [
   { name = "MCP_OBJECT", class_name = "D1Agent" }
 ]
 
+[[containers]]
+class_name = "MyContainer"
+image = "./Dockerfile"
+instances = 5
+name = "hello-containers-py"
+
+[[durable_objects.bindings]]
+class_name = "MyContainer"
+name = "MY_CONTAINER"
+
+[[migrations]]
+new_sqlite_classes = [ "MyContainer" ]
+tag = "v1"
+
 # 🔧 Development environment configuration (minimal for testing)
 [env.development]
 [env.development.vars]

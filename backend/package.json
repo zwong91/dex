@@ -62,6 +62,7 @@
     "wrangler": "^4.22.0"
   },
   "dependencies": {
+    "@cloudflare/containers": "^0.0.16",
     "@hono/zod-validator": "^0.7.0",
     "nanoid": "^5.1.5",
     "better-sqlite3": "^12.1.1",
