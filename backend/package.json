@@ -52,10 +52,10 @@
   "license": "MIT",
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.47",
-    "@cloudflare/workers-types": "^4.20250124.0",
-    "@types/node": "^24.0.4",
+    "@cloudflare/workers-types": "^4.20250701.0",
+    "@types/node": "^24.0.8",
     "@vitest/coverage-v8": "^3.2.4",
-    "drizzle-kit": "^0.31.1",
+    "drizzle-kit": "^0.31.4",
     "tsx": "^4.20.3",
     "typescript": "^5.7.2",
     "vitest": "^3.2.4",
@@ -65,13 +65,13 @@
     "@cloudflare/containers": "^0.0.16",
     "@hono/zod-validator": "^0.7.0",
     "nanoid": "^5.1.5",
-    "better-sqlite3": "^12.1.1",
+    "better-sqlite3": "^12.2.0",
     "cross-env": "^7.0.3",
     "drizzle-orm": "^0.44.2",
     "hono": "^4.8.3",
-    "viem": "^2.21.54",
+    "viem": "^2.31.6",
     "@modelcontextprotocol/sdk": "^1.13.2",
-    "agents": "^0.0.99",
+    "agents": "^0.0.100",
     "zod": "^3.25.67"
   }
 }

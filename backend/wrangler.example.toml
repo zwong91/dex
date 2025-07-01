@@ -30,12 +30,12 @@ compatibility_flags = ["nodejs_compat"]
 account_id = "YOUR_ACCOUNT_ID_HERE"
 
 # ✅ Scheduled jobs for data synchronization - Multiple cron triggers
-#[triggers]
-#crons = [
-#    "*/5 * * * *",    # Every 5 minute - Frequent pool sync for blockchain scanning
-#    "0 * * * *",      # Every hour - Hourly data updates  
-#    "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
-#]
+[triggers]
+crons = [
+  "*/5 * * * *",    # Every 5 minute - Frequent pool sync for blockchain scanning
+  "0 * * * *",      # Every hour - Hourly data updates  
+  "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
+]
 
 # ✅ Logging configuration - Enable Workers logs
 # This enables automatic logging in Cloudflare Workers dashboard
@@ -84,10 +84,13 @@ bindings = [
   { name = "SANDBOX_SHELL_CONTAINER", class_name = "SandboxShellContainer" }
 ]
 
-# Durable Objects & Migrations
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["D1Agent", "SandboxShellContainer"]
+new_sqlite_classes = ["D1Agent"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["SandboxShellContainer"]
 
 [[containers]]
 class_name = "SandboxShellContainer"

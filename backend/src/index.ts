@@ -9,8 +9,9 @@ import { createAIRoutes } from './ai/routes';
 import { createStorageRoutes } from './storage/routes';
 import { createDBRoutes } from './database/routes';
 
-import { createContainerRoutes } from './containers/index';
+import { createContainerRoutes } from './containers';
 export interface Env {
+  SANDBOX_SHELL_CONTAINER(SANDBOX_SHELL_CONTAINER: any, slug: string): unknown;
 	AI?: Ai;
 	D1_DATABASE?: D1Database;
 	R2?: R2Bucket;
@@ -22,7 +23,7 @@ export interface Env {
 
 // Export Durable Objects for wrangler
 export { D1Agent } from './mcp/routes';
-export { SandboxShellContainer } from './containers/index'
+export { SandboxShellContainer } from './containers'
 
 // Create main Hono app
 const app = new Hono<{ Bindings: Env }>();
