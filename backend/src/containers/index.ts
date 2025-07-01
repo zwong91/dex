@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { createAuthMiddleware } from '../middleware/auth';
+
 import { Container, getContainer } from '@cloudflare/containers';
 import type { Env } from '../index';
 
@@ -21,8 +23,8 @@ export class SandboxShellContainer extends Container {
 export function createContainerRoutes() {
 
   const app = new Hono<{ Bindings: Env }>();
-
-  app.post('/api/sandbox/:slug', async(c) => {
+  app.use('*', createAuthMiddleware());
+  app.post('/sandbox/:slug', async(c) => {
     const payload = await c.req.json();
     const {slug} = c.req.param();
     const container = getContainer(c.env.SANDBOX_SHELL_CONTAINER, slug);
