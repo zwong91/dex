@@ -1,5 +1,5 @@
 import { http, createConfig } from "wagmi";
-import { bsc, bscTestnet, mainnet } from "wagmi/chains";
+import { bsc, bscTestnet, opBNB, opBNBTestnet } from "wagmi/chains";
 
 import {
   coinbaseWallet,
@@ -35,14 +35,26 @@ const connectors = connectorsForWallets(
   }
 );
 
-// Multi-chain Configuration
+// Patch opBNB/opBNBTestnet with iconUrl for RainbowKit
+const opBNBWithIcon = {
+  ...opBNB,
+  iconUrl: "https://cryptologos.cc/logos/bnb-bnb-logo.svg?v=032",
+  iconBackground: "#F3BA2F",
+};
+const opBNBTestnetWithIcon = {
+  ...opBNBTestnet,
+  iconUrl: "https://cryptologos.cc/logos/bnb-bnb-logo.svg?v=032",
+  iconBackground: "#F3BA2F",
+};
+
 export const config = createConfig({
-  chains: [bscTestnet, bsc, mainnet],
+  chains: [bscTestnet, bsc, opBNBWithIcon, opBNBTestnetWithIcon],
   connectors,
   transports: {
     [bscTestnet.id]: http("https://data-seed-prebsc-1-s1.binance.org:8545/"),
     [bsc.id]: http("https://bsc-dataseed1.binance.org/"),
-    [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
+    [opBNB.id]: http("https://opbnb-mainnet-rpc.bnbchain.org"),
+    [opBNBTestnet.id]: http("https://opbnb-testnet-rpc.bnbchain.org"),
   },
   ssr: true,
 });
@@ -74,7 +86,33 @@ export const BSC_NETWORKS = {
       uncSwap: "0xC8fb994B992B01C72c969eC9C077CD030eaD2A7F", // Placeholder - update with mainnet addresses
       uncLiquidityToken: "0x4a62fa31Cd52BE39a57621783f16DEC3c54e30ac", // Placeholder - update with mainnet addresses
     }
-  }
+  },
+  opbnb: {
+    id: opBNB.id,
+    name: opBNB.name,
+    nativeCurrency: opBNB.nativeCurrency,
+    rpcUrls: opBNB.rpcUrls,
+    blockExplorers: opBNB.blockExplorers,
+    contracts: {
+      uncToken: "",
+      pairedToken: "",
+      uncSwap: "",
+      uncLiquidityToken: "",
+    }
+  },
+  opbnbTestnet: {
+    id: opBNBTestnet.id,
+    name: opBNBTestnet.name,
+    nativeCurrency: opBNBTestnet.nativeCurrency,
+    rpcUrls: opBNBTestnet.rpcUrls,
+    blockExplorers: opBNBTestnet.blockExplorers,
+    contracts: {
+      uncToken: "",
+      pairedToken: "",
+      uncSwap: "",
+      uncLiquidityToken: "",
+    }
+  },
 };
 
 export const DEFAULT_CHAIN = bscTestnet; // Use testnet as default for development

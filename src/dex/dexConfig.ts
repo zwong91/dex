@@ -1,4 +1,4 @@
-import { bsc, bscTestnet, mainnet } from "wagmi/chains";
+import { bsc, bscTestnet, opBNBTestnet, opBNB } from "wagmi/chains";
 
 // Supported Networks Configuration
 export const SUPPORTED_NETWORKS = {
@@ -41,13 +41,32 @@ export const SUPPORTED_NETWORKS = {
       endpoint: "",
     },
   },
-  ethereum: {
-    id: mainnet.id,
-    name: "Ethereum",
-    symbol: "ETH",
-    nativeCurrency: mainnet.nativeCurrency,
-    rpcUrls: mainnet.rpcUrls,
-    blockExplorers: mainnet.blockExplorers,
+  opBNB: {
+    id: opBNB.id,
+    name: "opBNB",
+    symbol: "BNB",
+    nativeCurrency: opBNB.nativeCurrency,
+    rpcUrls: opBNB.rpcUrls,
+    blockExplorers: opBNB.blockExplorers,
+    contracts: {
+      tokenA: "",
+      tokenB: "",
+      dexRouter: "",
+      liquidityToken: "",
+      factory: "",
+    },
+    faucet: {
+      enabled: false,
+      endpoint: "",
+    },
+  },
+  opBNBTestnet: {
+    id: opBNBTestnet.id,
+    name: "opBNB Testnet",
+    symbol: "BNB",
+    nativeCurrency: opBNBTestnet.nativeCurrency,
+    rpcUrls: opBNBTestnet.rpcUrls,
+    blockExplorers: opBNBTestnet.blockExplorers,
     contracts: {
       tokenA: "",
       tokenB: "",
@@ -75,8 +94,12 @@ export const GAS_SETTINGS = {
     gasPrice: "3000000000", // 3 Gwei
     gasLimit: "200000",
   },
-  [mainnet.id]: {
-    gasPrice: "20000000000", // 20 Gwei
+  [opBNB.id]: {
+    gasPrice: "3000000000", // 3 Gwei
+    gasLimit: "200000",
+  },
+  [opBNBTestnet.id]: {
+    gasPrice: "5000000000", // 5 Gwei
     gasLimit: "200000",
   },
 };
