@@ -80,7 +80,6 @@ const PoolPage = () => {
   const chainId = useChainId();
 
   // Fetch pool data from backend API
-  // chain 映射：1=ethereum, 56=binance, 137=polygon, 43114=avax, 42161=arbitrum, 10=optimism
   const chainMap: Record<number, string> = {
     1: 'ethereum',
     56: 'binance',
@@ -93,7 +92,7 @@ const PoolPage = () => {
     11155111: 'ethereum', // sepolia
   };
   const chainName = chainMap[chainId] || 'binance';
-  const { pools: realPoolData, loading: poolsLoading /*, error: poolsError*/ } = useApiPoolData({
+  const { pools: realPoolData, loading: poolsLoading } = useApiPoolData({
     chain: chainName,
     pageSize: 10,
     orderBy: 'volume',
@@ -109,7 +108,6 @@ const PoolPage = () => {
   // Initialize default token addresses when component mounts or chain changes
   useEffect(() => {
     if (tokens.length >= 2) {
-      // Find USDC and ETH tokens in current chain
       const usdcToken = tokens.find(t => t.symbol === 'USDC');
       const ethToken = tokens.find(t => t.symbol === 'ETH');
 
@@ -135,114 +133,114 @@ const PoolPage = () => {
   const renderPoolCard = (pool: PoolData) => (
     <Card 
       key={pool.id} 
-      elevation={0} 
       sx={{ 
-        mb: 2, 
+        mb: 3, 
         cursor: 'pointer',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        transition: 'all 0.2s ease',
         borderRadius: 2,
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
         '&:hover': {
-          elevation: 4,
-          transform: 'translateY(-4px)',
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
-          borderColor: 'rgba(76, 175, 80, 0.3)',
-          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(76, 175, 80, 0.1)',
-          '& .chevron-indicator': {
-            color: 'rgba(76, 175, 80, 1)',
-            transform: 'translateX(8px) scale(1.1)',
+          transform: 'translateY(-2px)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+          '& .chevron-icon': {
+            transform: 'translateX(4px)',
           }
         }
       }}
       onClick={() => handleAddLiquidity(pool)}
     >
-      <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Avatar sx={{ width: 32, height: 32, fontSize: '1rem' }}>
-                <img
-                  src={pool.icon0}
-                  alt={pool.token0}
-                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
-                />
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {/* Token Icons */}
+            <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+              <Avatar sx={{ width: 36, height: 36, border: '2px solid', borderColor: 'background.paper' }}>
+                <img src={pool.icon0} alt={pool.token0} style={{ width: '100%', height: '100%' }} />
               </Avatar>
-              <Avatar sx={{ width: 32, height: 32, fontSize: '1rem', ml: -1, zIndex: 1 }}>
-                <img
-                  src={pool.icon1}
-                  alt={pool.token1}
-                  style={{ width: '100%', height: '100%', borderRadius: '50%' }}
-                />
+              <Avatar sx={{ width: 36, height: 36, ml: -1, border: '2px solid', borderColor: 'background.paper' }}>
+                <img src={pool.icon1} alt={pool.token1} style={{ width: '100%', height: '100%' }} />
               </Avatar>
             </Box>
+            
+            {/* Token Pair */}
             <Typography variant="h6" fontWeight={600}>
               {pool.token0}/{pool.token1}
             </Typography>
-            {pool.binStep && (
+            
+            {/* Chips */}
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {pool.binStep && (
+                <Chip
+                  label={`${(pool.binStep / 100).toFixed(2)}%`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: 'divider' }}
+                />
+              )}
               <Chip
-                label={`${(pool.binStep / 100).toFixed(2)}% Fee`}
-                color="secondary"
+                label={`${pool.apr} APR`}
                 size="small"
-                sx={{ ml: 1 }}
+                color="primary"
+                icon={<TrendingUpIcon sx={{ fontSize: '16px !important' }} />}
               />
-            )}
-            <Chip
-              label={`${pool.apr} APR`}
-              color="primary"
-              size="small"
-              icon={<TrendingUpIcon />}
-            />
+            </Box>
           </Box>
-          {/* Intuitive clickable indicator - chevron arrow */}
-          <Box 
-            className="chevron-indicator"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              color: 'rgba(255, 255, 255, 0.4)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-          >
-            <ChevronRightIcon sx={{ 
-              fontSize: '1.5rem',
-              transition: 'inherit'
-            }} />
-          </Box>
+          
+          {/* Chevron Icon */}
+          <ChevronRightIcon 
+            className="chevron-icon"
+            sx={{ 
+              color: 'text.secondary',
+              transition: 'transform 0.2s ease',
+              fontSize: 28
+            }} 
+          />
         </Box>
 
+        {/* Pool Statistics */}
         <Grid container spacing={2}>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Typography variant="body2" color="text.secondary">
+          <Grid item xs={6} sm={3}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
               TVL
             </Typography>
             <Typography variant="body1" fontWeight={600}>
               {pool.tvl}
             </Typography>
           </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Typography variant="body2" color="text.secondary">
+          <Grid item xs={6} sm={3}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
               24h Volume
             </Typography>
             <Typography variant="body1" fontWeight={600}>
               {pool.volume24h}
             </Typography>
           </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Typography variant="body2" color="text.secondary">
+          <Grid item xs={6} sm={3}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
               24h Fees
             </Typography>
             <Typography variant="body1" fontWeight={600}>
               {pool.fees24h}
             </Typography>
           </Grid>
-          {pool.pairAddress && (
-            <Grid size={{ xs: 12 }}>
-              <Typography variant="caption" color="text.secondary">
-                Pair: {pool.pairAddress.slice(0, 10)}...{pool.pairAddress.slice(-8)}
-              </Typography>
-            </Grid>
-          )}
+          <Grid item xs={6} sm={3}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Your Liquidity
+            </Typography>
+            <Typography variant="body1" fontWeight={600}>
+              {pool.userLiquidity || '$0.00'}
+            </Typography>
+          </Grid>
         </Grid>
+
+        {/* Pair Address */}
+        {pool.pairAddress && (
+          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary">
+              Pair: {pool.pairAddress.slice(0, 6)}...{pool.pairAddress.slice(-4)}
+            </Typography>
+          </Box>
+        )}
       </CardContent>
     </Card>
   );
@@ -250,297 +248,157 @@ const PoolPage = () => {
   return (
     <>
       <Navigation />
-      <Container maxWidth="xl" sx={{ py: 6 }}>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
         {showAddLiquidity && selectedPool ? (
-          // Add Liquidity Sub-page
           <>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              mb: 8,
-              px: 4
-            }}>
-              <IconButton 
-                onClick={handleBackToPoolList}
-                sx={{ 
-                  mr: 4,
-                  p: 2,
-                  background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(33, 150, 243, 0.1))',
-                  border: '1px solid rgba(76, 175, 80, 0.2)',
-                  borderRadius: '16px',
-                  color: '#4CAF50',
+            {/* Back Button - move to top left outside main grid */}
+            <Box sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+              <Button
+                startIcon={<ArrowBackIcon />}
+                variant="outlined"
+                sx={{
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  color: '#43a047',
+                  borderColor: '#43a047',
+                  backgroundColor: 'transparent',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(33, 150, 243, 0.2))',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 20px rgba(76, 175, 80, 0.3)',
+                    backgroundColor: 'rgba(67, 160, 71, 0.08)',
+                    borderColor: '#388e3c',
+                    color: '#388e3c',
                   },
-                  transition: 'all 0.3s ease'
                 }}
+                onClick={handleBackToPoolList}
               >
-                <ArrowBackIcon sx={{ fontSize: '1.5rem' }} />
-              </IconButton>
+                Back
+              </Button>
             </Box>
-
-            {/* Spacious Left/Right Split Layout */}
-            <Grid container spacing={12}>
-              {/* Left Side - Pool Information */}
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Box sx={{ position: 'sticky', top: 40 }}>
-                  {/* Pool Header Card */}
-                  <Box sx={{ 
-                    p: 6,
-                    background: 'linear-gradient(145deg, rgba(30, 35, 50, 0.95), rgba(42, 45, 62, 0.95))', 
-                    backdropFilter: 'blur(40px)',
-                    border: '1px solid rgba(76, 175, 80, 0.2)',
-                    borderRadius: 4,
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                    mb: 4
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
-                      <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <Box sx={{
-                          width: 60,
-                          height: 60,
-                          borderRadius: '50%',
-                          overflow: 'hidden',
-                          border: '2px solid rgba(76, 175, 80, 0.5)',
-                          background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(33, 150, 243, 0.3))',
-                          boxShadow: '0 4px 15px rgba(76, 175, 80, 0.3)'
-                        }}>
-                          <img
-                            src={selectedPool.icon0}
-                            alt={selectedPool.token0}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                        </Box>
-                        <Box sx={{
-                          width: 50,
-                          height: 50,
-                          borderRadius: '50%',
-                          overflow: 'hidden',
-                          border: '2px solid rgba(33, 150, 243, 0.5)',
-                          background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.3), rgba(156, 39, 176, 0.3))',
-                          ml: -2,
-                          zIndex: 1,
-                          boxShadow: '0 4px 15px rgba(33, 150, 243, 0.3)'
-                        }}>
-                          <img
-                            src={selectedPool.icon1}
-                            alt={selectedPool.token1}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                        </Box>
+            <Grid container spacing={4}>
+              {/* Pool Info Sidebar */}
+              <Grid item xs={12} md={4}>
+                <Card sx={{ position: 'sticky', top: 24 }}>
+                  <CardContent sx={{ p: 3 }}>
+                    {/* Pool Header */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                        <Avatar sx={{ width: 48, height: 48, border: '2px solid', borderColor: 'background.paper' }}>
+                          <img src={selectedPool.icon0} alt={selectedPool.token0} style={{ width: '100%', height: '100%' }} />
+                        </Avatar>
+                        <Avatar sx={{ width: 48, height: 48, ml: -1.5, border: '2px solid', borderColor: 'background.paper' }}>
+                          <img src={selectedPool.icon1} alt={selectedPool.token1} style={{ width: '100%', height: '100%' }} />
+                        </Avatar>
                       </Box>
-                        <Box>
-                          <Typography variant="h4" fontWeight={700} sx={{ 
-                            background: 'linear-gradient(135deg, #4CAF50, #2196F3)',
-                            backgroundClip: 'text',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            mb: 2,
-                            fontSize: '1.8rem'
-                          }}>
-                            {selectedPool.token0}/{selectedPool.token1}
-                          </Typography>
-                          {selectedPool.binStep && (
-                            <Chip
-                              label={`${(selectedPool.binStep / 100).toFixed(2)}% Fee`}
-                              size="medium"
-                              sx={{
-                                backgroundColor: 'rgba(76, 175, 80, 0.25)',
-                                color: '#4CAF50',
-                                fontWeight: 600,
-                                fontSize: '0.875rem',
-                                height: 32,
-                                border: '1px solid rgba(76, 175, 80, 0.4)',
-                                borderRadius: '16px'
-                              }}
-                            />
-                          )}
-                        </Box>
+                      <Box>
+                        <Typography variant="h5" fontWeight={600}>
+                          {selectedPool.token0}/{selectedPool.token1}
+                        </Typography>
+                        {selectedPool.binStep && (
+                          <Chip
+                            label={`${(selectedPool.binStep / 100).toFixed(2)}% Fee`}
+                            size="small"
+                            variant="outlined"
+                            sx={{ mt: 1 }}
+                          />
+                        )}
+                      </Box>
                     </Box>
-                    
-                    {/* Pool Stats Grid */}
-                    <Grid container spacing={4}>
-                      <Grid size={12}>
-                        <Box sx={{ 
-                          textAlign: 'center',
-                          p: 4,
-                          borderRadius: 4,
-                          background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.1))',
-                          border: '1px solid rgba(76, 175, 80, 0.3)',
-                          backdropFilter: 'blur(20px)'
-                        }}>
-                          <Typography variant="body2" color="rgba(255, 255, 255, 0.8)" sx={{ 
-                            mb: 2, 
-                            fontWeight: 600, 
-                            fontSize: '0.875rem', 
-                            textTransform: 'uppercase', 
-                            letterSpacing: 1
-                          }}>
-                            💰 Total Value Locked
-                          </Typography>
-                          <Typography variant="h4" fontWeight={700} sx={{ 
-                            color: '#4CAF50', 
-                            fontSize: '2rem'
-                          }}>
-                            {selectedPool.tvl}
-                          </Typography>
-                        </Box>
+
+                    {/* Pool Stats */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Total Value Locked
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600} color="primary">
+                          {selectedPool.tvl}
+                        </Typography>
+                      </Box>
+                      
+                      <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          APR
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600} color="success.main">
+                          {selectedPool.apr}
+                        </Typography>
+                      </Box>
+
+                      <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              24h Volume
+                            </Typography>
+                            <Typography variant="body1" fontWeight={600}>
+                              {selectedPool.volume24h}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              24h Fees
+                            </Typography>
+                            <Typography variant="body1" fontWeight={600}>
+                              {selectedPool.fees24h}
+                            </Typography>
+                          </Box>
+                        </Grid>
                       </Grid>
-                      <Grid size={12}>
-                        <Box sx={{ 
-                          textAlign: 'center',
-                          p: 4,
-                          borderRadius: 4,
-                          background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.2), rgba(33, 150, 243, 0.1))',
-                          border: '1px solid rgba(33, 150, 243, 0.3)',
-                          backdropFilter: 'blur(20px)'
-                        }}>
-                          <Typography variant="body2" color="rgba(255, 255, 255, 0.8)" sx={{ 
-                            mb: 2, 
-                            fontWeight: 600, 
-                            fontSize: '0.875rem', 
-                            textTransform: 'uppercase', 
-                            letterSpacing: 1
-                          }}>
-                            📈 24hr APR
-                          </Typography>
-                          <Typography variant="h4" fontWeight={700} sx={{ 
-                            color: '#2196F3', 
-                            fontSize: '2rem'
-                          }}>
-                            {selectedPool.apr}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={6}>
-                        <Box sx={{ 
-                          textAlign: 'center',
-                          p: 3,
-                          borderRadius: 3,
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          backdropFilter: 'blur(20px)'
-                        }}>
-                          <Typography variant="body2" color="rgba(255, 255, 255, 0.7)" sx={{ 
-                            mb: 1.5, 
-                            fontWeight: 500, 
-                            fontSize: '0.8rem', 
-                            textTransform: 'uppercase'
-                          }}>
-                            24h Volume
-                          </Typography>
-                          <Typography variant="h6" fontWeight={600} sx={{ fontSize: '1.1rem' }}>
-                            {selectedPool.volume24h}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={6}>
-                        <Box sx={{ 
-                          textAlign: 'center',
-                          p: 3,
-                          borderRadius: 3,
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          backdropFilter: 'blur(20px)'
-                        }}>
-                          <Typography variant="body2" color="rgba(255, 255, 255, 0.7)" sx={{ 
-                            mb: 1.5, 
-                            fontWeight: 500, 
-                            fontSize: '0.8rem', 
-                            textTransform: 'uppercase'
-                          }}>
-                            24h Fees
-                          </Typography>
-                          <Typography variant="h6" fontWeight={600} sx={{ fontSize: '1.1rem' }}>
-                            {selectedPool.fees24h}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
               </Grid>
 
-              {/* Right Side - Add Liquidity Form */}
-              <Grid size={{ xs: 12, md: 8 }}>
-                <Box sx={{
-                  background: 'linear-gradient(145deg, rgba(30, 35, 50, 0.8), rgba(42, 45, 62, 0.8))',
-                  borderRadius: 8,
-                  border: '2px solid rgba(33, 150, 243, 0.2)',
-                  p: 8,
-                  backdropFilter: 'blur(40px)',
-                  boxShadow: '0 20px 60px rgba(33, 150, 243, 0.15), 0 8px 32px rgba(0, 0, 0, 0.3)',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: 'linear-gradient(90deg, #2196F3, #4CAF50, #FF9800)',
-                    borderRadius: '8px 8px 0 0'
-                  }
-                }}>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 2, 
-                    mb: 4,
-                    pb: 3,
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-                  }}>
-                    <Typography variant="h5" sx={{ 
-                      background: 'linear-gradient(135deg, #2196F3, #4CAF50)',
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      fontWeight: 600
-                    }}>
-                      🚀 Ready to add liquidity?
-                    </Typography>
-                    <Typography variant="body2" color="rgba(255, 255, 255, 0.7)" sx={{ ml: 'auto' }}>
-                      Let's get started! ✨
-                    </Typography>
-                  </Box>
-                  <AddLiquidityForm
-                    selectedPool={selectedPool}
-                    chainId={chainId}
-                    onSuccess={() => {
-                      // Optionally go back to pool list after successful liquidity addition
-                      // handleBackToPoolList();
-                    }}
-                  />
-                </Box>
+              {/* Add Liquidity Form */}
+              <Grid item xs={12} md={8}>
+                <Card sx={{ backgroundColor: '#23272f', color: 'white', borderRadius: 2 }}>
+                  <CardContent sx={{ p: 4 }}>
+                    <AddLiquidityForm
+                      selectedPool={selectedPool}
+                      chainId={chainId}
+                      onSuccess={() => {
+                        // Handle success
+                      }}
+                    />
+                  </CardContent>
+                </Card>
               </Grid>
             </Grid>
           </>
         ) : (
           // Pool List View
           <>
+            {/* Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
               <Typography variant="h4" fontWeight={600}>
-                Pool {realPoolData.length > 0 && `(${realPoolData.length})`}
+                Pools {realPoolData.length > 0 && `(${realPoolData.length})`}
               </Typography>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => setShowAddNewPool(true)}
+                sx={{ 
+                  borderRadius: 2,
+                  backgroundColor: '#1976d2 !important',
+                  color: 'white !important',
+                  '&:hover': {
+                    backgroundColor: '#1565c0 !important'
+                  }
+                }}
               >
-                Pool
+                Create Pool
               </Button>
             </Box>
 
+            {/* Pool List */}
             {poolsLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
                 <CircularProgress />
               </Box>
             ) : realPoolData.length === 0 ? (
-              <Card elevation={0} sx={{ textAlign: 'center', py: 6 }}>
-                <CardContent>
+              <Card>
+                <CardContent sx={{ textAlign: 'center', py: 8 }}>
                   <Typography variant="h6" color="text.secondary" gutterBottom>
                     No pools found
                   </Typography>
@@ -551,13 +409,23 @@ const PoolPage = () => {
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={() => setShowAddNewPool(true)}
+                    sx={{ 
+                      borderRadius: 2,
+                      backgroundColor: '#1976d2 !important',
+                      color: 'white !important',
+                      '&:hover': {
+                        backgroundColor: '#1565c0 !important'
+                      }
+                    }}
                   >
                     Create Pool
                   </Button>
                 </CardContent>
               </Card>
             ) : (
-              realPoolData.map(pool => renderPoolCard(apiPoolToPoolData(pool)))
+              <Box>
+                {realPoolData.map(pool => renderPoolCard(apiPoolToPoolData(pool)))}
+              </Box>
             )}
           </>
         )}
@@ -580,10 +448,9 @@ const PoolPage = () => {
           setNewPoolToken0Address={setNewPoolToken0Address}
           setNewPoolToken1Address={setNewPoolToken1Address}
           onPoolCreated={() => {
-            // Refresh pool data when a new pool is created
             setTimeout(() => {
-              window.location.reload()
-            }, 2000) // Wait 2 seconds for the transaction to be mined
+              window.location.reload();
+            }, 2000);
           }}
         />
 

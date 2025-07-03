@@ -238,4 +238,3 @@ const AddLiquidityPage: React.FC = () => {
 };
 
 export default AddLiquidityPage;
-        {/* Add Liquidity Form */}
