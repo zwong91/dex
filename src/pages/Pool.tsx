@@ -14,8 +14,7 @@ import {
   CircularProgress,
   Container,
   Grid,
-  Typography,
-  IconButton
+  Typography
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useChainId } from 'wagmi';
@@ -199,7 +198,7 @@ const PoolPage = () => {
 
         {/* Pool Statistics */}
         <Grid container spacing={2}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary" gutterBottom>
               TVL
             </Typography>
@@ -207,7 +206,7 @@ const PoolPage = () => {
               {pool.tvl}
             </Typography>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary" gutterBottom>
               24h Volume
             </Typography>
@@ -215,7 +214,7 @@ const PoolPage = () => {
               {pool.volume24h}
             </Typography>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary" gutterBottom>
               24h Fees
             </Typography>
@@ -223,7 +222,7 @@ const PoolPage = () => {
               {pool.fees24h}
             </Typography>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="body2" color="text.secondary" gutterBottom>
               Your Liquidity
             </Typography>
@@ -275,7 +274,7 @@ const PoolPage = () => {
             </Box>
             <Grid container spacing={4}>
               {/* Pool Info Sidebar */}
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card sx={{ position: 'sticky', top: 24 }}>
                   <CardContent sx={{ p: 3 }}>
                     {/* Pool Header */}
@@ -324,7 +323,7 @@ const PoolPage = () => {
                       </Box>
 
                       <Grid container spacing={2}>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                           <Box sx={{ textAlign: 'center' }}>
                             <Typography variant="body2" color="text.secondary" gutterBottom>
                               24h Volume
@@ -334,7 +333,7 @@ const PoolPage = () => {
                             </Typography>
                           </Box>
                         </Grid>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                           <Box sx={{ textAlign: 'center' }}>
                             <Typography variant="body2" color="text.secondary" gutterBottom>
                               24h Fees
@@ -351,7 +350,7 @@ const PoolPage = () => {
               </Grid>
 
               {/* Add Liquidity Form */}
-              <Grid item xs={12} md={8}>
+              <Grid size={{ xs: 12, md: 8 }}>
                 <Card sx={{ backgroundColor: '#23272f', color: 'white', borderRadius: 2 }}>
                   <CardContent sx={{ p: 4 }}>
                     <AddLiquidityForm
