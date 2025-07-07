@@ -28,12 +28,6 @@ export const BSC_TESTNET_TOKENS: Record<string, TokenInfo> = {
 		symbol: "BNB",
 		decimals: 18,
 		image: generateTokenIcon('BNB')
-	},
-	ETH: {
-		address: "0x8babbb98678facc7342735486c851abd7a0d17ca",
-		symbol: "ETH",
-		decimals: 18,
-		image: generateTokenIcon('ETH')
 	}
 };
 

@@ -1,5 +1,5 @@
 import { createPublicClient, http } from "viem"
-import { bsc, bscTestnet, mainnet } from "viem/chains"
+import { bsc, bscTestnet } from "viem/chains"
 
 // Create public client for blockchain interaction
 export const createViemClient = (chainId: number) => {
@@ -25,18 +25,9 @@ export const createViemClient = (chainId: number) => {
 				'https://bsc-dataseed1.binance.org'
 			]
 			break
-		case 1: // Ethereum Mainnet
-			chain = mainnet
-			rpcUrls = [
-				'https://ethereum-rpc.publicnode.com',
-				'https://rpc.ankr.com/eth',
-				'https://cloudflare-eth.com'
-			]
-			break
-			break
 		default:
-			chain = bscTestnet
-			rpcUrls = ['https://data-seed-prebsc-1-s1.bnbchain.org:8545']
+			chain = bsc
+			rpcUrls = ['hhttps://bsc-dataseed1.binance.org']
 	}
 
 	// Use the first available RPC endpoint

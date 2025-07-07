@@ -115,4 +115,4 @@ export const BSC_NETWORKS = {
   },
 };
 
-export const DEFAULT_CHAIN = bscTestnet; // Use testnet as default for development
+export const DEFAULT_CHAIN = bsc; // Use mainnet as default for development

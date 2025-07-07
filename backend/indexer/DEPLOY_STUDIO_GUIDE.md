@@ -29,10 +29,10 @@
 
 ```bash
 # 1. 认证 (替换 <DEPLOY_KEY> 为您的实际密钥)
-npx graph auth --studio <DEPLOY_KEY>
+npx graph auth <DEPLOY_KEY>
 
 # 2. 部署到 Studio (替换 <SUBGRAPH_SLUG> 为您的项目名称)
-npx graph deploy --studio <SUBGRAPH_SLUG> subgraph.bsc-testnet.yaml
+npx graph deploy <SUBGRAPH_SLUG> subgraph.bsc.yaml
 ```
 
 ### 5. 配置信息

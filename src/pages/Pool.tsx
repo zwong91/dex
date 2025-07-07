@@ -22,7 +22,7 @@ import Navigation from '../components/Navigation';
 import CreatePoolDialog from '../components/pool/CreatePoolDialog';
 import TokenSelectionDialog from '../components/pool/TokenSelectionDialog';
 import AddLiquidityForm from '../components/pool/AddLiquidityForm';
-import { useApiPoolData } from '../dex/hooks/useApiPoolData';
+import { useApiPoolData, type ApiPool } from '../dex/hooks/useApiPoolData';
 import { getTokensForChain } from '../dex/networkTokens';
 
 interface PoolData {
@@ -43,21 +43,21 @@ interface PoolData {
 }
 
 // 转换函数
-const apiPoolToPoolData = (pool: any): PoolData => ({
-  id: pool.id,
+const apiPoolToPoolData = (pool: ApiPool): PoolData => ({
+  id: pool.pairAddress,
   token0: pool.tokenX?.symbol || '',
   token1: pool.tokenY?.symbol || '',
-  icon0: pool.tokenX?.icon || '',
-  icon1: pool.tokenY?.icon || '',
-  tvl: pool.tvl,
-  apr: pool.apr,
-  volume24h: pool.volume24h,
-  fees24h: pool.fees24h,
-  userLiquidity: pool.userLiquidity,
+  icon0: `/src/assets/${pool.tokenX?.symbol?.toLowerCase()}.svg`,
+  icon1: `/src/assets/${pool.tokenY?.symbol?.toLowerCase()}.svg`,
+  tvl: `$${Number(pool.liquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+  apr: pool.lbBaseFeePct ? `${pool.lbBaseFeePct.toFixed(2)}%` : '—',
+  volume24h: pool.volumeUsd ? `$${Number(pool.volumeUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—',
+  fees24h: pool.feesUsd ? `$${Number(pool.feesUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—',
+  userLiquidity: undefined, // Not available in ApiPool
   pairAddress: pool.pairAddress,
   binStep: pool.lbBinStep,
-  tokenXAddress: pool.tokenXAddress || pool.tokenX?.address,
-  tokenYAddress: pool.tokenYAddress || pool.tokenY?.address,
+  tokenXAddress: pool.tokenX?.address,
+  tokenYAddress: pool.tokenY?.address,
 });
 
 const PoolPage = () => {
@@ -67,9 +67,9 @@ const PoolPage = () => {
   const [selectedPool, setSelectedPool] = useState<PoolData | null>(null);
   const [showAddLiquidity, setShowAddLiquidity] = useState(false);
 
-  // New Pool creation states
-  const [newPoolToken0, setNewPoolToken0] = useState('USDC');
-  const [newPoolToken1, setNewPoolToken1] = useState('ETH');
+  // New Pool creation states - Use BNB as Base, USDT as Quote for BSC
+  const [newPoolToken0, setNewPoolToken0] = useState('BNB');
+  const [newPoolToken1, setNewPoolToken1] = useState('USDT');
   const [newPoolToken0Address, setNewPoolToken0Address] = useState('');
   const [newPoolToken1Address, setNewPoolToken1Address] = useState('');
   const [isTokenSelectOpen, setIsTokenSelectOpen] = useState(false);
@@ -107,14 +107,16 @@ const PoolPage = () => {
   // Initialize default token addresses when component mounts or chain changes
   useEffect(() => {
     if (tokens.length >= 2) {
-      const usdcToken = tokens.find(t => t.symbol === 'USDC');
-      const ethToken = tokens.find(t => t.symbol === 'ETH');
+      const bnbToken = tokens.find(t => t.symbol === 'BNB');
+      const usdtToken = tokens.find(t => t.symbol === 'USDT');
 
-      if (usdcToken && !newPoolToken0Address) {
-        setNewPoolToken0Address(usdcToken.address);
+      if (bnbToken && !newPoolToken0Address) {
+        setNewPoolToken0Address(bnbToken.address);
+        setNewPoolToken0('BNB');
       }
-      if (ethToken && !newPoolToken1Address) {
-        setNewPoolToken1Address(ethToken.address);
+      if (usdtToken && !newPoolToken1Address) {
+        setNewPoolToken1Address(usdtToken.address);
+        setNewPoolToken1('USDT');
       }
     }
   }, [tokens, newPoolToken0Address, newPoolToken1Address]);

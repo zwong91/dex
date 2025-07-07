@@ -21,12 +21,16 @@ import {
 	Tooltip,
 	Typography,
 } from '@mui/material'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { useAccount } from 'wagmi'
+import { useAccount, useChainId } from 'wagmi'
 import { useDexOperations } from '../../dex'
-import { getTokensForChain } from '../../dex/networkTokens'
+import { getSDKTokensForChain, wagmiChainIdToSDKChainId } from '../../dex/lbSdkConfig'
 import { generateTokenIcon } from '../../dex/utils/tokenIconGenerator'
+import { LB_FACTORY_V22_ADDRESS, jsonAbis } from '@lb-xyz/sdk-v2'
+import { createViemClient } from '../../dex/viemClient'
+
+
 
 interface CreatePoolDialogProps {
 	open: boolean
@@ -45,15 +49,17 @@ interface CreatePoolDialogProps {
 }
 
 const binStepOptions = [
-	{ value: '0.1%', baseFee: '0.1%', label: '0.1%' },
-	{ value: '0.25%', baseFee: '0.25%', label: '0.25%' },
-	{ value: '0.5%', baseFee: '0.4%', label: '0.5%' },
-	{ value: '1%', baseFee: '0.8%', label: '1%' },
+	{ value: '0.01%', baseFee: '2%', label: '0.01%' },
+	{ value: '0.02%', baseFee: '3%', label: '0.02%' },
+	{ value: '0.05%', baseFee: '4%', label: '0.05%' },
+	{ value: '0.1%', baseFee: '10%', label: '0.1%' },
+	{ value: '0.15%', baseFee: '15%', label: '0.15%' },
+	{ value: '0.20%', baseFee: '20%', label: '0.20%' },
+	{ value: '0.25%', baseFee: '25%', label: '0.25%' },
 ]
 
 const baseFeeOptions = [
-	'0.01%', '0.02%', '0.03%', '0.04%', '0.05%', '0.1%', '0.15%', '0.2%', '0.25%',
-	'0.3%', '0.4%', '0.6%', '0.8%', '1%', '2%', '5%'
+	'2%', '3%', '4%', '5%', '6%', '8%', '10%', '15%', '20%', '25%',
 ]
 
 // Custom hook to fetch live price from Binance API
@@ -91,6 +97,55 @@ const useBinancePrice = (symbol: string | null) => {
 	return { price, loading }
 }
 
+// Hook to fetch available bin steps from LB Factory
+const useAvailableBinSteps = () => {
+	const [availableBinSteps, setAvailableBinSteps] = useState<number[]>([])
+	const [loading, setLoading] = useState(false)
+	const chainId = useChainId()
+
+	const fetchAvailableBinSteps = useCallback(async () => {
+		if (!chainId) return
+
+		try {
+			setLoading(true)
+			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
+			const factoryAddress = LB_FACTORY_V22_ADDRESS[CHAIN_ID]
+
+			if (!factoryAddress) {
+				console.warn('LB Factory not supported on chain:', chainId)
+				setAvailableBinSteps([])
+				return
+			}
+
+			const publicClient = createViemClient(chainId)
+
+			// Call getOpenBinSteps on the LB Factory
+			const openBinSteps = await publicClient.readContract({
+				address: factoryAddress as `0x${string}`,
+				abi: jsonAbis.LBFactoryV21ABI,
+				functionName: 'getOpenBinSteps'
+			}) as bigint[]
+
+			// Convert BigInt array to number array
+			const binStepsNumbers = openBinSteps.map(step => Number(step))
+			console.log('✅ Available bin steps from factory:', binStepsNumbers)
+			setAvailableBinSteps(binStepsNumbers)
+		} catch (error) {
+			console.error('❌ Failed to fetch available bin steps:', error)
+			// Fallback to common bin steps if factory query fails
+			setAvailableBinSteps([1, 5, 10, 15, 20, 25, 50, 100])
+		} finally {
+			setLoading(false)
+		}
+	}, [chainId])
+
+	useEffect(() => {
+		fetchAvailableBinSteps()
+	}, [fetchAvailableBinSteps])
+
+	return { availableBinSteps, loading }
+}
+
 const CreatePoolDialog = ({
 	open,
 	onClose,
@@ -119,33 +174,114 @@ const CreatePoolDialog = ({
 
 	// Web3 hooks
 	const { createPool, checkPoolExists } = useDexOperations()
+	const { availableBinSteps, loading: binStepsLoading } = useAvailableBinSteps()
 
-	// Get tokens for current chain
-	const tokens = getTokensForChain(chainId)
+	// Get tokens for current chain (use SDK config for 100% match)
+	const tokens = getSDKTokensForChain(chainId)
 
-	// Set default token addresses on load
+	// Create dynamic bin step options based on available factory presets
+	const dynamicBinStepOptions = useMemo(() => {
+		if (binStepsLoading || availableBinSteps.length === 0) {
+			// Fallback to default options while loading or if no data
+			return binStepOptions
+		}
+
+		// Convert available bin steps (basis points) to percentage options
+		return availableBinSteps.map(binStep => {
+			const percentage = (binStep / 100).toFixed(2) + '%'
+			const baseFeePercentage = Math.min(binStep / 4, 25) // Simple fee calculation
+			return {
+				value: percentage,
+				baseFee: `${baseFeePercentage.toFixed(0)}%`,
+				label: percentage
+			}
+		}).sort((a, b) => parseFloat(a.value) - parseFloat(b.value)) // Sort by percentage
+	}, [availableBinSteps, binStepsLoading])
+
+	// Update selected bin step to a valid option when available bin steps change
 	useEffect(() => {
-		const token0 = tokens.find(t => t.symbol === 'BNB')
-		const token1 = tokens.find(t => t.symbol === 'USDT')
+		if (!binStepsLoading && dynamicBinStepOptions.length > 0) {
+			const currentBinStepBasisPoints = Math.floor(parseFloat(selectedBinStep.replace('%', '')) * 100)
+			
+			// Check if current selection is valid
+			const isCurrentValid = availableBinSteps.includes(currentBinStepBasisPoints)
+			
+			if (!isCurrentValid) {
+				// Try to find 25 basis points (0.25%) first, then fallback to the first available
+				const preferredBinStep = availableBinSteps.find(step => step === 25)
+				const fallbackBinStep = preferredBinStep || availableBinSteps[0]
+				const newSelectedBinStep = (fallbackBinStep / 100).toFixed(2) + '%'
+				
+				console.log('🔄 Updating bin step selection to valid option:', {
+					oldSelection: selectedBinStep,
+					newSelection: newSelectedBinStep,
+					availableBinSteps
+				})
+				
+				setSelectedBinStep(newSelectedBinStep)
+			}
+		}
+	}, [availableBinSteps, binStepsLoading, dynamicBinStepOptions, selectedBinStep])
 
-		if (token0 && !newPoolToken0Address) {
+	// Initialize defaults when dialog opens (only if no tokens are set)
+	useEffect(() => {
+		if (open && tokens) {
+			const bnbToken = tokens['BNB']
+			const usdtToken = tokens['USDT']
+			
+			if (bnbToken && usdtToken) {
+				// Only set defaults if both tokens are empty/unset
+				if (!newPoolToken0 && !newPoolToken1) {
+					setNewPoolToken0('BNB')
+					setNewPoolToken0Address(bnbToken.address)
+					setNewPoolToken1('USDT')
+					setNewPoolToken1Address(usdtToken.address)
+					
+					console.log('🚀 Dialog opened, setting initial defaults:', {
+						BNB: bnbToken.address,
+						USDT: usdtToken.address
+					})
+				}
+			}
+		}
+	}, [open, tokens, newPoolToken0, newPoolToken1, setNewPoolToken0, setNewPoolToken0Address, setNewPoolToken1, setNewPoolToken1Address])
+
+	// Set default token addresses only when empty
+	useEffect(() => {
+		const token0 = tokens['BNB']
+		const token1 = tokens['USDT']
+
+		console.log('🔍 Token configuration debug:', {
+			chainId,
+			token0: token0 ? { symbol: token0.symbol, address: token0.address } : 'not found',
+			token1: token1 ? { symbol: token1.symbol, address: token1.address } : 'not found',
+			currentToken0: newPoolToken0,
+			currentToken1: newPoolToken1,
+			currentToken0Address: newPoolToken0Address,
+			currentToken1Address: newPoolToken1Address
+		})
+
+		// Only set defaults if no tokens are selected yet
+		if (token0 && !newPoolToken0Address && !newPoolToken0) {
+			console.log('✅ Setting BNB as default token0:', token0.address)
 			setNewPoolToken0Address(token0.address)
-			setNewPoolToken0('BNB') // Set default Base Token symbol
+			setNewPoolToken0('BNB')
 		}
 
-		if (token1 && !newPoolToken1Address) {
+		if (token1 && !newPoolToken1Address && !newPoolToken1) {
+			console.log('✅ Setting USDT as default token1:', token1.address)
 			setNewPoolToken1Address(token1.address)
-			setNewPoolToken1('USDT') // Set default Quote Token symbol
+			setNewPoolToken1('USDT')
 		}
-	}, [tokens, newPoolToken0Address, newPoolToken1Address, setNewPoolToken0, setNewPoolToken1])
+	}, [tokens, chainId, newPoolToken0Address, newPoolToken1Address, newPoolToken0, newPoolToken1, setNewPoolToken0, setNewPoolToken0Address, setNewPoolToken1, setNewPoolToken1Address])
 
 	// Get current market price from Binance API
 	const token0Symbol = newPoolToken0 || 'BNB'
 	const token1Symbol = newPoolToken1 || 'USDT'
 
 	// Constants for reuse
-	const stablecoins = ['USDC', 'USDT', 'BUSD', 'DAI']
-	const isBaseTokenStable = stablecoins.includes(token0Symbol)
+	const stablecoins = useMemo(() => ['USDC', 'USDT'], [])
+	const isBaseTokenStable = useMemo(() => stablecoins.includes(token0Symbol), [stablecoins, token0Symbol])
 
 	// Build Binance symbol with proper mapping
 	const buildBinanceSymbol = useMemo(() => {
@@ -182,43 +318,37 @@ const CreatePoolDialog = ({
 				return { symbol: 'ETHUSDT', inverted: false }
 			}
 
-			// For USDT/BNB pair, we want to show how many USDT per 1 BNB
-			// Binance BNBUSDT gives BNB price in USDT (e.g. 600 USDT per BNB)
+			// For BNB/USDT pair, we need BNBUSDT price (BNB price in USDT)
+			// We'll invert it later in displayPrice calculation to get "BNB per USDT"
+			if (mappedBase === 'BNB' && mappedQuote === 'USDT') {
+				return { symbol: 'BNBUSDT', inverted: false }
+			}
+
+			// For USDT/BNB pair, we want BNBUSDT price directly (USDT per BNB)
 			if (mappedBase === 'USDT' && mappedQuote === 'BNB') {
 				return { symbol: 'BNBUSDT', inverted: false }
 			}
 
-			// For BNB/USDT pair, we want to show how many BNB per 1 USDT
-			// Need to invert BNBUSDT (1/600 = 0.00167)
-			if (mappedBase === 'BNB' && mappedQuote === 'USDT') {
-				return { symbol: 'BNBUSDT', inverted: true }
+			// For BNB/USDC pair, we need BNBUSDC price (BNB price in USDC)
+			// We'll invert it later in displayPrice calculation to get "BNB per USDC"
+			if (mappedBase === 'BNB' && mappedQuote === 'USDC') {
+				return { symbol: 'BNBUSDC', inverted: false }
 			}
 
-			// For ETH/USDC pair, we want to show how many ETH per 1 USDC
-			// Need to invert ETHUSDC (1/2618 = 0.000382)
-			if (mappedBase === 'ETH' && mappedQuote === 'USDC') {
-				return { symbol: 'ETHUSDC', inverted: true }
+			// For USDC/BNB pair, we want BNBUSDC price directly (USDC per BNB)
+			if (mappedBase === 'USDC' && mappedQuote === 'BNB') {
+				return { symbol: 'BNBUSDC', inverted: false }
 			}
 
-			// For ETH/USDT pair, we want to show how many ETH per 1 USDT
-			// Need to invert ETHUSDT (1/2618 = 0.000382)
-			if (mappedBase === 'ETH' && mappedQuote === 'USDT') {
-				return { symbol: 'ETHUSDT', inverted: true }
-			}
+
 
 			// Define major trading pairs in correct order
 			const majorPairs = [
 				'BTCUSDT',
-				'ETHUSDT',
 				'BNBUSDT',
-				'ADAUSDT',
-				'XRPUSDT',
 				'BTCUSDC',
-				'ETHUSDC',
 				'BNBUSDC',
-				'ETHBTC',
 				'BNBBTC',
-				'ADABTC',
 			]
 
 			// Try to find the correct pair order
@@ -234,7 +364,7 @@ const CreatePoolDialog = ({
 			// Default fallback
 			return { symbol: pair1, inverted: false }
 		}
-	}, [])
+	}, [stablecoins])
 
 	const binanceSymbolData = buildBinanceSymbol(token0Symbol, token1Symbol)
 	const { price: binancePrice, loading: priceLoading } = useBinancePrice(
@@ -246,43 +376,84 @@ const CreatePoolDialog = ({
 		if (!binancePrice) {
 			// Default fallback prices for common pairs
 			if (token0Symbol === 'BNB' && token1Symbol === 'USDT') {
-				return '600.00' // Default BNB per USDT
+				return '0.00167' // How many BNB per 1 USDT (1/600)
 			}
 			if (token0Symbol === 'USDT' && token1Symbol === 'BNB') {
-				return '0.00167' // Default USDT per BNB (1/600)
+				return '600.00' // How many USDT per 1 BNB
 			}
-			if (token0Symbol === 'USDC' && token1Symbol === 'ETH') {
-				return '2618.45' // Default USDC per ETH
+			if (token0Symbol === 'BNB' && token1Symbol === 'USDC') {
+				return '0.00167' // How many BNB per 1 USDC (1/600, assuming USDC ≈ USDT)
 			}
-			if (token0Symbol === 'USDT' && token1Symbol === 'ETH') {
-				return '2618.45' // Default USDT per ETH
+			if (token0Symbol === 'USDC' && token1Symbol === 'BNB') {
+				return '600.00' // How many USDC per 1 BNB
 			}
-			if (token0Symbol === 'BNB' && token1Symbol === 'USDT') {
-				return '600.00' // Default BNB per USDT
-			}
-			if (token0Symbol === 'ETH' && token1Symbol === 'USDC') {
-				return '0.000382' // Default ETH per USDC (1/2618)
-			}
-			if (token0Symbol === 'ETH' && token1Symbol === 'USDT') {
-				return '0.000382' // Default ETH per USDT (1/2618)
-			}
+
 			// For stablecoin pairs or same tokens
 			return '1.0'
 		}
 
 		const price = parseFloat(binancePrice)
+		
+		// The display price should show: "How many token0 per 1 token1"
+		// This is the natural way users think about trading pairs
+		
+		// Handle price inversion based on token pair
 		if (binanceSymbolData?.inverted) {
-			return (1 / price).toFixed(8)
+			// If we got inverted data from Binance, we need to invert it back
+			const invertedPrice = 1 / price
+			return invertedPrice < 0.01 ? invertedPrice.toFixed(8) : invertedPrice.toFixed(6)
 		}
-		return price.toFixed(6)
+		
+		// For direct pairs from Binance, use the price as-is if it makes sense
+		// BNBUSDT gives BNB price in USDT (e.g., 600 USDT per BNB)
+		// But if our base is BNB and quote is USDT, we want "BNB per USDT" which is 1/600
+		if (token0Symbol === 'BNB' && token1Symbol === 'USDT') {
+			// We want "BNB per USDT", so invert the BNBUSDT price
+			const bnbPerUsdt = 1 / price
+			return bnbPerUsdt < 0.01 ? bnbPerUsdt.toFixed(8) : bnbPerUsdt.toFixed(6)
+		}
+		
+		if (token0Symbol === 'USDT' && token1Symbol === 'BNB') {
+			// We want "USDT per BNB", which is the direct BNBUSDT price
+			return price.toFixed(2)
+		}
+
+		// BNBUSDC gives BNB price in USDC (e.g., 600 USDC per BNB)
+		// Similar logic for BNB/USDC pairs
+		if (token0Symbol === 'BNB' && token1Symbol === 'USDC') {
+			// We want "BNB per USDC", so invert the BNBUSDC price
+			const bnbPerUsdc = 1 / price
+			return bnbPerUsdc < 0.01 ? bnbPerUsdc.toFixed(8) : bnbPerUsdc.toFixed(6)
+		}
+		
+		if (token0Symbol === 'USDC' && token1Symbol === 'BNB') {
+			// We want "USDC per BNB", which is the direct BNBUSDC price
+			return price.toFixed(2)
+		}
+		
+		return price < 0.01 ? price.toFixed(8) : price.toFixed(6)
 	}, [binancePrice, binanceSymbolData, token0Symbol, token1Symbol])
 
-	// Update active price when display price changes
+	// Update active price when display price changes or tokens change
 	useEffect(() => {
 		if (displayPrice && displayPrice !== '1.0') {
 			setActivePrice(displayPrice)
+		} else {
+			// Set reasonable default based on token pair
+			if (token0Symbol === 'BNB' && token1Symbol === 'USDT') {
+				setActivePrice('0.00167') // BNB per USDT
+			} else if (token0Symbol === 'USDT' && token1Symbol === 'BNB') {
+				setActivePrice('600.00') // USDT per BNB
+			} else if (token0Symbol === 'BNB' && token1Symbol === 'USDC') {
+				setActivePrice('0.00167') // BNB per USDC
+			} else if (token0Symbol === 'USDC' && token1Symbol === 'BNB') {
+				setActivePrice('600.00') // USDC per BNB
+
+			} else {
+				setActivePrice('1.0') // Default for unknown pairs
+			}
 		}
-	}, [displayPrice])
+	}, [displayPrice, token0Symbol, token1Symbol])
 
 	// Check if pool exists when tokens or bin step changes
 	useEffect(() => {
@@ -331,6 +502,41 @@ const CreatePoolDialog = ({
 			return
 		}
 
+		// Validate token addresses match SDK configuration
+		const token0Config = tokens[token0Symbol as keyof typeof tokens]
+		const token1Config = tokens[token1Symbol as keyof typeof tokens]
+		
+		console.log('🔍 Pre-creation validation:', {
+			token0Symbol,
+			token1Symbol,
+			token0Address: newPoolToken0Address,
+			token1Address: newPoolToken1Address,
+			token0Config: token0Config ? { symbol: token0Config.symbol, address: token0Config.address } : 'not found',
+			token1Config: token1Config ? { symbol: token1Config.symbol, address: token1Config.address } : 'not found'
+		})
+
+		// Force correct addresses if they don't match
+		let finalToken0Address = newPoolToken0Address
+		let finalToken1Address = newPoolToken1Address
+
+		if (token0Config && newPoolToken0Address !== token0Config.address) {
+			console.warn('⚠️ Token0 address mismatch, correcting...', {
+				expected: token0Config.address,
+				current: newPoolToken0Address
+			})
+			finalToken0Address = token0Config.address
+			setNewPoolToken0Address(token0Config.address)
+		}
+
+		if (token1Config && newPoolToken1Address !== token1Config.address) {
+			console.warn('⚠️ Token1 address mismatch, correcting...', {
+				expected: token1Config.address,
+				current: newPoolToken1Address
+			})
+			finalToken1Address = token1Config.address
+			setNewPoolToken1Address(token1Config.address)
+		}
+
 		setIsCreatingPool(true)
 
 		try {
@@ -339,30 +545,79 @@ const CreatePoolDialog = ({
 				parseFloat(selectedBinStep.replace('%', '')) * 100,
 			)
 
-			// Validate active price
-			const activePriceFloat = parseFloat(activePrice)
-			if (activePriceFloat <= 0) {
-				throw new Error('Invalid active price')
+			// Validate that the selected bin step is available in the factory
+			if (availableBinSteps.length > 0 && !availableBinSteps.includes(binStepBasisPoints)) {
+				throw new Error(`Bin step ${selectedBinStep} (${binStepBasisPoints} basis points) is not supported by the factory. Available bin steps: ${availableBinSteps.join(', ')} basis points.`)
 			}
 
-			console.log('Creating pool with:', {
-				token0: newPoolToken0,
-				token1: newPoolToken1,
-				token0Address: newPoolToken0Address,
-				token1Address: newPoolToken1Address,
+			// Validate bin step is reasonable
+			if (binStepBasisPoints < 1 || binStepBasisPoints > 10000) {
+				throw new Error(`Invalid bin step: ${binStepBasisPoints} basis points. Must be between 1 and 10000.`)
+			}
+
+			// Validate active price
+			const validatedPrice = parseFloat(activePrice)
+			
+			// For different token pairs, validate reasonable price ranges
+			if (token0Symbol === 'BNB' && token1Symbol === 'USDT') {
+				// BNB per USDT should be a small decimal (around 0.0016)
+				if (validatedPrice > 1) {
+					console.warn('⚠️ BNB/USDT price seems too high for "BNB per USDT", user might have entered USDT per BNB')
+					// Don't auto-correct, let user decide
+				}
+			} else if (token0Symbol === 'USDT' && token1Symbol === 'BNB') {
+				// USDT per BNB should be in hundreds (around 600)
+				if (validatedPrice < 1) {
+					console.warn('⚠️ USDT/BNB price seems too low for "USDT per BNB", user might have entered BNB per USDT')
+					// Don't auto-correct, let user decide
+				}
+			} else if (token0Symbol === 'BNB' && token1Symbol === 'USDC') {
+				// BNB per USDC should be a small decimal (around 0.0016)
+				if (validatedPrice > 1) {
+					console.warn('⚠️ BNB/USDC price seems too high for "BNB per USDC", user might have entered USDC per BNB')
+					// Don't auto-correct, let user decide
+				}
+			} else if (token0Symbol === 'USDC' && token1Symbol === 'BNB') {
+				// USDC per BNB should be in hundreds (around 600)
+				if (validatedPrice < 1) {
+					console.warn('⚠️ USDC/BNB price seems too low for "USDC per BNB", user might have entered BNB per USDC')
+					// Don't auto-correct, let user decide
+				}
+			}
+			
+			// For very small prices, suggest using larger bin steps
+			if (validatedPrice < 0.000001 && binStepBasisPoints < 10) {
+				throw new Error(`Price ${validatedPrice} is extremely small for bin step ${selectedBinStep}. Try using a larger bin step like 0.1% or higher.`)
+			}
+
+			// For very large prices, suggest using smaller bin steps
+			if (validatedPrice > 1000000 && binStepBasisPoints > 100) {
+				throw new Error(`Price ${validatedPrice} is very large for bin step ${selectedBinStep}. Try using a smaller bin step like 0.01% or 0.05%.`)
+			}
+
+			if (validatedPrice <= 0) {
+				throw new Error('Invalid active price: must be greater than 0')
+			}
+
+			console.log('Creating pool with validated params:', {
+				token0: token0Symbol,
+				token1: token1Symbol,
+				token0Address: finalToken0Address,
+				token1Address: finalToken1Address,
 				binStep: selectedBinStep,
 				binStepBasisPoints,
 				baseFee: selectedBaseFee,
-				activePrice: activePrice,
+				originalPrice: activePrice,
+				validatedPrice: validatedPrice,
 			})
 
 			// Call the createPool contract function
 			// Pass activePrice as string - createPool will calculate proper price ID using LB SDK
 			await createPool(
-				newPoolToken0Address,
-				newPoolToken1Address,
+				finalToken0Address,
+				finalToken1Address,
 				binStepBasisPoints,
-				activePrice,
+				validatedPrice.toString(),
 				selectedBaseFee,
 			)
 
@@ -374,20 +629,26 @@ const CreatePoolDialog = ({
 			}
 
 			handleClose()
-		} catch (err: any) {
-			console.error('Create new pool error:', err)
+		} catch (err: unknown) {
+			const error = err as Error
+			console.error('Create new pool error:', error)
 
 			// Handle specific error cases
 			let errorMessage = 'Unknown error'
 
-			if (err.message && err.message.includes('LBFactory__LBPairAlreadyExists')) {
+			if (error.message && error.message.includes('LBFactory__BinStepHasNoPreset')) {
+				errorMessage = `The selected bin step ${selectedBinStep} is not supported by the factory. Please refresh the page and select from the available options.`
+			} else if (error.message && error.message.includes('LBFactory__LBPairAlreadyExists')) {
 				errorMessage = `Pool already exists for ${token0Symbol}/${token1Symbol} with ${selectedBinStep} bin step. Try using a different bin step or tokens.`
-			} else if (err.message && err.message.includes('User rejected')) {
+			} else if (error.message && error.message.includes('User rejected')) {
 				errorMessage = 'Transaction was cancelled by user'
-			} else if (err.message && err.message.includes('insufficient funds')) {
+			} else if (error.message && error.message.includes('insufficient funds')) {
 				errorMessage = 'Insufficient funds for gas fees'
+			} else if (error.message && error.message.includes('basis points) is not supported')) {
+				// Our client-side validation error
+				errorMessage = error.message
 			} else {
-				errorMessage = err.message || err.toString()
+				errorMessage = error.message || error.toString()
 			}
 
 			toast.error(`Failed to create pool: ${errorMessage}`)
@@ -397,14 +658,16 @@ const CreatePoolDialog = ({
 	}
 
 	const handleClose = () => {
-		// Reset form
-		setNewPoolToken0('BNB')
-		setNewPoolToken1('USDT')
-		setNewPoolToken0Address('')
-		setNewPoolToken1Address('')
+		// Reset form state but don't force specific token selections
+		// Let the parent component manage token state
 		setSelectedBinStep('0.25%')
 		setSelectedBaseFee('0.25%')
-		setActivePrice('600.00')
+		setActivePrice('1.0')
+		setIsCreatingPool(false)
+		setPoolExists({ exists: false, checked: false })
+		
+		console.log('🔄 Dialog closed, form reset')
+		
 		onClose()
 	}
 
@@ -476,7 +739,7 @@ const CreatePoolDialog = ({
 									variant="body2"
 									sx={{ color: 'text.secondary' }}
 								>
-									{tokens.find(t => t.symbol === token0Symbol)?.name || 'Binance Coin'}
+									{tokens[token0Symbol as keyof typeof tokens]?.name || 'Binance Coin'}
 								</Typography>
 							</Box>
 						</Box>
@@ -557,7 +820,7 @@ const CreatePoolDialog = ({
 									variant="body2"
 									sx={{ color: 'text.secondary' }}
 								>
-									{tokens.find(t => t.symbol === token1Symbol)?.name || 'Tether USD'}
+									{tokens[token1Symbol as keyof typeof tokens]?.name || 'Tether USD'}
 								</Typography>
 							</Box>
 						</Box>
@@ -620,45 +883,66 @@ const CreatePoolDialog = ({
 						>
 							<InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
 						</Tooltip>
+						{binStepsLoading && (
+							<CircularProgress size={16} sx={{ ml: 1 }} />
+						)}
 					</Box>
 
-					<ToggleButtonGroup
-						value={selectedBinStep}
-						exclusive
-						onChange={(_, value) => value && setSelectedBinStep(value)}
-						sx={{ mb: 3, width: '100%' }}
-					>
-						{binStepOptions.map(option => (
-							<ToggleButton
-								key={option.value}
-								value={option.value}
-								sx={{
-									flex: 1,
-									border: '1px solid #e0e0e0 !important',
-									'&.Mui-selected': {
-										backgroundColor: 'primary.main',
-										color: 'white',
-										'&:hover': { backgroundColor: 'primary.dark' },
-									},
-								}}
-							>
-								<Box sx={{ textAlign: 'center' }}>
-									<Typography variant="body2" fontWeight={600}>
-										{option.label}
-									</Typography>
-									<Typography
-										variant="caption"
-										sx={{
-											color: 'inherit',
-											opacity: 0.7,
-										}}
-									>
-										{option.baseFee} base fee
+					{binStepsLoading ? (
+						<Box sx={{ mb: 3, p: 2, textAlign: 'center', backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+							<Typography variant="body2" color="text.secondary">
+								Loading available bin steps from factory...
+							</Typography>
+						</Box>
+					) : (
+						<>
+							{availableBinSteps.length > 0 && (
+								<Box sx={{ mb: 2, p: 1.5, backgroundColor: '#e3f2fd', border: '1px solid #90caf9', borderRadius: 1 }}>
+									<Typography variant="caption" color="primary.dark">
+										💡 Only factory-approved bin steps are shown ({availableBinSteps.length} available). 
+										This prevents pool creation failures.
 									</Typography>
 								</Box>
-							</ToggleButton>
-						))}
-					</ToggleButtonGroup>
+							)}
+							<ToggleButtonGroup
+								value={selectedBinStep}
+								exclusive
+								onChange={(_, value) => value && setSelectedBinStep(value)}
+								sx={{ mb: 3, width: '100%' }}
+							>
+								{dynamicBinStepOptions.map(option => (
+									<ToggleButton
+										key={option.value}
+										value={option.value}
+										sx={{
+											flex: 1,
+											border: '1px solid #e0e0e0 !important',
+											'&.Mui-selected': {
+												backgroundColor: 'primary.main',
+												color: 'white',
+												'&:hover': { backgroundColor: 'primary.dark' },
+											},
+										}}
+									>
+										<Box sx={{ textAlign: 'center' }}>
+											<Typography variant="body2" fontWeight={600}>
+												{option.label}
+											</Typography>
+											<Typography
+												variant="caption"
+												sx={{
+													color: 'inherit',
+													opacity: 0.7,
+												}}
+											>
+												{option.baseFee} base fee
+											</Typography>
+										</Box>
+									</ToggleButton>
+								))}
+							</ToggleButtonGroup>
+						</>
+					)}
 
 					{/* Initial Price */}
 					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -699,9 +983,9 @@ const CreatePoolDialog = ({
 														marginRight: '6px'
 													}}
 												/>
-												Market price: {parseFloat(displayPrice).toLocaleString('en-US', {
+												Market rate: {parseFloat(displayPrice).toLocaleString('en-US', {
 													minimumFractionDigits: 2,
-													maximumFractionDigits: 6
+													maximumFractionDigits: 8
 												})} {token0Symbol}/{token1Symbol}. {
 													binanceSymbolData?.symbol ? (
 														<a
@@ -714,10 +998,10 @@ const CreatePoolDialog = ({
 																cursor: 'pointer'
 															}}
 														>
-															Verify
+															Verify on Binance
 														</a>
-													) : 'Verify'
-												} before using.
+													) : 'Verify rate'
+												} before creating pool.
 											</span>
 										)
 								}
@@ -735,6 +1019,40 @@ const CreatePoolDialog = ({
 							</Button>
 						</Grid>
 					</Grid>
+
+					{/* Parameter Warning */}
+					{(parseFloat(activePrice) <= 0 || parseFloat(activePrice) > 1000000) && (
+						<Box
+							sx={{
+								p: 2,
+								mb: 2,
+								backgroundColor: '#fff3cd',
+								border: '1px solid #ffeaa7',
+								borderRadius: 1,
+							}}
+						>
+							<Typography
+								variant="body2"
+								sx={{ color: '#856404', fontWeight: 500 }}
+							>
+								⚠️ Warning: Price {activePrice} may cause transaction issues.
+								{parseFloat(activePrice) <= 0 && (
+									<>
+										<br />
+										Price must be greater than 0.
+									</>
+								)}
+								{parseFloat(activePrice) > 1000000 && (
+									<>
+										<br />
+										Very large prices (&gt;1M) may require smaller bin steps (0.01% or 0.05%).
+									</>
+								)}
+								<br />
+								Please verify the price is correct for your token pair.
+							</Typography>
+						</Box>
+					)}
 
 					{/* Pool Exists Warning */}
 					{poolExists.checked && poolExists.exists && (

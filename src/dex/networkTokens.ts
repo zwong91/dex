@@ -10,12 +10,6 @@ export const NETWORK_TOKEN_CONFIGS = {
       icon: generateTokenIcon('BNB')
     },
     {
-      symbol: 'ETH',
-      name: 'Ethereum',
-      address: '0x8babbb98678facc7342735486c851abd7a0d17ca',
-      icon: generateTokenIcon('ETH')
-    },
-    {
       symbol: 'USDC',
       name: 'USD Coin',
       address: '0x64544969ed7EBf5f083679233325356EbE738930',
@@ -34,12 +28,6 @@ export const NETWORK_TOKEN_CONFIGS = {
       name: 'BNB',
       address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
       icon: generateTokenIcon('BNB')
-    },
-    {
-      symbol: 'ETH',
-      name: 'Ethereum',
-      address: '0x2170Ed0880ac9A755fd29B2688956BD959F933F8',
-      icon: generateTokenIcon('ETH')
     },
     {
       symbol: 'USDC',
@@ -116,8 +104,6 @@ export const getChainDisplayName = (chainId: number): string => {
       return 'BSC Testnet';
     case 56:
       return 'BSC Mainnet';
-    case 1:
-      return 'Ethereum Mainnet';
     default:
       return 'Unknown Network';
   }

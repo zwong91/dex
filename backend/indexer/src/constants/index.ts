@@ -17,11 +17,11 @@ export const BIG_INT_ZERO = BigInt.fromI32(0);
 export const NULL_CALL_RESULT_VALUE =
   "0x0000000000000000000000000000000000000000000000000000000000000001";
 
-export const LBFACTORY_ADDRESS = Address.fromString('0x7D73A6eFB91C89502331b2137c2803408838218b');
+export const LBFACTORY_ADDRESS = Address.fromString('0x55268e26DA30fEAc50B26511ba70C5Cac2Af43B8');
 
-export const ORACLE_DEX_LENS_ADDRESS = Address.fromString('0x8C7dc8184F5D78Aa40430b2d37f78fDC3e9A9b78');
+export const ORACLE_DEX_LENS_ADDRESS = Address.fromString('0x817cF81C5FA4a5AF9F87010B7a9A20a60b485850');
 
 export const ORACLE_DEX_LENS_USD_DECIMALS = BigDecimal.fromString("1e18");
 
 // Wrapped native token address (WETH for Ethereum, WBNB for BSC, etc.)
-export const WRAPPED_NATIVE_TOKEN_ADDRESS = Address.fromString('0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd');
+export const WRAPPED_NATIVE_TOKEN_ADDRESS = Address.fromString('0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c');

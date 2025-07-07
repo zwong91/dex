@@ -82,7 +82,7 @@ export const SUPPORTED_NETWORKS = {
 } as const;
 
 // Current network (change this for production)
-export const DEFAULT_NETWORK = SUPPORTED_NETWORKS.bscTestnet;
+export const DEFAULT_NETWORK = SUPPORTED_NETWORKS.bscMainnet;
 
 // Gas Settings per network
 export const GAS_SETTINGS = {
@@ -193,10 +193,9 @@ export const DEX_FEATURES = {
 
 // Liquidity Helper contract addresses for different chains
 export const LIQUIDITY_HELPER_ADDRESSES: Record<number, string> = {
-  1: '0x0000000000000000000000000000000000000000', // Ethereum Mainnet - not configured
-  56: '0x0000000000000000000000000000000000000000', // BSC Mainnet - not configured  
+  56: '0xD5621dB75A75A4429DA39B215d3657828e592381', // BSC Mainnet - not configured  
   97: '0x1e51C5C4523dDC900AFb5c48Ed4D07680fEEe7A4', // BSC Testnet - not configured
-}
+};
 
 // Helper functions
 export const formatTokenAmount = (amount: string | number, decimals: number = 18): string => {

@@ -346,14 +346,14 @@ export const useDexOperations = () => {
 							timeout: 60000
 						})
 						console.log("✅ TokenX approval confirmed!")
-					} catch (approvalError: any) {
-						if (approvalError.message?.includes('User denied transaction') || 
-							approvalError.message?.includes('not been authorized by the user') ||
-							approvalError.code === 4001) {
+					} catch (approvalError: unknown) {
+						if ((approvalError as Error).message?.includes('User denied transaction') || 
+							(approvalError as Error).message?.includes('not been authorized by the user') ||
+							(approvalError as { code?: number }).code === 4001) {
 							throw new Error(`User cancelled authorization transaction. Please approve ${tokenA?.symbol || 'TokenX'} to continue adding liquidity.`)
 						}
 						console.error("TokenX approval error:", approvalError)
-						throw new Error(`Failed to approve ${tokenA?.symbol || 'TokenX'}: ${approvalError.message}`)
+						throw new Error(`Failed to approve ${tokenA?.symbol || 'TokenX'}: ${(approvalError as Error).message}`)
 					}
 				}
 			}
@@ -393,14 +393,14 @@ export const useDexOperations = () => {
 							timeout: 60000
 						})
 						console.log("✅ TokenY approval confirmed!")
-					} catch (approvalError: any) {
-						if (approvalError.message?.includes('User denied transaction') || 
-							approvalError.message?.includes('not been authorized by the user') ||
-							approvalError.code === 4001) {
+					} catch (approvalError: unknown) {
+						if ((approvalError as Error).message?.includes('User denied transaction') || 
+							(approvalError as Error).message?.includes('not been authorized by the user') ||
+							(approvalError as { code?: number }).code === 4001) {
 							throw new Error(`User cancelled authorization transaction. Please approve ${tokenB?.symbol || 'TokenY'} to continue adding liquidity.`)
 						}
 						console.error("TokenY approval error:", approvalError)
-						throw new Error(`Failed to approve ${tokenB?.symbol || 'TokenY'}: ${approvalError.message}`)
+						throw new Error(`Failed to approve ${tokenB?.symbol || 'TokenY'}: ${(approvalError as Error).message}`)
 					}
 				}
 			}
@@ -423,10 +423,10 @@ export const useDexOperations = () => {
 
 				console.log(`✅ ${actionDescription} transaction sent:`, result)
 				return result
-			} catch (addLiquidityError: any) {
-				if (addLiquidityError.message?.includes('User denied transaction') || 
-					addLiquidityError.message?.includes('not been authorized by the user') ||
-					addLiquidityError.code === 4001) {
+			} catch (addLiquidityError: unknown) {
+				if ((addLiquidityError as Error).message?.includes('User denied transaction') || 
+					(addLiquidityError as Error).message?.includes('not been authorized by the user') ||
+					(addLiquidityError as { code?: number }).code === 4001) {
 					const errorMessage = isSingleSided ? 
 						'User cancelled single-sided liquidity transaction. Please confirm the transaction to complete the operation.' : 
 						'User cancelled liquidity addition transaction. Please confirm the transaction to complete the operation.'
@@ -434,9 +434,9 @@ export const useDexOperations = () => {
 				}
 				
 				// Handle slippage error specifically
-				if (addLiquidityError.message?.includes('LBRouter__AmountSlippageCaught')) {
+				if ((addLiquidityError as Error).message?.includes('LBRouter__AmountSlippageCaught')) {
 					console.error("🎯 Amount slippage caught - detailed analysis:", {
-						errorMessage: addLiquidityError.message,
+						errorMessage: (addLiquidityError as Error).message,
 						inputParams: {
 							amountX,
 							amountY,
@@ -457,8 +457,8 @@ export const useDexOperations = () => {
 				
 				console.error("AddLiquidity transaction error:", addLiquidityError)
 				const errorMessage = isSingleSided ? 
-					`Failed to add single-sided liquidity: ${addLiquidityError.message}` : 
-					`Failed to add liquidity: ${addLiquidityError.message}`
+					`Failed to add single-sided liquidity: ${(addLiquidityError as Error).message}` : 
+					`Failed to add liquidity: ${(addLiquidityError as Error).message}`
 				throw new Error(errorMessage)
 			}
 		} catch (error) {
@@ -741,7 +741,8 @@ export const useDexOperations = () => {
 				})
 
 				// Check if pair exists (address is not zero)
-				const pairAddress = (pairInfo as any)?.[0] || '0x0000000000000000000000000000000000000000'
+				const pairAddress = Array.isArray(pairInfo) && pairInfo.length > 0 ? 
+					pairInfo[0] as string : '0x0000000000000000000000000000000000000000'
 				const exists = pairAddress !== '0x0000000000000000000000000000000000000000'
 
 				return { exists, pairAddress: exists ? pairAddress : undefined }
@@ -789,40 +790,93 @@ export const useDexOperations = () => {
 				throw new Error("Tokens not found in SDK configuration")
 			}
 
+			// LB Protocol requires tokens to be sorted by address (tokenX < tokenY)
+			// But we keep user's original choice for display purposes and adjust price accordingly
+			let finalTokenXAddress: string
+			let finalTokenYAddress: string
+			let adjustedPrice = parseFloat(activePrice)
+
+			// Sort tokens by address as required by LB protocol
+			if (tokenXAddress.toLowerCase() < tokenYAddress.toLowerCase()) {
+				// tokenX stays as user's first choice, tokenY as second choice
+				finalTokenXAddress = tokenXAddress
+				finalTokenYAddress = tokenYAddress
+				// Price stays as user entered (user's first token per user's second token)
+				adjustedPrice = parseFloat(activePrice)
+			} else {
+				// Need to swap for protocol: tokenY becomes tokenX, tokenX becomes tokenY
+				finalTokenXAddress = tokenYAddress  // User's second choice becomes tokenX
+				finalTokenYAddress = tokenXAddress  // User's first choice becomes tokenY
+				// Invert price because now we need: how many of user's second token per user's first token
+				adjustedPrice = 1 / parseFloat(activePrice)
+			}
+			
+			console.log("🔄 Protocol token ordering:", {
+				userFirstToken: { address: tokenXAddress, symbol: tokenX?.symbol },
+				userSecondToken: { address: tokenYAddress, symbol: tokenY?.symbol },
+				protocolTokenX: { address: finalTokenXAddress, symbol: finalTokenXAddress === tokenXAddress ? tokenX?.symbol : tokenY?.symbol },
+				protocolTokenY: { address: finalTokenYAddress, symbol: finalTokenYAddress === tokenYAddress ? tokenY?.symbol : tokenX?.symbol },
+				userEnteredPrice: activePrice,
+				protocolAdjustedPrice: adjustedPrice.toString(),
+				priceDescription: finalTokenXAddress === tokenXAddress 
+					? `${tokenX?.symbol} per ${tokenY?.symbol}` 
+					: `${tokenY?.symbol} per ${tokenX?.symbol}`,
+				swapped: finalTokenXAddress !== tokenXAddress
+			})
+
 			// Calculate proper active price ID using LB SDK
-			const priceFloat = parseFloat(activePrice)
-			if (priceFloat <= 0) {
+			if (adjustedPrice <= 0) {
 				throw new Error("Invalid price: must be greater than 0")
 			}
 
 			// Use LB SDK to calculate the correct price ID
-			const activePriceId = Bin.getIdFromPrice(priceFloat, binStepBasisPoints)
+			const activePriceId = Bin.getIdFromPrice(adjustedPrice, binStepBasisPoints)
 
-			// Validate the price ID is within acceptable bounds
-			if (activePriceId < 0 || activePriceId > 8388607) { // 2^23 - 1 (max valid ID)
-				throw new Error(`Invalid price ID: ${activePriceId}. Price may be too high or too low.`)
+			// Validate the price ID is within acceptable bounds for LB protocol
+			// Active ID is a 24-bit integer (0 to 2^24 - 1 = 16777215)
+			if (activePriceId < 0 || activePriceId > 16777215) { // 2^24 - 1 (max uint24)
+				throw new Error(`Invalid price ID: ${activePriceId}. Price may be too high or too low for this bin step.`)
 			}
 
-			console.log("Creating pool with:", {
-				tokenX: tokenXAddress,
-				tokenY: tokenYAddress,
-				binStep: binStepBasisPoints,
-				activePrice: activePrice,
-				activePriceId,
-				baseFee: baseFee,
-				factory: factoryAddress
+			// Validate bin step is within uint16 range
+			if (binStepBasisPoints < 1 || binStepBasisPoints > 65535) {
+				throw new Error(`Invalid bin step: ${binStepBasisPoints}. Must be between 1 and 65535.`)
+			}
+
+			console.log("Creating pool with protocol-compliant parameters:", {
+				userSelection: {
+					baseToken: { address: tokenXAddress, symbol: tokenX?.symbol },
+					quoteToken: { address: tokenYAddress, symbol: tokenY?.symbol },
+					displayPrice: `${activePrice} ${tokenX?.symbol}/${tokenY?.symbol}`
+				},
+				protocolParams: {
+					tokenX: { address: finalTokenXAddress, symbol: finalTokenXAddress === tokenXAddress ? tokenX?.symbol : tokenY?.symbol },
+					tokenY: { address: finalTokenYAddress, symbol: finalTokenYAddress === tokenYAddress ? tokenY?.symbol : tokenX?.symbol },
+					protocolPrice: adjustedPrice,
+					priceDescription: finalTokenXAddress === tokenXAddress 
+						? `${tokenX?.symbol} per ${tokenY?.symbol}` 
+						: `${tokenY?.symbol} per ${tokenX?.symbol}`
+				},
+				technicalDetails: {
+					binStep: binStepBasisPoints,
+					activePriceId,
+					baseFee: baseFee,
+					factory: factoryAddress
+				}
 			})
 
 			// Call createLBPair function on the factory
+			// Function signature: createLBPair(tokenX, tokenY, activeId, binStep)
+			// activeId: uint24, binStep: uint16
 			const result = await writeContractAsync({
 				address: factoryAddress as `0x${string}`,
 				abi: jsonAbis.LBFactoryV21ABI,
 				functionName: "createLBPair",
 				args: [
-					tokenXAddress as `0x${string}`,
-					tokenYAddress as `0x${string}`,
-					BigInt(activePriceId),
-					BigInt(binStepBasisPoints)
+					finalTokenXAddress as `0x${string}`,
+					finalTokenYAddress as `0x${string}`,
+					activePriceId, // uint24 - no BigInt conversion needed for smaller numbers
+					binStepBasisPoints // uint16 - no BigInt conversion needed for smaller numbers
 				],
 				chainId: chainId,
 			})
