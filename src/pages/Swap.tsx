@@ -607,7 +607,7 @@ const SwapPage = () => {
             {chainId === 97 && (
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  没有看到你的代币？快速添加到钱包：
+                  Don't see your token? Quick add to wallet:
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   {Object.entries(BSC_TESTNET_TOKENS).map(([key, token]) => (
@@ -619,7 +619,7 @@ const SwapPage = () => {
                       onClick={async () => {
                         const success = await addTokenToWallet(token);
                         if (success) {
-                          console.log(`${token.symbol} 已添加到钱包`);
+                          console.log(`${token.symbol} added to wallet`);
                         }
                       }}
                       sx={{ cursor: 'pointer' }}
@@ -703,7 +703,7 @@ const SwapPage = () => {
             {chainId === 97 && (
               <>
                 <Typography variant="subtitle2" gutterBottom>
-                  快速添加代币到钱包
+                  Quick add tokens to wallet
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                   {Object.entries(BSC_TESTNET_TOKENS).map(([key, token]) => (
@@ -715,17 +715,17 @@ const SwapPage = () => {
                       onClick={async () => {
                         const success = await addTokenToWallet(token);
                         if (success) {
-                          console.log(`${token.symbol} 已添加到钱包`);
+                          console.log(`${token.symbol} added to wallet`);
                         }
                       }}
                       sx={{ textTransform: 'none' }}
                     >
-                      添加 {token.symbol}
+                      Add {token.symbol}
                     </Button>
                   ))}
                 </Box>
                 <Typography variant="caption" color="text.secondary">
-                  点击按钮将代币添加到你的 MetaMask 钱包
+                  Click button to add tokens to your MetaMask wallet
                 </Typography>
               </>
             )}

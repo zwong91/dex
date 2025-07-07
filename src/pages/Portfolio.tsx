@@ -691,7 +691,7 @@ const PortfolioPage = () => {
             }}
           >
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              正在优化链上数据获取... 我们已实施了批处理和缓存来提升速度
+              Optimizing blockchain data fetching... We've implemented batching and caching to improve speed
             </Typography>
             <LinearProgress 
               sx={{ 
