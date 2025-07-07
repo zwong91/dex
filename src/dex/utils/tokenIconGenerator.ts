@@ -3,6 +3,7 @@ export const generateTokenIcon = (symbol: string, size: number = 32): string => 
 	// Color mapping for different tokens
 	const tokenColors: { [key: string]: { bg: string; text: string } } = {
 		'BNB': { bg: '#F3BA2F', text: '#000000' },
+		'WBNB': { bg: '#F3BA2F', text: '#000000' },
 		'ETH': { bg: '#627EEA', text: '#FFFFFF' },
 		'WETH': { bg: '#627EEA', text: '#FFFFFF' },
 		'USDC': { bg: '#2775CA', text: '#FFFFFF' },

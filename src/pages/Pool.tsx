@@ -16,7 +16,7 @@ import {
   Grid,
   Typography
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useChainId } from 'wagmi';
 import Navigation from '../components/Navigation';
 import CreatePoolDialog from '../components/pool/CreatePoolDialog';
@@ -24,6 +24,7 @@ import TokenSelectionDialog from '../components/pool/TokenSelectionDialog';
 import AddLiquidityForm from '../components/pool/AddLiquidityForm';
 import { useApiPoolData, type ApiPool } from '../dex/hooks/useApiPoolData';
 import { getTokensForChain } from '../dex/networkTokens';
+import { generateTokenIcon } from '../dex/utils/tokenIconGenerator';
 
 interface PoolData {
   id: string;
@@ -47,8 +48,8 @@ const apiPoolToPoolData = (pool: ApiPool): PoolData => ({
   id: pool.pairAddress,
   token0: pool.tokenX?.symbol || '',
   token1: pool.tokenY?.symbol || '',
-  icon0: `/src/assets/${pool.tokenX?.symbol?.toLowerCase()}.svg`,
-  icon1: `/src/assets/${pool.tokenY?.symbol?.toLowerCase()}.svg`,
+  icon0: generateTokenIcon(pool.tokenX?.symbol || 'TOKEN', 36),
+  icon1: generateTokenIcon(pool.tokenY?.symbol || 'TOKEN', 36),
   tvl: `$${Number(pool.liquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
   apr: pool.lbBaseFeePct ? `${pool.lbBaseFeePct.toFixed(2)}%` : '—',
   volume24h: pool.volumeUsd ? `$${Number(pool.volumeUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—',
@@ -59,6 +60,131 @@ const apiPoolToPoolData = (pool: ApiPool): PoolData => ({
   tokenXAddress: pool.tokenX?.address,
   tokenYAddress: pool.tokenY?.address,
 });
+
+// Memoized pool card component for better performance
+const PoolCard = React.memo<{ pool: PoolData; onAddLiquidity: (pool: PoolData) => void }>(
+  ({ pool, onAddLiquidity }) => {
+    const handleClick = useCallback(() => {
+      onAddLiquidity(pool);
+    }, [pool, onAddLiquidity]);
+
+    return (
+      <Card 
+        sx={{ 
+          mb: 3, 
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          borderRadius: 2,
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+            '& .chevron-icon': {
+              transform: 'translateX(4px)',
+            }
+          }
+        }}
+        onClick={handleClick}
+      >
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              {/* Token Icons */}
+              <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                <Avatar sx={{ width: 36, height: 36, border: '2px solid', borderColor: 'background.paper' }}>
+                  <img src={pool.icon0} alt={pool.token0} style={{ width: '100%', height: '100%' }} />
+                </Avatar>
+                <Avatar sx={{ width: 36, height: 36, ml: -1, border: '2px solid', borderColor: 'background.paper' }}>
+                  <img src={pool.icon1} alt={pool.token1} style={{ width: '100%', height: '100%' }} />
+                </Avatar>
+              </Box>
+              
+              {/* Token Pair */}
+              <Typography variant="h6" fontWeight={600}>
+                {pool.token0}/{pool.token1}
+              </Typography>
+              
+              {/* Chips */}
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {pool.binStep && (
+                  <Chip
+                    label={`${(pool.binStep / 100).toFixed(2)}%`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderColor: 'divider' }}
+                  />
+                )}
+                <Chip
+                  label={`${pool.apr} APR`}
+                  size="small"
+                  color="primary"
+                  icon={<TrendingUpIcon sx={{ fontSize: '16px !important' }} />}
+                />
+              </Box>
+            </Box>
+            
+            {/* Chevron Icon */}
+            <ChevronRightIcon 
+              className="chevron-icon"
+              sx={{ 
+                color: 'text.secondary',
+                transition: 'transform 0.2s ease',
+                fontSize: 28
+              }} 
+            />
+          </Box>
+
+          {/* Pool Statistics */}
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                TVL
+              </Typography>
+              <Typography variant="body1" fontWeight={600}>
+                {pool.tvl}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                24h Volume
+              </Typography>
+              <Typography variant="body1" fontWeight={600}>
+                {pool.volume24h}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                24h Fees
+              </Typography>
+              <Typography variant="body1" fontWeight={600}>
+                {pool.fees24h}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Your Liquidity
+              </Typography>
+              <Typography variant="body1" fontWeight={600}>
+                {pool.userLiquidity || '$0.00'}
+              </Typography>
+            </Grid>
+          </Grid>
+
+          {/* Pair Address */}
+          {pool.pairAddress && (
+            <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="caption" color="text.secondary">
+                Pair: {pool.pairAddress.slice(0, 6)}...{pool.pairAddress.slice(-4)}
+              </Typography>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+);
+
+PoolCard.displayName = 'PoolCard';
 
 const PoolPage = () => {
   const [showAddNewPool, setShowAddNewPool] = useState(false);
@@ -79,7 +205,7 @@ const PoolPage = () => {
   const chainId = useChainId();
 
   // Fetch pool data from backend API
-  const chainMap: Record<number, string> = {
+  const chainMap: Record<number, string> = useMemo(() => ({
     1: 'ethereum',
     56: 'binance',
     97: 'binance',
@@ -89,11 +215,12 @@ const PoolPage = () => {
     10: 'optimism',
     8453: 'base',
     11155111: 'ethereum', // sepolia
-  };
+  }), []);
+
   const chainName = chainMap[chainId] || 'binance';
-  const { pools: realPoolData, loading: poolsLoading } = useApiPoolData({
+  const { pools: realPoolData, loading: poolsLoading, refetch } = useApiPoolData({
     chain: chainName,
-    pageSize: 10,
+    pageSize: 5, // 减少到5个，提高加载速度
     orderBy: 'volume',
     filterBy: '1d',
     status: 'main',
@@ -101,8 +228,8 @@ const PoolPage = () => {
     excludeLowVolumePools: true,
   });
 
-  // Get tokens for current chain
-  const tokens = getTokensForChain(chainId);
+  // Get tokens for current chain - memoized
+  const tokens = useMemo(() => getTokensForChain(chainId), [chainId]);
 
   // Initialize default token addresses when component mounts or chain changes
   useEffect(() => {
@@ -121,130 +248,35 @@ const PoolPage = () => {
     }
   }, [tokens, newPoolToken0Address, newPoolToken1Address]);
 
-  const handleAddLiquidity = (pool: PoolData) => {
+  // Memoized callbacks for better performance
+  const handleAddLiquidity = useCallback((pool: PoolData) => {
     setSelectedPool(pool);
     setShowAddLiquidity(true);
-  };
+  }, []);
 
-  const handleBackToPoolList = () => {
+  const handleBackToPoolList = useCallback(() => {
     setSelectedPool(null);
     setShowAddLiquidity(false);
-  };
+  }, []);
 
-  const renderPoolCard = (pool: PoolData) => (
-    <Card 
-      key={pool.id} 
-      sx={{ 
-        mb: 3, 
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        borderRadius: 2,
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-          '& .chevron-icon': {
-            transform: 'translateX(4px)',
-          }
-        }
-      }}
-      onClick={() => handleAddLiquidity(pool)}
-    >
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {/* Token Icons */}
-            <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-              <Avatar sx={{ width: 36, height: 36, border: '2px solid', borderColor: 'background.paper' }}>
-                <img src={pool.icon0} alt={pool.token0} style={{ width: '100%', height: '100%' }} />
-              </Avatar>
-              <Avatar sx={{ width: 36, height: 36, ml: -1, border: '2px solid', borderColor: 'background.paper' }}>
-                <img src={pool.icon1} alt={pool.token1} style={{ width: '100%', height: '100%' }} />
-              </Avatar>
-            </Box>
-            
-            {/* Token Pair */}
-            <Typography variant="h6" fontWeight={600}>
-              {pool.token0}/{pool.token1}
-            </Typography>
-            
-            {/* Chips */}
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {pool.binStep && (
-                <Chip
-                  label={`${(pool.binStep / 100).toFixed(2)}%`}
-                  size="small"
-                  variant="outlined"
-                  sx={{ borderColor: 'divider' }}
-                />
-              )}
-              <Chip
-                label={`${pool.apr} APR`}
-                size="small"
-                color="primary"
-                icon={<TrendingUpIcon sx={{ fontSize: '16px !important' }} />}
-              />
-            </Box>
-          </Box>
-          
-          {/* Chevron Icon */}
-          <ChevronRightIcon 
-            className="chevron-icon"
-            sx={{ 
-              color: 'text.secondary',
-              transition: 'transform 0.2s ease',
-              fontSize: 28
-            }} 
-          />
-        </Box>
+  const handleCreatePool = useCallback(() => {
+    setShowAddNewPool(true);
+  }, []);
 
-        {/* Pool Statistics */}
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              TVL
-            </Typography>
-            <Typography variant="body1" fontWeight={600}>
-              {pool.tvl}
-            </Typography>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              24h Volume
-            </Typography>
-            <Typography variant="body1" fontWeight={600}>
-              {pool.volume24h}
-            </Typography>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              24h Fees
-            </Typography>
-            <Typography variant="body1" fontWeight={600}>
-              {pool.fees24h}
-            </Typography>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Your Liquidity
-            </Typography>
-            <Typography variant="body1" fontWeight={600}>
-              {pool.userLiquidity || '$0.00'}
-            </Typography>
-          </Grid>
-        </Grid>
+  const handleCloseCreatePool = useCallback(() => {
+    setShowAddNewPool(false);
+  }, []);
 
-        {/* Pair Address */}
-        {pool.pairAddress && (
-          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="caption" color="text.secondary">
-              Pair: {pool.pairAddress.slice(0, 6)}...{pool.pairAddress.slice(-4)}
-            </Typography>
-          </Box>
-        )}
-      </CardContent>
-    </Card>
-  );
+  const handlePoolCreated = useCallback(() => {
+    setTimeout(() => {
+      refetch(); // Use refetch instead of window.location.reload
+    }, 2000);
+  }, [refetch]);
+
+  // Memoized pool data conversion for better performance
+  const poolDataList = useMemo(() => {
+    return realPoolData.map(pool => apiPoolToPoolData(pool));
+  }, [realPoolData]);
 
   return (
     <>
@@ -373,12 +405,12 @@ const PoolPage = () => {
             {/* Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
               <Typography variant="h4" fontWeight={600}>
-                Pools {realPoolData.length > 0 && `(${realPoolData.length})`}
+                Pools {poolDataList.length > 0 && `(${poolDataList.length})`}
               </Typography>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setShowAddNewPool(true)}
+                onClick={handleCreatePool}
                 sx={{ 
                   borderRadius: 2,
                   backgroundColor: '#1976d2 !important',
@@ -397,7 +429,7 @@ const PoolPage = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
                 <CircularProgress />
               </Box>
-            ) : realPoolData.length === 0 ? (
+            ) : poolDataList.length === 0 ? (
               <Card>
                 <CardContent sx={{ textAlign: 'center', py: 8 }}>
                   <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -409,7 +441,7 @@ const PoolPage = () => {
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={() => setShowAddNewPool(true)}
+                    onClick={handleCreatePool}
                     sx={{ 
                       borderRadius: 2,
                       backgroundColor: '#1976d2 !important',
@@ -425,7 +457,13 @@ const PoolPage = () => {
               </Card>
             ) : (
               <Box>
-                {realPoolData.map(pool => renderPoolCard(apiPoolToPoolData(pool)))}
+                {poolDataList.map(pool => (
+                  <PoolCard 
+                    key={pool.id} 
+                    pool={pool} 
+                    onAddLiquidity={handleAddLiquidity} 
+                  />
+                ))}
               </Box>
             )}
           </>
@@ -434,7 +472,7 @@ const PoolPage = () => {
         {/* Create Pool Dialog */}
         <CreatePoolDialog
           open={showAddNewPool}
-          onClose={() => setShowAddNewPool(false)}
+          onClose={handleCloseCreatePool}
           chainId={chainId}
           onTokenSelectOpen={(type) => {
             setSelectingPoolToken(type);
@@ -448,11 +486,7 @@ const PoolPage = () => {
           setNewPoolToken1={setNewPoolToken1}
           setNewPoolToken0Address={setNewPoolToken0Address}
           setNewPoolToken1Address={setNewPoolToken1Address}
-          onPoolCreated={() => {
-            setTimeout(() => {
-              window.location.reload();
-            }, 2000);
-          }}
+          onPoolCreated={handlePoolCreated}
         />
 
         {/* Token Selection Dialog */}
