@@ -93,7 +93,11 @@ const AddLiquidityButton = ({
 						sx={{
 							borderColor: 'warning.main',
 							color: 'warning.main',
-							mb: 1
+							mb: 1,
+							'&:hover': {
+								borderColor: '#f97316',
+								backgroundColor: 'rgba(249, 115, 22, 0.04)'
+							}
 						}}
 					>
 						{validationWarnings.length + validationErrors.length} Issues
@@ -163,25 +167,25 @@ const AddLiquidityButton = ({
 					textTransform: 'none',
 					borderRadius: 3,
 					background: isDisabled 
-						? 'rgba(255, 255, 255, 0.1)'
-						: 'linear-gradient(135deg, #4CAF50, #2196F3)',
+						? 'rgba(156, 163, 175, 0.3)'
+						: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
 					border: '2px solid transparent',
 					backgroundClip: 'padding-box',
 					boxShadow: isDisabled 
 						? 'none'
-						: '0 8px 32px rgba(76, 175, 80, 0.4)',
+						: '0 8px 32px rgba(251, 191, 36, 0.4)',
 					'&:hover': {
 						background: isDisabled 
-							? 'rgba(255, 255, 255, 0.1)'
-							: 'linear-gradient(135deg, #66BB6A, #42A5F5)',
+							? 'rgba(156, 163, 175, 0.3)'
+							: 'linear-gradient(135deg, #fcd34d, #f97316)',
 						transform: isDisabled ? 'none' : 'translateY(-2px)',
 						boxShadow: isDisabled 
 							? 'none'
-							: '0 12px 40px rgba(76, 175, 80, 0.5)',
+							: '0 12px 40px rgba(251, 191, 36, 0.5)',
 					},
 					'&:disabled': {
-						color: 'rgba(255, 255, 255, 0.4)',
-						background: 'rgba(255, 255, 255, 0.1)',
+						color: 'rgba(120, 113, 108, 0.5)',
+						background: 'rgba(156, 163, 175, 0.3)',
 					},
 					transition: 'all 0.3s ease',
 				}}
@@ -190,7 +194,7 @@ const AddLiquidityButton = ({
 					? '🔗 Connect Wallet'
 					: isPending
 						? 'Adding Liquidity...'
-						: '💎 Add Liquidity'}
+						: '💎 Provide Liquidity'}
 			</Button>
 
 			{/* Slippage Helper */}

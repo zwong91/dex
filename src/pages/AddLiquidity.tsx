@@ -165,7 +165,13 @@ const AddLiquidityPage: React.FC = () => {
             <Button 
               variant="contained" 
               onClick={() => navigate('/pool')}
-              sx={{ mt: 2 }}
+              sx={{ 
+                mt: 2,
+                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #fcd34d, #f97316)',
+                }
+              }}
             >
               Back to Pools
             </Button>
@@ -183,7 +189,14 @@ const AddLiquidityPage: React.FC = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
           <IconButton 
             onClick={handleBack} 
-            sx={{ mr: 2 }}
+            sx={{ 
+              mr: 2,
+              color: '#f97316',
+              '&:hover': {
+                backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                color: '#ea580c',
+              }
+            }}
             aria-label="back to pools"
           >
             <ArrowBackIcon />

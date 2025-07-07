@@ -17,7 +17,7 @@ const PriceRangeSlider = ({
 }: PriceRangeSliderProps) => {
 	return (
 		<Box sx={{ px: 3, mb: 4 }}>
-			<Typography variant="body2" color="rgba(255, 255, 255, 0.8)" sx={{ mb: 2, textAlign: 'center' }}>
+			<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" sx={{ mb: 2, textAlign: 'center' }}>
 				Drag the handles to adjust your price range
 			</Typography>
 			<Box sx={{ position: 'relative', py: 2 }}>
@@ -40,10 +40,10 @@ const PriceRangeSlider = ({
 						height: 12,
 						'& .MuiSlider-thumb': {
 							backgroundColor: 'white',
-							border: '3px solid #7B68EE',
+							border: '3px solid #f97316',
 							width: 28,
 							height: 28,
-							boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 255, 255, 0.2)',
+							boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 20px rgba(249, 115, 22, 0.3)',
 							transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
 							'&::before': {
 								content: '""',
@@ -51,33 +51,33 @@ const PriceRangeSlider = ({
 								width: 16,
 								height: 16,
 								borderRadius: '50%',
-								background: 'linear-gradient(135deg, #7B68EE 0%, #5A4FCF 100%)',
+								background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
 							},
 							'&:hover': {
-								boxShadow: '0 0 0 16px rgba(123, 104, 238, 0.16), 0 4px 20px rgba(0, 0, 0, 0.3)',
+								boxShadow: '0 0 0 16px rgba(249, 115, 22, 0.16), 0 4px 20px rgba(0, 0, 0, 0.3)',
 								transform: 'scale(1.1)',
 							},
 							'&:active': {
 								transform: 'scale(1.2)',
 							},
 							'&.Mui-focusVisible': {
-								boxShadow: '0 0 0 20px rgba(123, 104, 238, 0.25), 0 4px 20px rgba(0, 0, 0, 0.3)',
+								boxShadow: '0 0 0 20px rgba(249, 115, 22, 0.25), 0 4px 20px rgba(0, 0, 0, 0.3)',
 							},
 						},
 						'& .MuiSlider-thumb:first-of-type': {
-							borderColor: '#00D9FF',
+							borderColor: '#f59e0b',
 							'&::before': {
-								background: 'linear-gradient(135deg, #00D9FF 0%, #0099CC 100%)',
+								background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
 							},
 							'&:hover': {
-								boxShadow: '0 0 0 16px rgba(0, 217, 255, 0.16), 0 4px 20px rgba(0, 0, 0, 0.3)',
+								boxShadow: '0 0 0 16px rgba(245, 158, 11, 0.16), 0 4px 20px rgba(0, 0, 0, 0.3)',
 							},
 							'&.Mui-focusVisible': {
-								boxShadow: '0 0 0 20px rgba(0, 217, 255, 0.25), 0 4px 20px rgba(0, 0, 0, 0.3)',
+								boxShadow: '0 0 0 20px rgba(245, 158, 11, 0.25), 0 4px 20px rgba(0, 0, 0, 0.3)',
 							},
 						},
 						'& .MuiSlider-track': {
-							background: 'linear-gradient(90deg, #00D9FF 0%, #7B68EE 100%)',
+							background: 'linear-gradient(90deg, #f59e0b 0%, #f97316 100%)',
 							height: 8,
 							border: 'none',
 							borderRadius: 4,
@@ -95,7 +95,7 @@ const PriceRangeSlider = ({
 							},
 						},
 						'& .MuiSlider-rail': {
-							background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.1) 100%)',
+							background: 'linear-gradient(90deg, rgba(249, 115, 22, 0.1) 0%, rgba(249, 115, 22, 0.2) 50%, rgba(249, 115, 22, 0.1) 100%)',
 							height: 8,
 							borderRadius: 4,
 							opacity: 1,
@@ -118,9 +118,12 @@ const PriceRangeSlider = ({
 							},
 						},
 						'& .MuiSlider-markLabel': {
-							color: 'rgba(255, 255, 255, 0.6)',
+							color: 'rgba(156, 163, 175, 0.6)',
 							fontSize: '10px',
 							fontWeight: 500,
+							'&.MuiSlider-markLabelActive': {
+								color: '#fbbf24',
+							},
 						},
 					}}
 				/>

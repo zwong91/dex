@@ -37,7 +37,7 @@ const PriceInfoGrid = ({
 		const { minPrice: dynMinPrice } = calculateDynamicRange()
 		const displayMinPrice = parseFloat(minPrice) || dynMinPrice
 		const percentChange = Math.abs(((displayMinPrice / activeBinPrice) - 1) * 100)
-		const color = displayMinPrice < activeBinPrice ? '#00D9FF' : '#7B68EE'
+		const color = displayMinPrice < activeBinPrice ? '#f59e0b' : '#f97316'
 		const prefix = displayMinPrice < activeBinPrice ? '-' : '+'
 		
 		return {
@@ -52,7 +52,7 @@ const PriceInfoGrid = ({
 		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
 		const displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
 		const percentChange = Math.abs(((displayMaxPrice / activeBinPrice) - 1) * 100)
-		const color = displayMaxPrice < activeBinPrice ? '#00D9FF' : '#7B68EE'
+		const color = displayMaxPrice < activeBinPrice ? '#f59e0b' : '#f97316'
 		const prefix = displayMaxPrice < activeBinPrice ? '-' : '+'
 		
 		return {
@@ -92,39 +92,39 @@ const PriceInfoGrid = ({
 				if (hasAmount0 && hasAmount1) {
 					return {
 						text: 'Symmetric range based on both token amounts',
-						color: 'rgba(0, 217, 255, 0.8)'
+						color: 'rgba(245, 158, 11, 0.8)'
 					}
 				} else if (hasAmount0) {
 					return {
 						text: `Range focuses below current price (${selectedPool?.token0} side)`,
-						color: 'rgba(0, 217, 255, 0.8)'
+						color: 'rgba(245, 158, 11, 0.8)'
 					}
 				} else {
 					return {
 						text: `Range focuses above current price (${selectedPool?.token1} side)`,
-						color: 'rgba(0, 217, 255, 0.8)'
+						color: 'rgba(249, 115, 22, 0.8)'
 					}
 				}
 			case 'curve':
 				return {
 					text: 'Concentrated liquidity around current price - higher capital efficiency',
-					color: 'rgba(123, 104, 238, 0.8)'
+					color: 'rgba(249, 115, 22, 0.8)'
 				}
 			case 'bid-ask':
 				if (hasAmount0 && hasAmount1) {
 					return {
 						text: 'Wide range distribution for volatility capture',
-						color: 'rgba(255, 107, 53, 0.8)'
+						color: 'rgba(245, 158, 11, 0.8)'
 					}
 				} else if (hasAmount0) {
 					return {
 						text: `DCA out strategy - selling ${selectedPool?.token0} as price rises`,
-						color: 'rgba(255, 107, 53, 0.8)'
+						color: 'rgba(245, 158, 11, 0.8)'
 					}
 				} else {
 					return {
 						text: `DCA in strategy - buying ${selectedPool?.token0} as price falls`,
-						color: 'rgba(255, 107, 53, 0.8)'
+						color: 'rgba(245, 158, 11, 0.8)'
 					}
 				}
 			default:
@@ -141,13 +141,14 @@ const PriceInfoGrid = ({
 				<Box sx={{ 
 					textAlign: 'center', 
 					p: 1.5, 
-					backgroundColor: 'rgba(0, 217, 255, 0.1)', 
-					borderRadius: 2 
+					backgroundColor: 'rgba(255, 251, 235, 0.8)', 
+					borderRadius: 2,
+					border: '1px solid rgba(249, 115, 22, 0.1)'
 				}}>
-					<Typography variant="body2" color="rgba(255, 255, 255, 0.8)" gutterBottom>
+					<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" gutterBottom>
 						Min Price
 					</Typography>
-					<Typography variant="h6" fontWeight={600} color="white">
+					<Typography variant="h6" fontWeight={600} color="#7c2d12">
 						{minPriceInfo.value}
 					</Typography>
 					<Typography
@@ -158,7 +159,7 @@ const PriceInfoGrid = ({
 						{minPriceInfo.percentage}
 					</Typography>
 					{minPriceInfo.isAuto && (
-						<Typography variant="caption" color="rgba(0, 217, 255, 0.7)" sx={{ fontSize: '10px' }}>
+						<Typography variant="caption" color="rgba(245, 158, 11, 0.7)" sx={{ fontSize: '10px' }}>
 							Auto-calculated
 						</Typography>
 					)}
@@ -168,13 +169,14 @@ const PriceInfoGrid = ({
 				<Box sx={{ 
 					textAlign: 'center', 
 					p: 1.5, 
-					backgroundColor: 'rgba(123, 104, 238, 0.1)', 
-					borderRadius: 2 
+					backgroundColor: 'rgba(254, 243, 199, 0.8)', 
+					borderRadius: 2,
+					border: '1px solid rgba(249, 115, 22, 0.1)'
 				}}>
-					<Typography variant="body2" color="rgba(255, 255, 255, 0.8)" gutterBottom>
+					<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" gutterBottom>
 						Max Price
 					</Typography>
-					<Typography variant="h6" fontWeight={600} color="white">
+					<Typography variant="h6" fontWeight={600} color="#7c2d12">
 						{maxPriceInfo.value}
 					</Typography>
 					<Typography
@@ -185,7 +187,7 @@ const PriceInfoGrid = ({
 						{maxPriceInfo.percentage}
 					</Typography>
 					{maxPriceInfo.isAuto && (
-						<Typography variant="caption" color="rgba(123, 104, 238, 0.7)" sx={{ fontSize: '10px' }}>
+						<Typography variant="caption" color="rgba(249, 115, 22, 0.7)" sx={{ fontSize: '10px' }}>
 							Auto-calculated
 						</Typography>
 					)}
@@ -195,16 +197,17 @@ const PriceInfoGrid = ({
 				<Box sx={{ 
 					textAlign: 'center', 
 					p: 1.5, 
-					backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-					borderRadius: 2 
+					backgroundColor: 'rgba(255, 247, 237, 0.9)', 
+					borderRadius: 2,
+					border: '1px solid rgba(249, 115, 22, 0.1)'
 				}}>
-					<Typography variant="body2" color="rgba(255, 255, 255, 0.8)" gutterBottom>
+					<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" gutterBottom>
 						Num Bins
 					</Typography>
-					<Typography variant="h6" fontWeight={600} color="white">
+					<Typography variant="h6" fontWeight={600} color="#7c2d12">
 						{getNumBins()}
 					</Typography>
-					<Typography variant="caption" color="rgba(255, 255, 255, 0.7)" sx={{ mt: 1, display: 'block', fontSize: '11px' }}>
+					<Typography variant="caption" color="rgba(120, 113, 108, 0.7)" sx={{ mt: 1, display: 'block', fontSize: '11px' }}>
 						{getTokenDistributionInfo()}
 					</Typography>
 				</Box>
@@ -216,7 +219,7 @@ const PriceInfoGrid = ({
 			<Box sx={{ 
 				mt: 3, 
 				p: 2, 
-				backgroundColor: 'rgba(255, 255, 255, 0.04)', 
+				backgroundColor: 'rgba(255, 251, 235, 0.6)', 
 				borderRadius: 2,
 				border: `1px solid ${strategyTip.color}40`
 			}}>

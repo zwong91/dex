@@ -292,13 +292,13 @@ const PoolPage = () => {
                 sx={{
                   borderRadius: 2,
                   fontWeight: 600,
-                  color: '#43a047',
-                  borderColor: '#43a047',
+                  color: '#f97316',
+                  borderColor: '#f97316',
                   backgroundColor: 'transparent',
                   '&:hover': {
-                    backgroundColor: 'rgba(67, 160, 71, 0.08)',
-                    borderColor: '#388e3c',
-                    color: '#388e3c',
+                    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                    borderColor: '#ea580c',
+                    color: '#ea580c',
                   },
                 }}
                 onClick={handleBackToPoolList}
@@ -385,7 +385,13 @@ const PoolPage = () => {
 
               {/* Add Liquidity Form */}
               <Grid size={{ xs: 12, md: 8 }}>
-                <Card sx={{ backgroundColor: '#23272f', color: 'white', borderRadius: 2 }}>
+                <Card sx={{ 
+                  background: 'linear-gradient(145deg, #ffffff 0%, #fffbf5 100%)', 
+                  color: 'text.primary', 
+                  borderRadius: 2,
+                  border: '1px solid rgba(120, 113, 108, 0.12)',
+                  boxShadow: '0 4px 20px rgba(249, 115, 22, 0.08)'
+                }}>
                   <CardContent sx={{ p: 4 }}>
                     <AddLiquidityForm
                       selectedPool={selectedPool}
@@ -413,10 +419,10 @@ const PoolPage = () => {
                 onClick={handleCreatePool}
                 sx={{ 
                   borderRadius: 2,
-                  backgroundColor: '#1976d2 !important',
+                  backgroundColor: '#f97316 !important',
                   color: 'white !important',
                   '&:hover': {
-                    backgroundColor: '#1565c0 !important'
+                    backgroundColor: '#ea580c !important'
                   }
                 }}
               >
@@ -444,10 +450,10 @@ const PoolPage = () => {
                     onClick={handleCreatePool}
                     sx={{ 
                       borderRadius: 2,
-                      backgroundColor: '#1976d2 !important',
+                      backgroundColor: '#f97316 !important',
                       color: 'white !important',
                       '&:hover': {
-                        backgroundColor: '#1565c0 !important'
+                        backgroundColor: '#ea580c !important'
                       }
                     }}
                   >

@@ -22,9 +22,9 @@ const TokenAmountInput = ({
 		<Card
 			sx={{
 				p: 5,
-				backgroundColor: '#2A2D3E',
+				background: 'linear-gradient(145deg, #fafaf9 0%, #f5f5f4 100%)',
 				border: 1,
-				borderColor: 'rgba(255, 255, 255, 0.1)',
+				borderColor: 'rgba(120, 113, 108, 0.2)',
 				borderRadius: 3,
 				minHeight: '140px',
 			}}
@@ -38,7 +38,7 @@ const TokenAmountInput = ({
 					>
 						{(token?.symbol || '').charAt(0)}
 					</Avatar>
-					<Typography variant="h6" fontWeight={600} color="white">
+					<Typography variant="h6" fontWeight={600} color="text.primary">
 						{token.symbol}
 					</Typography>
 				</Box>
@@ -58,14 +58,14 @@ const TokenAmountInput = ({
 							sx: {
 								fontSize: '2rem',
 								fontWeight: 600,
-								color: 'white',
+								color: 'text.primary',
 								textAlign: 'right',
 								minWidth: '80px',
 								maxWidth: '200px',
 								width: `${Math.max(80, (amount?.length || 1) * 20 + 40)}px`,
 								'& input': {
 									textAlign: 'right',
-									color: 'white',
+									color: 'text.primary',
 									fontSize: '2rem',
 									fontWeight: 600,
 									padding: 0,
@@ -84,7 +84,7 @@ const TokenAmountInput = ({
 				</Box>
 			</Box>
 			<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-				<Typography variant="body2" color="rgba(255, 255, 255, 0.8)">
+				<Typography variant="body2" color="text.secondary">
 					Balance: {parseFloat(balance || '0').toFixed(6)}
 				</Typography>
 				<Box sx={{ display: 'flex', gap: 1 }}>
@@ -96,12 +96,12 @@ const TokenAmountInput = ({
 							minWidth: '55px',
 							height: '32px',
 							fontSize: '0.75rem',
-							borderColor: 'rgba(255, 255, 255, 0.2)',
-							color: 'rgba(255, 255, 255, 0.7)',
+							borderColor: 'rgba(249, 115, 22, 0.3)',
+							color: 'primary.main',
 							borderRadius: '6px',
 							'&:hover': {
-								borderColor: 'rgba(255, 255, 255, 0.3)',
-								backgroundColor: 'rgba(255, 255, 255, 0.05)',
+								borderColor: 'primary.main',
+								backgroundColor: 'rgba(249, 115, 22, 0.08)',
 							},
 						}}
 					>
@@ -115,12 +115,12 @@ const TokenAmountInput = ({
 							minWidth: '55px',
 							height: '32px',
 							fontSize: '0.75rem',
-							borderColor: 'rgba(255, 255, 255, 0.2)',
-							color: 'rgba(255, 255, 255, 0.7)',
+							borderColor: 'rgba(249, 115, 22, 0.3)',
+							color: 'primary.main',
 							borderRadius: '6px',
 							'&:hover': {
-								borderColor: 'rgba(255, 255, 255, 0.3)',
-								backgroundColor: 'rgba(255, 255, 255, 0.05)',
+								borderColor: 'primary.main',
+								backgroundColor: 'rgba(249, 115, 22, 0.08)',
 							},
 						}}
 					>

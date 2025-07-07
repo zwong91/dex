@@ -172,24 +172,24 @@ const AddLiquidityForm = ({
 					{/* Token Amounts Section */}
 					<Card sx={{
 						p: 4,
-						backgroundColor: '#2A2D3E',
+						backgroundColor: 'rgba(255, 251, 235, 0.9)',
 						border: 1,
-						borderColor: 'rgba(255, 255, 255, 0.1)',
+						borderColor: 'rgba(249, 115, 22, 0.1)',
 						borderRadius: 3,
 					}}>
 						<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-							<Typography variant="h5" fontWeight={600} sx={{ color: '#fff' }}>
-								💰 Deposit Amounts
+							<Typography variant="h5" fontWeight={600} sx={{ color: '#7c2d12' }}>
+								💰 Token Amounts
 							</Typography>
 							<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-								<Typography variant="body2" fontWeight={600} color="rgba(255, 255, 255, 0.7)">
+								<Typography variant="body2" fontWeight={600} color="rgba(120, 113, 108, 0.8)">
 									Auto-fill:
 								</Typography>
 								<Box
 									sx={{
 										cursor: 'pointer',
 										border: 1,
-										borderColor: 'rgba(255, 255, 255, 0.3)',
+										borderColor: 'rgba(249, 115, 22, 0.3)',
 										borderRadius: '24px',
 										px: 3,
 										py: 1,
@@ -197,10 +197,10 @@ const AddLiquidityForm = ({
 										display: 'flex',
 										alignItems: 'center',
 										justifyContent: 'center',
-										backgroundColor: autoFill ? '#4caf50' : 'transparent',
+										backgroundColor: autoFill ? '#f97316' : 'transparent',
 										transition: 'all 0.3s ease',
 										'&:hover': {
-											borderColor: 'rgba(255, 255, 255, 0.5)',
+											borderColor: 'rgba(249, 115, 22, 0.5)',
 											transform: 'translateY(-1px)',
 										}
 									}}
@@ -209,7 +209,7 @@ const AddLiquidityForm = ({
 									<Typography 
 										variant="body2" 
 										fontWeight={600} 
-										color={autoFill ? 'white' : '#4caf50'}
+										color={autoFill ? 'white' : '#f97316'}
 									>
 										{autoFill ? 'ON' : 'OFF'}
 									</Typography>
@@ -248,13 +248,13 @@ const AddLiquidityForm = ({
 					{/* Strategy Selection */}
 					<Card sx={{
 						p: 4,
-						backgroundColor: '#2A2D3E',
+						backgroundColor: 'rgba(254, 243, 199, 0.9)',
 						border: 1,
-						borderColor: 'rgba(255, 255, 255, 0.1)',
+						borderColor: 'rgba(249, 115, 22, 0.1)',
 						borderRadius: 3,
 					}}>
-						<Typography variant="h5" fontWeight={600} sx={{ color: '#fff', mb: 3 }}>
-							🎯 Liquidity Strategy
+						<Typography variant="h5" fontWeight={600} sx={{ color: '#7c2d12', mb: 3 }}>
+							🎯 Strategy Selection
 						</Typography>
 						<StrategySelection
 							strategy={liquidityStrategy}
@@ -265,14 +265,14 @@ const AddLiquidityForm = ({
 					{/* Price Range Configuration */}
 					<Card sx={{
 						p: 4,
-						backgroundColor: '#2A2D3E',
+						backgroundColor: 'rgba(255, 247, 237, 0.9)',
 						border: 1,
-						borderColor: 'rgba(255, 255, 255, 0.1)',
+						borderColor: 'rgba(249, 115, 22, 0.1)',
 						borderRadius: 3,
 					}}>
 						<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-							<Typography variant="h5" fontWeight={600} sx={{ color: '#fff' }}>
-								📈 Price Range
+							<Typography variant="h5" fontWeight={600} sx={{ color: '#7c2d12' }}>
+								📈 Price Configuration
 							</Typography>
 							<Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
 								{/* Current Price Display */}
@@ -283,15 +283,15 @@ const AddLiquidityForm = ({
 									px: 2.5,
 									py: 1.5,
 									borderRadius: 2,
-									background: 'rgba(76, 175, 80, 0.1)',
+									background: 'rgba(245, 158, 11, 0.1)',
 									border: 1,
-									borderColor: 'rgba(76, 175, 80, 0.3)',
+									borderColor: 'rgba(245, 158, 11, 0.3)',
 								}}>
-									<Typography variant="body2" color="rgba(255, 255, 255, 0.7)" sx={{ fontSize: '0.8rem' }}>
+									<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" sx={{ fontSize: '0.8rem' }}>
 										Current Price:
 									</Typography>
 									<Typography variant="body1" fontWeight={600} sx={{
-										background: 'linear-gradient(135deg, #4CAF50, #2196F3)',
+										background: 'linear-gradient(135deg, #f59e0b, #f97316)',
 										backgroundClip: 'text',
 										WebkitBackgroundClip: 'text',
 										WebkitTextFillColor: 'transparent',
@@ -303,8 +303,8 @@ const AddLiquidityForm = ({
 									onClick={handleResetPrice}
 									size="medium"
 									sx={{
-										color: 'rgba(255, 255, 255, 0.8)',
-										borderColor: 'rgba(255, 255, 255, 0.3)',
+										color: 'rgba(120, 113, 108, 0.8)',
+										borderColor: 'rgba(249, 115, 22, 0.3)',
 										borderRadius: '24px',
 										px: 3,
 										py: 1.5,
@@ -312,8 +312,8 @@ const AddLiquidityForm = ({
 										fontWeight: 500,
 										transition: 'all 0.3s ease',
 										'&:hover': {
-											backgroundColor: 'rgba(255, 255, 255, 0.15)',
-											borderColor: 'rgba(255, 255, 255, 0.4)',
+											backgroundColor: 'rgba(249, 115, 22, 0.08)',
+											borderColor: 'rgba(249, 115, 22, 0.4)',
 											transform: 'translateY(-1px)',
 										},
 									}}
@@ -386,13 +386,13 @@ const AddLiquidityForm = ({
 					alignItems: 'center', 
 					justifyContent: 'center', 
 					minHeight: 400,
-					backgroundColor: '#2A2D3E',
+					backgroundColor: 'rgba(255, 251, 235, 0.6)',
 					borderRadius: 3,
 					border: 1,
-					borderColor: 'rgba(255, 255, 255, 0.1)',
+					borderColor: 'rgba(249, 115, 22, 0.2)',
 				}}>
-					<Typography variant="h6" color="rgba(255, 255, 255, 0.7)">
-						💡 Select a pool to add liquidity
+					<Typography variant="h6" color="rgba(120, 113, 108, 0.8)">
+						💡 Select a pool to provide liquidity
 					</Typography>
 				</Box>
 			)}

@@ -28,21 +28,6 @@ const StrategySelection = ({
 
 		return heights.map((height, index) => {
 			const isSelected = strategy === strategyType
-			const isCenter = index === 6
-
-			if (isSelected && isCenter) {
-				return (
-					<Box
-						key={index}
-						sx={{
-							width: 4,
-							height: height,
-							borderRadius: '2px 2px 0 0',
-							background: 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)',
-						}}
-					/>
-				)
-			}
 
 			return (
 				<Box
@@ -56,7 +41,7 @@ const StrategySelection = ({
 								? '#00D9FF'
 								: index > 6
 									? '#7B68EE'
-									: '#4A5568'
+									: 'linear-gradient(to bottom, #7B68EE 50%, #00D9FF 50%)'
 							: '#4A5568',
 					}}
 				/>
@@ -111,15 +96,17 @@ const StrategySelection = ({
 								cursor: 'pointer',
 								border: 2,
 								borderColor: strategy === strategyType
-									? '#FF6B35'
-									: 'rgba(255, 255, 255, 0.1)',
+									? '#f97316'
+									: 'rgba(120, 113, 108, 0.2)',
 								borderRadius: 3,
-								backgroundColor: '#1A1B2E',
+								background: 'linear-gradient(145deg, #ffffff 0%, #fffbf5 100%)',
 								transition: 'all 0.2s ease',
 								'&:hover': {
 									borderColor: strategy === strategyType
-										? '#FF6B35'
-										: 'rgba(255, 255, 255, 0.2)',
+										? '#f97316'
+										: 'rgba(249, 115, 22, 0.4)',
+									transform: 'translateY(-2px)',
+									boxShadow: '0 8px 25px rgba(249, 115, 22, 0.15)',
 								},
 							}}
 							onClick={() => onStrategyChange(strategyType)}
@@ -136,7 +123,7 @@ const StrategySelection = ({
 								>
 									{renderStrategyBars(strategyType)}
 								</Box>
-								<Typography variant="h6" fontWeight={600} color="white">
+								<Typography variant="h6" fontWeight={600} color="text.primary">
 									{strategyType.charAt(0).toUpperCase() + strategyType.slice(1)}
 								</Typography>
 							</CardContent>
@@ -146,13 +133,13 @@ const StrategySelection = ({
 			</Grid>
 
 			{/* Strategy Description */}
-			<Box sx={{ p: 3, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
-				<Typography variant="body1" color="rgba(255, 255, 255, 0.9)" sx={{ mb: 2, fontSize: '0.95rem', lineHeight: 1.6 }}>
+			<Box sx={{ p: 3, background: 'linear-gradient(145deg, #fef7ed 0%, #fed7aa 100%)', borderRadius: 2, border: '1px solid rgba(249, 115, 22, 0.2)' }}>
+				<Typography variant="body1" color="text.primary" sx={{ mb: 2, fontSize: '0.95rem', lineHeight: 1.6 }}>
 					{getStrategyDescription(strategy).description}
 				</Typography>
 				<Typography 
 					variant="caption" 
-					color={getStrategyDescription(strategy).color} 
+					color="primary.main" 
 					sx={{ fontSize: '12px', fontWeight: 500 }}
 				>
 					💡 {getStrategyDescription(strategy).tip}

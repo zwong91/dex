@@ -74,9 +74,10 @@ const Navigation = () => {
         position="sticky"
         elevation={0}
         sx={{
-          backgroundColor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
+          backgroundColor: 'rgba(255, 251, 245, 0.95)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(120, 113, 108, 0.12)',
+          color: 'text.primary',
         }}
       >
         <Container maxWidth="xl">
@@ -100,7 +101,7 @@ const Navigation = () => {
                       position: 'absolute',
                       width: 20,
                       height: 24,
-                      background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                      background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                       borderRadius: '4px',
                       transform: 'perspective(100px) rotateY(-15deg) rotateX(5deg)',
                       top: 2,
@@ -114,7 +115,7 @@ const Navigation = () => {
                       position: 'absolute',
                       width: 20,
                       height: 24,
-                      background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+                      background: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
                       borderRadius: '4px',
                       transform: 'perspective(100px) rotateY(0deg) rotateX(5deg)',
                       top: 6,
@@ -129,7 +130,7 @@ const Navigation = () => {
                       position: 'absolute',
                       width: 20,
                       height: 24,
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
                       borderRadius: '4px',
                       transform: 'perspective(100px) rotateY(15deg) rotateX(5deg)',
                       top: 10,
@@ -143,7 +144,7 @@ const Navigation = () => {
                   component="div"
                   sx={{
                     fontWeight: 700,
-                    background: 'linear-gradient(45deg, #10b981 0%, #06b6d4 50%, #8b5cf6 100%)',
+                    background: 'linear-gradient(45deg, #f97316 0%, #f59e0b 50%, #fbbf24 100%)',
                     backgroundClip: 'text',
                     WebkitBackgroundClip: 'text',
                     color: 'transparent',
@@ -214,7 +215,7 @@ const Navigation = () => {
                               onClick={openConnectModal}
                               variant="contained"
                               sx={{
-                                background: 'linear-gradient(45deg, #10b981 30%, #06b6d4 90%)',
+                                background: 'linear-gradient(45deg, #f97316 30%, #f59e0b 90%)',
                                 color: 'white',
                                 fontWeight: 600,
                                 px: 3,
@@ -304,7 +305,7 @@ const Navigation = () => {
                               onClick={openAccountModal}
                               variant="contained"
                               sx={{
-                                background: 'linear-gradient(45deg, #10b981 30%, #06b6d4 90%)',
+                                background: 'linear-gradient(45deg, #f97316 30%, #f59e0b 90%)',
                                 color: 'white',
                                 fontWeight: 600,
                                 px: 2.5,

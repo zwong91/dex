@@ -433,12 +433,12 @@ const PortfolioPage = () => {
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 600,
-              background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+              background: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
               '&:hover': {
-                background: 'linear-gradient(135deg, #ff5252 0%, #e53e3e 100%)',
+                background: 'linear-gradient(135deg, #dc2626 0%, #ea580c 100%)',
               },
               '&:disabled': {
-                background: 'linear-gradient(135deg, #ffb3b3 0%, #ffcccc 100%)',
+                background: 'linear-gradient(135deg, #fca5a5 0%, #fed7aa 100%)',
               }
             }}
           >
@@ -526,7 +526,7 @@ const PortfolioPage = () => {
               textAlign: 'center', 
               py: 12,
               borderRadius: 4,
-              background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+              background: 'linear-gradient(135deg, #fffbf5 0%, #fed7aa 100%)',
               border: '2px dashed',
               borderColor: 'divider'
             }}
@@ -570,9 +570,9 @@ const PortfolioPage = () => {
                                   borderRadius: 3,
                                   textTransform: 'none',
                                   fontWeight: 700,
-                                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                  background: 'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
                                   '&:hover': {
-                                    background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                                    background: 'linear-gradient(135deg, #ea580c 0%, #d97706 100%)',
                                   }
                                 }}
                               >
@@ -651,9 +651,9 @@ const PortfolioPage = () => {
                                   borderRadius: 3,
                                   textTransform: 'none',
                                   fontWeight: 600,
-                                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                  background: 'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
                                   '&:hover': {
-                                    background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                                    background: 'linear-gradient(135deg, #ea580c 0%, #d97706 100%)',
                                   }
                                 }}
                               >
@@ -686,8 +686,8 @@ const PortfolioPage = () => {
             sx={{ 
               mb: 3, 
               borderRadius: 2,
-              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-              border: '1px solid #2196f3'
+              background: 'linear-gradient(135deg, #fed7aa 0%, #fef3c7 100%)',
+              border: '1px solid #f97316'
             }}
           >
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -698,7 +698,7 @@ const PortfolioPage = () => {
                 mt: 1, 
                 borderRadius: 1,
                 '& .MuiLinearProgress-bar': {
-                  background: 'linear-gradient(90deg, #2196f3 0%, #21cbf3 100%)'
+                  background: 'linear-gradient(90deg, #f97316 0%, #f59e0b 100%)'
                 }
               }} 
             />
@@ -707,7 +707,7 @@ const PortfolioPage = () => {
 
         {/* Portfolio Header */}
         <Box sx={{ 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
           borderRadius: 3,
           p: 4,
           mb: 4,
@@ -952,7 +952,7 @@ const PortfolioPage = () => {
                       borderRadius: 3,
                       border: '1px solid', 
                       borderColor: 'divider',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      background: 'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
                       color: 'white'
                     }}
                   >
@@ -979,7 +979,7 @@ const PortfolioPage = () => {
                       borderRadius: 3,
                       border: '1px solid', 
                       borderColor: 'divider',
-                      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                      background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
                       color: 'white'
                     }}
                   >
@@ -1006,7 +1006,7 @@ const PortfolioPage = () => {
                       borderRadius: 3,
                       border: '1px solid', 
                       borderColor: 'divider',
-                      background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                      background: 'linear-gradient(135deg, #fb923c 0%, #fdba74 100%)',
                       color: 'white'
                     }}
                   >
