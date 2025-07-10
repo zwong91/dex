@@ -126,8 +126,11 @@ const useAvailableBinSteps = () => {
 				functionName: 'getOpenBinSteps'
 			}) as bigint[]
 
-			// Convert BigInt array to number array
-			const binStepsNumbers = openBinSteps.map(step => Number(step))
+			// Convert BigInt array to number array and filter out invalid values
+			const binStepsNumbers = openBinSteps
+				.map(step => Number(step))
+				.filter(step => !isNaN(step) && step > 0 && Number.isInteger(step))
+			
 			console.log('✅ Available bin steps from factory:', binStepsNumbers)
 			setAvailableBinSteps(binStepsNumbers)
 		} catch (error) {
@@ -187,21 +190,43 @@ const CreatePoolDialog = ({
 		}
 
 		// Convert available bin steps (basis points) to percentage options
-		return availableBinSteps.map(binStep => {
-			const percentage = (binStep / 100).toFixed(2) + '%'
-			const baseFeePercentage = Math.min(binStep / 4, 25) // Simple fee calculation
-			return {
-				value: percentage,
-				baseFee: `${baseFeePercentage.toFixed(0)}%`,
-				label: percentage
-			}
-		}).sort((a, b) => parseFloat(a.value) - parseFloat(b.value)) // Sort by percentage
+		return availableBinSteps
+			.filter(binStep => !isNaN(binStep) && binStep > 0 && Number.isInteger(binStep)) // Filter out invalid values
+			.map(binStep => {
+				const percentage = (binStep / 100).toFixed(2) + '%'
+				const baseFeePercentage = Math.min(binStep / 4, 25) // Simple fee calculation
+				return {
+					value: percentage,
+					baseFee: `${baseFeePercentage.toFixed(0)}%`,
+					label: percentage
+				}
+			}).sort((a, b) => parseFloat(a.value) - parseFloat(b.value)) // Sort by percentage
 	}, [availableBinSteps, binStepsLoading])
 
 	// Update selected bin step to a valid option when available bin steps change
 	useEffect(() => {
 		if (!binStepsLoading && dynamicBinStepOptions.length > 0) {
-			const currentBinStepBasisPoints = Math.floor(parseFloat(selectedBinStep.replace('%', '')) * 100)
+			// Validate selectedBinStep is a string
+			if (typeof selectedBinStep !== 'string') {
+				console.error('selectedBinStep is not a string in useEffect:', selectedBinStep)
+				if (selectedBinStep !== '0.25%') { // Prevent infinite loop
+					setSelectedBinStep('0.25%')
+				}
+				return
+			}
+
+			const binStepValue = parseFloat(selectedBinStep.replace('%', ''))
+			
+			// Validate the parsed value is a valid number
+			if (isNaN(binStepValue) || binStepValue <= 0) {
+				console.error('Invalid bin step value in useEffect:', selectedBinStep)
+				if (selectedBinStep !== '0.25%') { // Prevent infinite loop
+					setSelectedBinStep('0.25%')
+				}
+				return
+			}
+
+			const currentBinStepBasisPoints = Math.floor(binStepValue * 100)
 			
 			// Check if current selection is valid
 			const isCurrentValid = availableBinSteps.includes(currentBinStepBasisPoints)
@@ -210,15 +235,21 @@ const CreatePoolDialog = ({
 				// Try to find 25 basis points (0.25%) first, then fallback to the first available
 				const preferredBinStep = availableBinSteps.find(step => step === 25)
 				const fallbackBinStep = preferredBinStep || availableBinSteps[0]
-				const newSelectedBinStep = (fallbackBinStep / 100).toFixed(2) + '%'
 				
-				console.log('🔄 Updating bin step selection to valid option:', {
-					oldSelection: selectedBinStep,
-					newSelection: newSelectedBinStep,
-					availableBinSteps
-				})
-				
-				setSelectedBinStep(newSelectedBinStep)
+				if (fallbackBinStep && !isNaN(fallbackBinStep)) {
+					const newSelectedBinStep = (fallbackBinStep / 100).toFixed(2) + '%'
+					
+					// Only update if it's actually different to prevent infinite loop
+					if (newSelectedBinStep !== selectedBinStep) {
+						console.log('🔄 Updating bin step selection to valid option:', {
+							oldSelection: String(selectedBinStep),
+							newSelection: newSelectedBinStep,
+							availableBinSteps
+						})
+						
+						setSelectedBinStep(newSelectedBinStep)
+					}
+				}
 			}
 		}
 	}, [availableBinSteps, binStepsLoading, dynamicBinStepOptions, selectedBinStep])
@@ -243,8 +274,14 @@ const CreatePoolDialog = ({
 					})
 				}
 			}
+			
+			// Ensure we have a valid selectedBinStep when dialog opens
+			if (typeof selectedBinStep !== 'string' || selectedBinStep.includes('NaN') || selectedBinStep === '') {
+				console.log('🔧 Fixing invalid selectedBinStep on dialog open:', selectedBinStep)
+				setSelectedBinStep('0.25%')
+			}
 		}
-	}, [open, tokens, newPoolToken0, newPoolToken1, setNewPoolToken0, setNewPoolToken0Address, setNewPoolToken1, setNewPoolToken1Address])
+	}, [open, tokens, newPoolToken0, newPoolToken1, selectedBinStep, setNewPoolToken0, setNewPoolToken0Address, setNewPoolToken1, setNewPoolToken1Address])
 
 	// Set default token addresses only when empty
 	useEffect(() => {
@@ -459,9 +496,23 @@ const CreatePoolDialog = ({
 	useEffect(() => {
 		const checkPool = async () => {
 			if (newPoolToken0Address && newPoolToken1Address && selectedBinStep) {
-				const binStepBasisPoints = Math.floor(
-					parseFloat(selectedBinStep.replace('%', '')) * 100,
-				)
+				// Validate selectedBinStep is a string
+				if (typeof selectedBinStep !== 'string') {
+					console.error('selectedBinStep is not a string:', selectedBinStep)
+					setPoolExists({ exists: false, checked: false })
+					return
+				}
+
+				const binStepValue = parseFloat(selectedBinStep.replace('%', ''))
+				
+				// Validate the parsed value is a valid number
+				if (isNaN(binStepValue) || binStepValue <= 0) {
+					console.error('Invalid bin step value:', selectedBinStep, 'parsed to:', binStepValue)
+					setPoolExists({ exists: false, checked: false })
+					return
+				}
+
+				const binStepBasisPoints = Math.floor(binStepValue * 100)
 
 				try {
 					const result = await checkPoolExists(
@@ -540,10 +591,20 @@ const CreatePoolDialog = ({
 		setIsCreatingPool(true)
 
 		try {
+			// Validate selectedBinStep is a string
+			if (typeof selectedBinStep !== 'string') {
+				throw new Error(`Invalid bin step format: ${selectedBinStep}. Expected a string value.`)
+			}
+
 			// Convert bin step percentage to basis points (e.g., "0.25%" -> 25)
-			const binStepBasisPoints = Math.floor(
-				parseFloat(selectedBinStep.replace('%', '')) * 100,
-			)
+			const binStepValue = parseFloat(selectedBinStep.replace('%', ''))
+			
+			// Validate the parsed value is a valid number
+			if (isNaN(binStepValue) || binStepValue <= 0) {
+				throw new Error(`Invalid bin step value: ${selectedBinStep}. Must be a positive number.`)
+			}
+
+			const binStepBasisPoints = Math.floor(binStepValue * 100)
 
 			// Validate that the selected bin step is available in the factory
 			if (availableBinSteps.length > 0 && !availableBinSteps.includes(binStepBasisPoints)) {
@@ -666,6 +727,7 @@ const CreatePoolDialog = ({
 		setIsCreatingPool(false)
 		setPoolExists({ exists: false, checked: false })
 		
+		// Force a clean state reset
 		console.log('🔄 Dialog closed, form reset')
 		
 		onClose()
@@ -907,7 +969,13 @@ const CreatePoolDialog = ({
 							<ToggleButtonGroup
 								value={selectedBinStep}
 								exclusive
-								onChange={(_, value) => value && setSelectedBinStep(value)}
+								onChange={(_, value) => {
+									if (value && typeof value === 'string') {
+										setSelectedBinStep(value)
+									} else {
+										console.error('Invalid bin step value received:', value, typeof value)
+									}
+								}}
 								sx={{ mb: 3, width: '100%' }}
 							>
 								{dynamicBinStepOptions.map(option => (

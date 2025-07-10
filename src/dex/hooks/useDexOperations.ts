@@ -717,6 +717,11 @@ export const useDexOperations = () => {
 		binStepBasisPoints: number
 	): Promise<{ exists: boolean; pairAddress?: string }> => {
 		try {
+			// Validate binStepBasisPoints is a valid number
+			if (isNaN(binStepBasisPoints) || binStepBasisPoints <= 0 || !Number.isInteger(binStepBasisPoints)) {
+				throw new Error(`Invalid bin step basis points: ${binStepBasisPoints}. Must be a positive integer.`)
+			}
+
 			// Get LB Factory address for current chain
 			const CHAIN_ID = wagmiChainIdToSDKChainId(chainId)
 			const factoryAddress = LB_FACTORY_V22_ADDRESS[CHAIN_ID]
