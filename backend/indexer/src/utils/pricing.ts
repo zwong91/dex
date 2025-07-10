@@ -55,7 +55,7 @@ export function getTokenPriceInNative(token: Token): BigDecimal {
  */
 export function updateNativeInUsdPricing(): void {
   const bundle = loadBundle();
-  bundle.avaxPriceUSD = getNativePriceInUSD();
+  bundle.bnbPriceUSD = getNativePriceInUSD();
   bundle.save();
 }
 
@@ -67,12 +67,12 @@ export function updateTokensDerivedNative(lbPair: LBPair): void {
   const tokenX = loadToken(Address.fromString(lbPair.tokenX));
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
 
-  tokenX.derivedAVAX = getTokenPriceInNative(tokenX);
-  tokenY.derivedAVAX = getTokenPriceInNative(tokenY);
+  tokenX.derivedBNB = getTokenPriceInNative(tokenX);
+  tokenY.derivedBNB = getTokenPriceInNative(tokenY);
 
   const bundle = loadBundle();
-  const tokenXPriceUSD = tokenX.derivedAVAX.times(bundle.avaxPriceUSD);
-  const tokenYPriceUSD = tokenY.derivedAVAX.times(bundle.avaxPriceUSD);
+  const tokenXPriceUSD = tokenX.derivedBNB.times(bundle.bnbPriceUSD);
+  const tokenYPriceUSD = tokenY.derivedBNB.times(bundle.bnbPriceUSD);
   lbPair.tokenXPriceUSD = tokenXPriceUSD;
   lbPair.tokenYPriceUSD = tokenYPriceUSD;
 
@@ -98,8 +98,8 @@ export function getTrackedLiquidityUSD(
   tokenY: Token
 ): BigDecimal {
   const bundle = loadBundle();
-  const priceXUSD = tokenX.derivedAVAX.times(bundle.avaxPriceUSD);
-  const priceYUSD = tokenY.derivedAVAX.times(bundle.avaxPriceUSD);
+  const priceXUSD = tokenX.derivedBNB.times(bundle.bnbPriceUSD);
+  const priceYUSD = tokenY.derivedBNB.times(bundle.bnbPriceUSD);
 
   return tokenXAmount.times(priceXUSD).plus(tokenYAmount.times(priceYUSD));
 }
@@ -121,8 +121,8 @@ export function getTrackedVolumeUSD(
   tokenY: Token
 ): BigDecimal {
   const bundle = loadBundle();
-  const priceXUSD = tokenX.derivedAVAX.times(bundle.avaxPriceUSD);
-  const priceYUSD = tokenY.derivedAVAX.times(bundle.avaxPriceUSD);
+  const priceXUSD = tokenX.derivedBNB.times(bundle.bnbPriceUSD);
+  const priceYUSD = tokenY.derivedBNB.times(bundle.bnbPriceUSD);
 
   return tokenXAmount
     .times(priceXUSD)

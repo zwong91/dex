@@ -6,7 +6,7 @@ export function loadBundle(): Bundle {
 
   if (bundle === null) {
     bundle = new Bundle("1");
-    bundle.avaxPriceUSD = getNativePriceInUSD();
+    bundle.bnbPriceUSD = getNativePriceInUSD();
     bundle.save();
   }
 

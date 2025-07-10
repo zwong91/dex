@@ -1,6 +1,6 @@
-specVersion: 0.0.4
-description: Joe-v2 Liquidity Book subgraph
-repository: https://github.com/traderjoe-xyz/joe-subgraph-v2
+specVersion: 0.0.5
+description: DLMM Liquidity Book subgraph
+repository: https://github.com/entysquare/indexer.git
 schema:
   file: ./schema.graphql
 dataSources:

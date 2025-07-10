@@ -1,8 +1,8 @@
 type Bundle @entity(immutable: false) {
   id: ID!
 
-  # price of AVAX usd
-  avaxPriceUSD: BigDecimal!
+  # price of BNB usd
+  bnbPriceUSD: BigDecimal!
 }
 
 type LBFactory @entity(immutable: false) {
@@ -18,8 +18,8 @@ type LBFactory @entity(immutable: false) {
   # Volume USD
   volumeUSD: BigDecimal!
 
-  # Volume AVAX
-  volumeAVAX: BigDecimal!
+  # Volume BNB
+  volumeBNB: BigDecimal!
 
   # Untracked volume
   untrackedVolumeUSD: BigDecimal!
@@ -27,8 +27,8 @@ type LBFactory @entity(immutable: false) {
   # tvl USD
   totalValueLockedUSD: BigDecimal!
 
-  # tvl AVAX
-  totalValueLockedAVAX: BigDecimal!
+  # tvl BNB
+  totalValueLockedBNB: BigDecimal!
 
   # Transaction count
   txCount: BigInt!
@@ -46,7 +46,7 @@ type LBFactory @entity(immutable: false) {
   ignoredLbPairs: [LBPair!]!
 
   feesUSD: BigDecimal!
-  feesAVAX: BigDecimal!
+  feesBNB: BigDecimal!
 
   # Pairs
   lbPairs: [LBPair!]! @derivedFrom(field: "factory")
@@ -72,12 +72,12 @@ type TraderJoeHourData @entity(immutable: false) {
   factory: LBFactory!
 
   # volume
-  volumeAVAX: BigDecimal!
+  volumeBNB: BigDecimal!
   volumeUSD: BigDecimal!
   untrackedVolumeUSD: BigDecimal!
 
   # TVL
-  totalValueLockedAVAX: BigDecimal!
+  totalValueLockedBNB: BigDecimal!
   totalValueLockedUSD: BigDecimal!
 
   feesUSD: BigDecimal!
@@ -97,12 +97,12 @@ type TraderJoeDayData @entity(immutable: false) {
   factory: LBFactory!
 
   # volume
-  volumeAVAX: BigDecimal!
+  volumeBNB: BigDecimal!
   volumeUSD: BigDecimal!
   untrackedVolumeUSD: BigDecimal!
 
   # TVL
-  totalValueLockedAVAX: BigDecimal!
+  totalValueLockedBNB: BigDecimal!
   totalValueLockedUSD: BigDecimal!
 
   feesUSD: BigDecimal!
@@ -138,7 +138,7 @@ type Token @entity(immutable: false) {
   totalValueLocked: BigDecimal!
   totalValueLockedUSD: BigDecimal!
 
-  derivedAVAX: BigDecimal!
+  derivedBNB: BigDecimal!
 
   feesUSD: BigDecimal!
 
@@ -179,7 +179,7 @@ type TokenHourData @entity(immutable: false) {
 
   # volume
   volume: BigDecimal!
-  volumeAVAX: BigDecimal!
+  volumeBNB: BigDecimal!
   volumeUSD: BigDecimal!
 
   # tx count
@@ -187,7 +187,7 @@ type TokenHourData @entity(immutable: false) {
 
   # TVL
   totalValueLocked: BigDecimal!
-  totalValueLockedAVAX: BigDecimal!
+  totalValueLockedBNB: BigDecimal!
   totalValueLockedUSD: BigDecimal!
 
   # price usd
@@ -217,7 +217,7 @@ type TokenDayData @entity(immutable: false) {
 
   # volume
   volume: BigDecimal!
-  volumeAVAX: BigDecimal!
+  volumeBNB: BigDecimal!
   volumeUSD: BigDecimal!
 
   # tx count
@@ -225,7 +225,7 @@ type TokenDayData @entity(immutable: false) {
 
   # TVL
   totalValueLocked: BigDecimal!
-  totalValueLockedAVAX: BigDecimal!
+  totalValueLockedBNB: BigDecimal!
   totalValueLockedUSD: BigDecimal!
 
   # price usd
@@ -253,7 +253,7 @@ type SJoeDayData @entity(immutable: false) {
   amountX: BigDecimal!
   amountY: BigDecimal!
 
-  collectedAVAX: BigDecimal!
+  collectedBNB: BigDecimal!
   collectedUSD: BigDecimal!
 }
 
@@ -280,7 +280,7 @@ type LBPair @entity(immutable: false) {
   reserveY: BigDecimal!
 
   # tvl
-  totalValueLockedAVAX: BigDecimal!
+  totalValueLockedBNB: BigDecimal!
   totalValueLockedUSD: BigDecimal!
 
   # Price in terms of the asset pair
@@ -602,7 +602,7 @@ type Collect @entity(immutable: true) {
   recipient: User!
   origin: Bytes!
 
-  collectedAVAX: BigDecimal!
+  collectedBNB: BigDecimal!
   collectedUSD: BigDecimal!
 
   logIndex: BigInt!

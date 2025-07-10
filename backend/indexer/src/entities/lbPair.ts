@@ -81,7 +81,7 @@ export function createLBPair(
 
   lbPair.reserveX = BIG_DECIMAL_ZERO;
   lbPair.reserveY = BIG_DECIMAL_ZERO;
-  lbPair.totalValueLockedAVAX = BIG_DECIMAL_ZERO;
+  lbPair.totalValueLockedBNB = BIG_DECIMAL_ZERO;
   lbPair.totalValueLockedUSD = BIG_DECIMAL_ZERO;
   lbPair.tokenXPrice = BIG_DECIMAL_ZERO;
   lbPair.tokenYPrice = BIG_DECIMAL_ZERO;

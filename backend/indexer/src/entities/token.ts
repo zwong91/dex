@@ -32,7 +32,7 @@ export function loadToken(address: Address): Token {
     token.txCount = BIG_INT_ZERO;
     token.totalValueLocked = BIG_DECIMAL_ZERO;
     token.totalValueLockedUSD = BIG_DECIMAL_ZERO;
-    token.derivedAVAX = BIG_DECIMAL_ZERO;
+    token.derivedBNB = BIG_DECIMAL_ZERO;
     token.feesUSD = BIG_DECIMAL_ZERO;
 
     token.save();

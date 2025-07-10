@@ -18,10 +18,10 @@ export function loadLBFactory(id: Address = LBFACTORY_ADDRESS): LBFactory {
     lbFactory = new LBFactory(id.toHexString());
     lbFactory.pairCount = BIG_INT_ZERO;
     lbFactory.volumeUSD = BIG_DECIMAL_ZERO;
-    lbFactory.volumeAVAX = BIG_DECIMAL_ZERO;
+    lbFactory.volumeBNB = BIG_DECIMAL_ZERO;
     lbFactory.untrackedVolumeUSD = BIG_DECIMAL_ZERO;
     lbFactory.totalValueLockedUSD = BIG_DECIMAL_ZERO;
-    lbFactory.totalValueLockedAVAX = BIG_DECIMAL_ZERO;
+    lbFactory.totalValueLockedBNB = BIG_DECIMAL_ZERO;
     lbFactory.txCount = BIG_INT_ZERO;
     lbFactory.tokenCount = BIG_INT_ZERO;
     lbFactory.userCount = BIG_INT_ZERO;
@@ -37,7 +37,7 @@ export function loadLBFactory(id: Address = LBFACTORY_ADDRESS): LBFactory {
     }
     lbFactory.ignoredLbPairs = [];
     lbFactory.feesUSD = BIG_DECIMAL_ZERO;
-    lbFactory.feesAVAX = BIG_DECIMAL_ZERO;
+    lbFactory.feesBNB = BIG_DECIMAL_ZERO;
 
     lbFactory.save();
   }
