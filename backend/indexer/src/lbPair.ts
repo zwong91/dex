@@ -83,48 +83,50 @@ export function handleSwap(event: SwapEvent): void {
   const tokenXPriceUSD = tokenX.derivedBNB.times(bundle.bnbPriceUSD);
   const tokenYPriceUSD = tokenY.derivedBNB.times(bundle.bnbPriceUSD);
 
-  // const swapForY = event.params.swapForY;
-  const tokenIn = tokenX;
-  const tokenOut = tokenY;
-
   const amountsIn = decodeAmounts(event.params.amountsIn);
   const amountXIn = amountsIn[0];
   const amountYIn = amountsIn[1];
 
-  const fmtAmountXIn = formatTokenAmountByDecimals(amountXIn, tokenIn.decimals);
-  const fmtAmountYIn = formatTokenAmountByDecimals(
-    amountYIn,
-    tokenOut.decimals
-  );
+  const fmtAmountXIn = formatTokenAmountByDecimals(amountXIn, tokenX.decimals);
+  const fmtAmountYIn = formatTokenAmountByDecimals(amountYIn, tokenY.decimals);
 
   const amountsOut = decodeAmounts(event.params.amountsOut);
   const amountXOut = amountsOut[0];
   const amountYOut = amountsOut[1];
 
-  const fmtAmountXOut = formatTokenAmountByDecimals(
-    amountXOut,
-    tokenIn.decimals
-  );
-  const fmtAmountYOut = formatTokenAmountByDecimals(
-    amountYOut,
-    tokenOut.decimals
-  );
+  const fmtAmountXOut = formatTokenAmountByDecimals(amountXOut, tokenX.decimals);
+  const fmtAmountYOut = formatTokenAmountByDecimals(amountYOut, tokenY.decimals);
+
+  // Determine swap direction: only one direction should have input amount > 0
+  const swapForY = fmtAmountXIn.gt(BIG_DECIMAL_ZERO); // X->Y swap
+  const swapForX = fmtAmountYIn.gt(BIG_DECIMAL_ZERO); // Y->X swap
+  
+  // Safety check: ensure only one direction is active
+  if (swapForY && swapForX) {
+    log.warning("[handleSwap] Both amountXIn and amountYIn > 0, unexpected swap pattern: XIn={}, YIn={}", [
+      fmtAmountXIn.toString(),
+      fmtAmountYIn.toString()
+    ]);
+  } else if (!swapForY && !swapForX) {
+    log.warning("[handleSwap] Both amountXIn and amountYIn = 0, no swap detected", []);
+    return;
+  }
+  
+  const tokenIn = swapForY ? tokenX : tokenY;
+  const tokenOut = swapForY ? tokenY : tokenX;
+  const amountIn = swapForY ? fmtAmountXIn : fmtAmountYIn;
+  const amountOut = swapForY ? fmtAmountYOut : fmtAmountXOut;
 
   const totalFees = decodeAmounts(event.params.totalFees);
-  const totalFeesX = formatTokenAmountByDecimals(
-    totalFees[0],
-    tokenIn.decimals
-  );
-  const totalFeesY = formatTokenAmountByDecimals(
-    totalFees[1],
-    tokenOut.decimals
-  );
+  const totalFeesX = formatTokenAmountByDecimals(totalFees[0], tokenX.decimals);
+  const totalFeesY = formatTokenAmountByDecimals(totalFees[1], tokenY.decimals);
   const feesUSD = totalFeesX
-    .times(tokenIn.derivedBNB.times(bundle.bnbPriceUSD))
+    .times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
     .plus(totalFeesY.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD)));
 
-  const amountXTotal = fmtAmountXIn.plus(fmtAmountXOut);
-  const amountYTotal = fmtAmountYIn.plus(fmtAmountYOut);
+  // For volume calculation, use actual swap amounts, not total of in+out
+  const amountXTotal = swapForY ? fmtAmountXIn : fmtAmountXOut;
+  const amountYTotal = swapForY ? fmtAmountYOut : fmtAmountYIn;
 
   const trackedVolumeUSD = getTrackedVolumeUSD(
     amountXTotal,
@@ -234,28 +236,28 @@ export function handleSwap(event: SwapEvent): void {
   // TokenX
   tokenX.txCount = tokenX.txCount.plus(BIG_INT_ONE);
   tokenX.volume = tokenX.volume.plus(amountXTotal);
-  tokenX.volumeUSD = tokenX.volumeUSD.plus(trackedVolumeUSD);
+  tokenX.volumeUSD = tokenX.volumeUSD.plus(
+    amountXTotal.times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
+  );
   tokenX.totalValueLocked = tokenX.totalValueLocked
     .plus(fmtAmountXIn)
     .minus(fmtAmountXOut);
-  tokenX.totalValueLockedUSD = tokenX.totalValueLockedUSD.plus(
-    tokenX.totalValueLocked.times(tokenXPriceUSD)
-  );
+  tokenX.totalValueLockedUSD = tokenX.totalValueLocked.times(tokenXPriceUSD);
   const feesUsdX = totalFeesX.times(
-    tokenIn.derivedBNB.times(bundle.bnbPriceUSD)
+    tokenX.derivedBNB.times(bundle.bnbPriceUSD)
   );
   tokenX.feesUSD = tokenX.feesUSD.plus(feesUsdX);
 
   // TokenY
   tokenY.txCount = tokenY.txCount.plus(BIG_INT_ONE);
   tokenY.volume = tokenY.volume.plus(amountYTotal);
-  tokenY.volumeUSD = tokenY.volumeUSD.plus(trackedVolumeUSD);
+  tokenY.volumeUSD = tokenY.volumeUSD.plus(
+    amountYTotal.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD))
+  );
   tokenY.totalValueLocked = tokenY.totalValueLocked
     .plus(fmtAmountYIn)
     .minus(fmtAmountYOut);
-  tokenY.totalValueLockedUSD = tokenY.totalValueLockedUSD.plus(
-    tokenY.totalValueLocked.times(tokenYPriceUSD)
-  );
+  tokenY.totalValueLockedUSD = tokenY.totalValueLocked.times(tokenYPriceUSD);
   const feesUsdY = totalFeesY.times(
     tokenY.derivedBNB.times(bundle.bnbPriceUSD)
   );
@@ -271,8 +273,12 @@ export function handleSwap(event: SwapEvent): void {
     true
   );
   tokenXHourData.volume = tokenXHourData.volume.plus(amountXTotal);
-  tokenXHourData.volumeBNB = tokenXHourData.volumeBNB.plus(trackedVolumeBNB);
-  tokenXHourData.volumeUSD = tokenXHourData.volumeUSD.plus(trackedVolumeUSD);
+  tokenXHourData.volumeBNB = tokenXHourData.volumeBNB.plus(
+    amountXTotal.times(tokenX.derivedBNB)
+  );
+  tokenXHourData.volumeUSD = tokenXHourData.volumeUSD.plus(
+    amountXTotal.times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
+  );
   tokenXHourData.feesUSD = tokenXHourData.feesUSD.plus(feesUsdX);
   tokenXHourData.save();
 
@@ -283,8 +289,12 @@ export function handleSwap(event: SwapEvent): void {
     true
   );
   tokenYHourData.volume = tokenYHourData.volume.plus(amountYTotal);
-  tokenYHourData.volumeBNB = tokenYHourData.volumeBNB.plus(trackedVolumeBNB);
-  tokenYHourData.volumeUSD = tokenYHourData.volumeUSD.plus(trackedVolumeUSD);
+  tokenYHourData.volumeBNB = tokenYHourData.volumeBNB.plus(
+    amountYTotal.times(tokenY.derivedBNB)
+  );
+  tokenYHourData.volumeUSD = tokenYHourData.volumeUSD.plus(
+    amountYTotal.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD))
+  );
   tokenYHourData.feesUSD = tokenYHourData.feesUSD.plus(feesUsdY);
   tokenYHourData.save();
 
@@ -295,8 +305,12 @@ export function handleSwap(event: SwapEvent): void {
     true
   );
   tokenXDayData.volume = tokenXDayData.volume.plus(amountXTotal);
-  tokenXDayData.volumeBNB = tokenXDayData.volumeBNB.plus(trackedVolumeBNB);
-  tokenXDayData.volumeUSD = tokenXDayData.volumeUSD.plus(trackedVolumeUSD);
+  tokenXDayData.volumeBNB = tokenXDayData.volumeBNB.plus(
+    amountXTotal.times(tokenX.derivedBNB)
+  );
+  tokenXDayData.volumeUSD = tokenXDayData.volumeUSD.plus(
+    amountXTotal.times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
+  );
   tokenXDayData.feesUSD = tokenXDayData.feesUSD.plus(feesUsdX);
   tokenXDayData.save();
 
@@ -307,8 +321,12 @@ export function handleSwap(event: SwapEvent): void {
     true
   );
   tokenYDayData.volume = tokenYDayData.volume.plus(amountYTotal);
-  tokenYDayData.volumeBNB = tokenYDayData.volumeBNB.plus(trackedVolumeBNB);
-  tokenYDayData.volumeUSD = tokenYDayData.volumeUSD.plus(trackedVolumeUSD);
+  tokenYDayData.volumeBNB = tokenYDayData.volumeBNB.plus(
+    amountYTotal.times(tokenY.derivedBNB)
+  );
+  tokenYDayData.volumeUSD = tokenYDayData.volumeUSD.plus(
+    amountYTotal.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD))
+  );
   tokenYDayData.feesUSD = tokenYDayData.feesUSD.plus(feesUsdY);
   tokenYDayData.save();
 
@@ -383,24 +401,32 @@ export function handleFlashLoan(event: FlashLoan): void {
   traderJoeDayData.feesUSD = traderJoeDayData.feesUSD.plus(feesUSD);
   traderJoeDayData.save();
 
+  // Handle individual token fees
+  const individualFees = [feesX, feesY];
+  const individualFeesUSD = [
+    feesX.times(tokenX.derivedBNB.times(bundle.bnbPriceUSD)),
+    feesY.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD))
+  ];
+
   const tokens = [tokenX, tokenY];
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     const tokenHourData = loadTokenHourData(
       event.block.timestamp,
-      tokenX,
+      tokens[i],
       true
     );
-    const tokenDayData = loadTokenDayData(event.block.timestamp, tokenX, true);
-    if (amounts[i].gt(BIG_INT_ZERO)) {
+    const tokenDayData = loadTokenDayData(event.block.timestamp, tokens[i], true);
+    
+    // Only increment txCount if there's an actual fee for this token
+    if (individualFees[i].gt(BIG_DECIMAL_ZERO)) {
       token.txCount = token.txCount.plus(BIG_INT_ONE);
-    } else {
-      tokenHourData.txCount = tokenHourData.txCount.minus(BIG_INT_ONE);
-      tokenDayData.txCount = tokenDayData.txCount.minus(BIG_INT_ONE);
     }
-    token.feesUSD = token.feesUSD.plus(feesUSD);
-    tokenHourData.feesUSD = tokenHourData.feesUSD.plus(feesUSD);
-    tokenDayData.feesUSD = tokenDayData.feesUSD.plus(feesUSD);
+    
+    // Add individual token's fee, not total fees
+    token.feesUSD = token.feesUSD.plus(individualFeesUSD[i]);
+    tokenHourData.feesUSD = tokenHourData.feesUSD.plus(individualFeesUSD[i]);
+    tokenDayData.feesUSD = tokenDayData.feesUSD.plus(individualFeesUSD[i]);
     token.save();
     tokenHourData.save();
     tokenDayData.save();
@@ -528,7 +554,7 @@ export function handleCompositionFee(event: CompositionFees): void {
 
   const tokenYDayData = loadTokenDayData(
     event.block.timestamp,
-    tokenX as Token,
+    tokenY as Token,
     false
   );
   tokenYDayData.feesUSD = tokenYDayData.feesUSD.plus(
@@ -580,8 +606,17 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
   const tokenX = loadToken(Address.fromString(lbPair.tokenX));
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
 
-  const totalAmountX = BigDecimal.fromString("0");
-  const totalAmountY = BigDecimal.fromString("0");
+  // total amounts - properly formatted by token decimals
+  const totalAmountX = event.params.amounts
+    .reduce((acc, val) => {
+      const amounts = decodeAmounts(val);
+      return acc.plus(formatTokenAmountByDecimals(amounts[0], tokenX.decimals));
+    }, BIG_DECIMAL_ZERO);
+  const totalAmountY = event.params.amounts
+    .reduce((acc, val) => {
+      const amounts = decodeAmounts(val);
+      return acc.plus(formatTokenAmountByDecimals(amounts[1], tokenY.decimals));
+    }, BIG_DECIMAL_ZERO);
 
   for (let i = 0; i < event.params.ids.length; i++) {
     const bidId = event.params.ids[i];
@@ -589,9 +624,6 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
     const amounts = decodeAmounts(event.params.amounts[i]);
     const amountX = formatTokenAmountByDecimals(amounts[0], tokenX.decimals);
     const amountY = formatTokenAmountByDecimals(amounts[1], tokenY.decimals);
-
-    totalAmountX.plus(amountX);
-    totalAmountY.plus(amountY);
 
     trackBin(
       lbPair,
@@ -716,13 +748,17 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
     );
   }
 
-  // total amounts
+  // total amounts - properly formatted by token decimals
   const totalAmountX = event.params.amounts
-    .reduce((acc, val) => acc.plus(decodeAmounts(val)[0]), BIG_INT_ZERO)
-    .toBigDecimal();
+    .reduce((acc, val) => {
+      const amounts = decodeAmounts(val);
+      return acc.plus(formatTokenAmountByDecimals(amounts[0], tokenX.decimals));
+    }, BIG_DECIMAL_ZERO);
   const totalAmountY = event.params.amounts
-    .reduce((acc, val) => acc.plus(decodeAmounts(val)[1]), BIG_INT_ZERO)
-    .toBigDecimal();
+    .reduce((acc, val) => {
+      const amounts = decodeAmounts(val);
+      return acc.plus(formatTokenAmountByDecimals(amounts[1], tokenY.decimals));
+    }, BIG_DECIMAL_ZERO);
 
   // reset tvl aggregates until new amounts calculated
   lbFactory.totalValueLockedBNB = lbFactory.totalValueLockedBNB.minus(
@@ -949,7 +985,9 @@ export function handleStaticFeeParametersSet(
   lbPairParameter.reductionFactor = event.params.reductionFactor;
   lbPairParameter.variableFeeControl = event.params.variableFeeControl;
   lbPairParameter.protocolShare = event.params.protocolShare;
-  lbPairParameter.protocolSharePct = event.params.protocolShare;
+  // Convert basis points to percentage: protocolShare (basis points) / 100
+  // e.g., 250 basis points = 2.5%
+  lbPairParameter.protocolSharePct = event.params.protocolShare.toI32() / 100;
   lbPairParameter.maxVolatilityAccumulator =
     event.params.maxVolatilityAccumulator;
 
