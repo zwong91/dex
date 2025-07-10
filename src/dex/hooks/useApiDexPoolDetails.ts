@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useChainId } from 'wagmi';
+import { getApiEndpoint } from '../utils/apiEndpoint';
 
 export interface DexPoolDetails {
   id: string;
@@ -46,6 +48,7 @@ export const useApiDexPoolDetails = (poolId: string | undefined) => {
   const [details, setDetails] = useState<DexPoolDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const chainId = useChainId();
 
   const fetchDetails = useCallback(async () => {
     if (!poolId) {
@@ -57,7 +60,7 @@ export const useApiDexPoolDetails = (poolId: string | undefined) => {
     setLoading(true);
     setError(null);
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || 'https://api.dex.jongun2038.win';
+      const apiBaseUrl = getApiEndpoint(chainId);
       const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       const url = `${apiBaseUrl}/v1/api/dex/pools/bsc/${poolId}`;
       const res = await fetch(url, {

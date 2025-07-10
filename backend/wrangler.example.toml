@@ -27,7 +27,7 @@ compatibility_date = "2025-06-20"
 compatibility_flags = ["nodejs_compat"]
 
 # Replace with your Cloudflare account ID
-account_id = "YOUR_ACCOUNT_ID_HERE"
+account_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # ✅ Scheduled jobs for data synchronization - Multiple cron triggers
 [triggers]
@@ -69,7 +69,7 @@ binding = "AI"
 [[d1_databases]]
 binding = "D1_DATABASE"  # Matches env.D1_DATABASE in code
 database_name = "d1-dex-database"
-database_id = "YOUR_NEW_DEX_DATABASE_ID_HERE"
+database_id = "2a6573b6-d961-4b68-b907-2c1cb6640329"
 migrations_dir = "drizzle"
 
 # 🔧 Production R2 storage binding - Disabled for initial deployment
@@ -80,23 +80,23 @@ bucket_name = "dex-storage"
 
 [durable_objects]
 bindings = [
-  { name = "MCP_OBJECT", class_name = "D1Agent" },
-  { name = "SANDBOX_SHELL_CONTAINER", class_name = "SandboxShellContainer" }
+  { name = "MCP_OBJECT", class_name = "D1Agent" }
+  # { name = "SANDBOX_SHELL_CONTAINER", class_name = "SandboxShellContainer" }  # Disabled for dev
 ]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["D1Agent"]
 
-[[migrations]]
-tag = "v2"
-new_sqlite_classes = ["SandboxShellContainer"]
+# [[migrations]]
+# tag = "v2"
+# new_sqlite_classes = ["SandboxShellContainer"]
 
-[[containers]]
-class_name = "SandboxShellContainer"
-image = "./Dockerfile"
-instances = 5
-name = "sandbox-shell"
+# [[containers]]
+# class_name = "SandboxShellContainer"
+# image = "./Dockerfile"
+# instances = 5
+# name = "sandbox-shell"
 
 # 🔧 Development environment configuration (minimal for testing)
 [env.development]
@@ -111,6 +111,21 @@ SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
 
 [env.development.ai]
 binding = "AI"
+
+[[env.development.d1_databases]]
+binding = "D1_DATABASE"
+database_name = "d1-dex-database"
+database_id = "2a6573b6-d961-4b68-b907-2c1cb6640329"
+migrations_dir = "drizzle"
+
+[[env.development.r2_buckets]]
+binding = "R2"
+bucket_name = "dex-storage"
+
+[env.development.durable_objects]
+bindings = [
+  { name = "MCP_OBJECT", class_name = "D1Agent" }
+]
 
 # ✅ Production environment configuration
 [env.production]

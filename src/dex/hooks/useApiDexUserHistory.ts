@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useChainId } from 'wagmi';
+import { getApiEndpoint } from '../utils/apiEndpoint';
 
 export interface DexUserHistoryItem {
   id: string;
@@ -18,6 +20,7 @@ export const useApiDexUserHistory = (userAddress: string | undefined) => {
   const [history, setHistory] = useState<DexUserHistoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const chainId = useChainId();
 
   const fetchUserHistory = useCallback(async () => {
     if (!userAddress) {
@@ -29,7 +32,7 @@ export const useApiDexUserHistory = (userAddress: string | undefined) => {
     setLoading(true);
     setError(null);
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || 'https://api.dex.jongun2038.win';
+      const apiBaseUrl = getApiEndpoint(chainId);
       const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       const url = `${apiBaseUrl}/v1/api/dex/user/${userAddress}/history`;
       const res = await fetch(url, {

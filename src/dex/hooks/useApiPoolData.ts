@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useChainId } from 'wagmi'
+import { getApiEndpoint } from '../utils/apiEndpoint'
 
 // 简单的内存缓存
 const cache = new Map<string, { data: ApiPool[]; timestamp: number; total: number }>();
@@ -70,6 +72,7 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
   const [pools, setPools] = useState<ApiPool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const chainId = useChainId();
   const [total, setTotal] = useState<number>(0);
 
   // 使用 useMemo 稳定化 options，避免不必要的重新请求
@@ -128,7 +131,7 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
     
     try {
       const params = buildParams();
-      const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || 'https://api.dex.jongun2038.win';
+      const apiBaseUrl = getApiEndpoint(chainId);
       const url = `${apiBaseUrl}/v1/api/dex/pools/bsc?${params.toString()}`;
       const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       

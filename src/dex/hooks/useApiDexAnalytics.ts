@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useChainId } from 'wagmi';
+import { getApiEndpoint } from '../utils/apiEndpoint';
 
 export interface DexAnalytics {
   totalVolume24h: string;
@@ -23,12 +25,13 @@ export const useApiDexAnalytics = () => {
   const [analytics, setAnalytics] = useState<DexAnalytics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const chainId = useChainId();
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || 'https://api.dex.jongun2038.win';
+      const apiBaseUrl = getApiEndpoint(chainId);
       const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       const url = `${apiBaseUrl}/v1/api/dex/analytics`;
       const res = await fetch(url, {
@@ -67,7 +70,7 @@ export const useApiDexAnalytics = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [chainId]);
 
   useEffect(() => {
     fetchAnalytics();
