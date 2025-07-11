@@ -52,6 +52,7 @@ import {
   updateTokensDerivedNative,
   safeDiv,
   decodeAmounts,
+  isSwapForY,
 } from "./utils";
 import { StaticFeeParametersSet } from "../generated/LBFactory/LBPair";
 
@@ -97,19 +98,14 @@ export function handleSwap(event: SwapEvent): void {
   const fmtAmountXOut = formatTokenAmountByDecimals(amountXOut, tokenX.decimals);
   const fmtAmountYOut = formatTokenAmountByDecimals(amountYOut, tokenY.decimals);
 
-  // Determine swap direction: only one direction should have input amount > 0
-  const swapForY = fmtAmountXIn.gt(BIG_DECIMAL_ZERO); // X->Y swap
-  const swapForX = fmtAmountYIn.gt(BIG_DECIMAL_ZERO); // Y->X swap
+  // Determine swap direction using the existing utility function
+  const swapForY = isSwapForY(event.params.amountsIn);
   
-  // Safety check: ensure only one direction is active
-  if (swapForY && swapForX) {
-    log.warning("[handleSwap] Both amountXIn and amountYIn > 0, unexpected swap pattern: XIn={}, YIn={}", [
-      fmtAmountXIn.toString(),
-      fmtAmountYIn.toString()
-    ]);
-  } else if (!swapForY && !swapForX) {
-    log.warning("[handleSwap] Both amountXIn and amountYIn = 0, no swap detected", []);
-    return;
+  // Safety check: verify our direction detection is consistent
+  if (swapForY && fmtAmountXIn.equals(BIG_DECIMAL_ZERO)) {
+    log.warning("[handleSwap] Direction mismatch: isSwapForY=true but amountXIn = 0", []);
+  } else if (!swapForY && fmtAmountYIn.equals(BIG_DECIMAL_ZERO)) {
+    log.warning("[handleSwap] Direction mismatch: isSwapForY=false but amountYIn = 0", []);
   }
   
   const tokenIn = swapForY ? tokenX : tokenY;
