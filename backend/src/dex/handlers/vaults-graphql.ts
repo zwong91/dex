@@ -77,7 +77,7 @@ async function handleVaultsList(c: Context<{ Bindings: Env }>, subgraphClient: a
 
 	// Transform pools to vault format
 	const vaults = vaultEligiblePools.slice((page - 1) * limit, page * limit).map((pool: any) => 
-		transformPoolToVault(pool)
+		transformPoolToVault(pool, undefined, false)
 	);
 
 	const pagination = {
@@ -126,7 +126,7 @@ async function handleVaultDetails(c: Context<{ Bindings: Env }>, subgraphClient:
 	}
 
 	// Transform to vault with detailed information
-	const vault = transformPoolToVault(pool, true);
+	const vault = transformPoolToVault(pool, undefined, true);
 
 	return c.json({
 		success: true,
@@ -141,30 +141,55 @@ async function handleVaultDetails(c: Context<{ Bindings: Env }>, subgraphClient:
 async function handleVaultsAnalytics(c: Context<{ Bindings: Env }>, subgraphClient: any) {
 	console.log('🔗 Fetching vaults analytics from subgraph...');
 	
-	const pools = await subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc');
+	const [pools, poolsDayData] = await Promise.all([
+		subgraphClient.getPools(1000, 0, 'totalValueLockedUSD', 'desc'),
+		subgraphClient.getPoolsDayData(1000, 1) // Get 24h data
+	]);
 	
-	// Filter vault-eligible pools
-	const vaultPools = pools.filter((pool: any) => 
-		parseFloat(pool.totalValueLockedUSD || '0') >= 10000 &&
-		parseInt(pool.liquidityProviderCount || '0') > 0
-	);
+	// Create a map of pool day data for quick lookup
+	const poolDayDataMap = new Map();
+	poolsDayData.forEach((dayData: any) => {
+		const poolId = dayData.lbPair.id;
+		if (!poolDayDataMap.has(poolId)) {
+			poolDayDataMap.set(poolId, dayData);
+		}
+	});
+	
+	// Filter vault-eligible pools with real activity
+	const vaultPools = pools.filter((pool: any) => {
+		const tvl = parseFloat(pool.totalValueLockedUSD || '0');
+		const liquidityProviders = parseInt(pool.liquidityProviderCount || '0');
+		const dayData = poolDayDataMap.get(pool.id);
+		const volume24h = dayData ? parseFloat(dayData.volumeUSD || '0') : 0;
+		
+		return tvl >= 10000 && liquidityProviders > 0 && volume24h > 500; // Real activity requirement
+	});
 
-	// Calculate analytics
+	// Calculate analytics using real 24h data
 	const totalTvl = vaultPools.reduce((sum: number, pool: any) => 
 		sum + parseFloat(pool.totalValueLockedUSD || '0'), 0);
 	
-	const totalVolume24h = vaultPools.reduce((sum: number, pool: any) => 
-		sum + parseFloat(pool.volumeUSD24h || '0'), 0);
+	const totalVolume24h = poolsDayData.reduce((sum: number, dayData: any) => 
+		sum + parseFloat(dayData.volumeUSD || '0'), 0);
 	
-	const totalFees24h = vaultPools.reduce((sum: number, pool: any) => 
-		sum + parseFloat(pool.feesUSD24h || '0'), 0);
+	const totalFees24h = poolsDayData.reduce((sum: number, dayData: any) => 
+		sum + parseFloat(dayData.feesUSD || '0'), 0);
 
 	const averageAPY = vaultPools.length > 0 ? 
-		vaultPools.reduce((sum: number, pool: any) => sum + calculatePoolAPY(pool), 0) / vaultPools.length : 0;
+		vaultPools.reduce((sum: number, pool: any) => {
+			const dayData = poolDayDataMap.get(pool.id);
+			return sum + calculatePoolAPY(pool, dayData);
+		}, 0) / vaultPools.length : 0;
 
-	// Top performing vaults
+	// Top performing vaults with real 24h data
 	const topVaults = vaultPools
-		.map((pool: any) => ({ ...transformPoolToVault(pool), apy: calculatePoolAPY(pool) }))
+		.map((pool: any) => {
+			const dayData = poolDayDataMap.get(pool.id);
+			return { 
+				...transformPoolToVault(pool, dayData), 
+				apy: calculatePoolAPY(pool, dayData) 
+			};
+		})
 		.sort((a: { apy: number }, b: { apy: number }) => b.apy - a.apy)
 		.slice(0, 10);
 
@@ -237,9 +262,9 @@ async function handleVaultStrategies(c: Context<{ Bindings: Env }>, subgraphClie
 }
 
 // Helper functions
-function transformPoolToVault(pool: any, detailed: boolean = false) {
+function transformPoolToVault(pool: any, dayData?: any, detailed: boolean = false) {
 	const tvl = parseFloat(pool.totalValueLockedUSD || '0');
-	const apy = calculatePoolAPY(pool);
+	const apy = calculatePoolAPY(pool, dayData);
 	const riskLevel = calculateRiskLevel(pool);
 	const strategy = getVaultStrategy(pool);
 	
@@ -279,12 +304,15 @@ function transformPoolToVault(pool: any, detailed: boolean = false) {
 	};
 
 	if (detailed) {
+		const volume24h = dayData ? parseFloat(dayData.volumeUSD || '0') : parseFloat(pool.volumeUSD || '0');
+		const fees24h = dayData ? parseFloat(dayData.feesUSD || '0') : parseFloat(pool.feesUSD || '0');
+		
 		return {
 			...baseVault,
-			// Additional detailed information
+			// Additional detailed information with real 24h data
 			totalUsers: parseInt(pool.liquidityProviderCount || '0'),
-			volume24h: parseFloat(pool.volumeUSD24h || '0'),
-			fees24h: parseFloat(pool.feesUSD24h || '0'),
+			volume24h,
+			fees24h,
 			reserveX: parseFloat(pool.reserveX || '0'),
 			reserveY: parseFloat(pool.reserveY || '0'),
 			binStep: parseInt(pool.binStep || '0'),
@@ -300,13 +328,22 @@ function transformPoolToVault(pool: any, detailed: boolean = false) {
 	return baseVault;
 }
 
-function calculatePoolAPY(pool: any): number {
+function calculatePoolAPY(pool: any, dayData?: any): number {
 	const tvl = parseFloat(pool.totalValueLockedUSD || '0');
-	const fees24h = parseFloat(pool.feesUSD24h || '0');
 	
 	if (tvl === 0) return 0;
 	
-	const dailyAPR = (fees24h / tvl) * 100;
+	// Use real 24h fees from day data if available
+	let dailyFees = 0;
+	if (dayData) {
+		dailyFees = parseFloat(dayData.feesUSD || '0');
+	} else {
+		// Fallback: estimate from lifetime fees
+		const feesLifetime = parseFloat(pool.feesUSD || '0');
+		dailyFees = feesLifetime / 30; // Rough estimate over 30 days
+	}
+	
+	const dailyAPR = (dailyFees / tvl) * 100;
 	const apr = dailyAPR * 365;
 	
 	// Convert APR to APY (compound daily)
@@ -314,14 +351,16 @@ function calculatePoolAPY(pool: any): number {
 }
 
 function calculateRiskLevel(pool: any): 'low' | 'medium' | 'high' {
-	const volume24h = parseFloat(pool.volumeUSD24h || '0');
+	// TODO: Get real 24h volume from pool day data
+	const volumeLifetime = parseFloat(pool.volumeUSD || '0');
 	const tvl = parseFloat(pool.totalValueLockedUSD || '0');
 	
 	if (tvl === 0) return 'high';
 	
-	const volumeToTvlRatio = volume24h / tvl;
+	// Rough estimate: assume lifetime volume over 30 days
+	const volumeToTvlRatio = (volumeLifetime / 30) / tvl;
 	
-	// Simple risk assessment based on volume/TVL ratio
+	// Simple risk assessment based on daily volume/TVL ratio estimate
 	if (volumeToTvlRatio < 0.1) return 'low';
 	if (volumeToTvlRatio < 0.5) return 'medium';
 	return 'high';

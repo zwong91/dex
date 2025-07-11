@@ -8,6 +8,7 @@
 import type { Context } from 'hono';
 import { createSubgraphClient } from '../graphql/client';
 import type { Env } from '../../index';
+import { recalculateTVL } from '../utils/priceCorrection';
 
 /**
  * Create pools handler factory
@@ -236,15 +237,15 @@ async function handleTokensList(c: Context<{ Bindings: Env }>, subgraphClient: a
 		address: token.id,
 		symbol: token.symbol,
 		name: token.name,
-		decimals: token.decimals,
-		priceUsd: parseFloat(token.priceUSD || '0'),
-		priceNative: token.priceNative || '0',
+		decimals: parseInt(token.decimals || '18'),
+		priceUsd: parseFloat(token.derivedBNB || '0'), // Using derivedBNB as price proxy
+		priceNative: token.derivedBNB || '0',
 		totalSupply: token.totalSupply || '0',
-		volume24h: token.volume24h || '0',
-		poolCount: token.pools ? token.pools.length : 0,
-		liquidityUsd: token.pools ? 
-			token.pools.reduce((sum: number, pool: any) => 
-				sum + parseFloat(pool.totalValueLockedUSD || '0'), 0) : 0,
+		volume24h: parseFloat(token.volumeUSD || '0'),
+		// Calculate pool count from basePairs + quotePairs
+		poolCount: (token.basePairs?.length || 0) + (token.quotePairs?.length || 0),
+		// Use the actual totalValueLockedUSD from indexer
+		liquidityUsd: parseFloat(token.totalValueLockedUSD || '0'),
 	}));
 
 	// Sort by liquidity
@@ -270,20 +271,31 @@ async function handleAnalytics(c: Context<{ Bindings: Env }>, subgraphClient: an
     // 你可以根据 chain 做不同处理，比如切换 subgraphClient，或校验
     console.log('Request chain:', chain);
 
-	const [pools, tokens] = await Promise.all([
+	const [pools, tokens, poolsDayData] = await Promise.all([
 		subgraphClient.getPools(1000, 0), // Get many pools for analytics
-		subgraphClient.getTokens()
+		subgraphClient.getTokens(),
+		subgraphClient.getPoolsDayData(1000, 1) // Get last 24h data
 	]);
 
-	// Calculate analytics
+	// Create a map of pool day data for quick lookup
+	const poolDayDataMap = new Map();
+	poolsDayData.forEach((dayData: any) => {
+		const poolId = dayData.lbPair.id;
+		if (!poolDayDataMap.has(poolId)) {
+			poolDayDataMap.set(poolId, dayData);
+		}
+	});
+
+	// Calculate analytics using real 24h data where available
 	const totalTvl = pools.reduce((sum: number, pool: any) => 
 		sum + parseFloat(pool.totalValueLockedUSD || '0'), 0);
 	
-	const totalVolume24h = pools.reduce((sum: number, pool: any) => 
-		sum + parseFloat(pool.volumeUSD24h || '0'), 0);
+	// Use real 24h data from day data entities
+	const totalVolume24h = poolsDayData.reduce((sum: number, dayData: any) => 
+		sum + parseFloat(dayData.volumeUSD || '0'), 0);
 	
-	const totalFees24h = pools.reduce((sum: number, pool: any) => 
-		sum + parseFloat(pool.feesUSD24h || '0'), 0);
+	const totalFees24h = poolsDayData.reduce((sum: number, dayData: any) => 
+		sum + parseFloat(dayData.feesUSD || '0'), 0);
 
 	// Get top pools by TVL
 	const topPools = pools
@@ -300,13 +312,16 @@ async function handleAnalytics(c: Context<{ Bindings: Env }>, subgraphClient: an
 		totalTokens: tokens.length,
 		totalUsers: pools.reduce((sum: number, pool: any) => 
 			sum + parseInt(pool.liquidityProviderCount || '0'), 0),
-		topPools: topPools.map((pool: any) => ({
-			id: pool.id,
-			name: `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
-			tvl: parseFloat(pool.totalValueLockedUSD || '0'),
-			volume24h: parseFloat(pool.volumeUSD24h || '0'),
-			fees24h: parseFloat(pool.feesUSD24h || '0'),
-		})),
+		topPools: topPools.map((pool: any) => {
+			const dayData = poolDayDataMap.get(pool.id);
+			return {
+				id: pool.id,
+				name: `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
+				tvl: parseFloat(pool.totalValueLockedUSD || '0'),
+				volume24h: dayData ? parseFloat(dayData.volumeUSD || '0') : 0,
+				fees24h: dayData ? parseFloat(dayData.feesUSD || '0') : 0,
+			};
+		}),
 		// Mock chart data for now
 		volumeChart: generateMockChartData('volume', 7),
 		tvlChart: generateMockChartData('tvl', 7),
@@ -323,11 +338,12 @@ async function handleAnalytics(c: Context<{ Bindings: Env }>, subgraphClient: an
 // Helper functions
 function calculateAPR(pool: any): number {
 	const tvl = parseFloat(pool.totalValueLockedUSD || '0');
-	const fees24h = parseFloat(pool.feesUSD24h || '0');
+	const feesLifetime = parseFloat(pool.feesUSD || '0'); // Using lifetime fees as estimate
 	
 	if (tvl === 0) return 0;
 	
-	const dailyAPR = (fees24h / tvl) * 100;
+	// Rough estimate: assume lifetime fees accumulated over 30 days
+	const dailyAPR = (feesLifetime / 30 / tvl) * 100;
 	return dailyAPR * 365; // Annualized
 }
 

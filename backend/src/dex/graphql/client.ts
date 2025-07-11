@@ -67,10 +67,12 @@ export interface Token {
   volumeUSD: string;
   totalValueLocked: string;
   totalValueLockedUSD: string;
-  derivedAVAX: string;
+  derivedBNB: string;
   txCount: string;
   feesUSD: string;
   totalSupply: string;
+  basePairs?: Array<{ id: string }>;
+  quotePairs?: Array<{ id: string }>;
 }
 
 export interface SwapEvent {
@@ -559,10 +561,16 @@ export class SubgraphClient {
           volumeUSD
           totalValueLocked
           totalValueLockedUSD
-          derivedAVAX
+          derivedBNB
           txCount
           feesUSD
           totalSupply
+          basePairs {
+            id
+          }
+          quotePairs {
+            id
+          }
         }
       }
     `;
@@ -728,6 +736,80 @@ export class SubgraphClient {
         updatedAtTimestamp: binLiq.timestamp
       }))
     );
+  }
+
+  /**
+   * Get recent LBPair day data for calculating 24h metrics
+   */
+  async getPoolsDayData(first: number = 100, days: number = 1): Promise<any[]> {
+    // Calculate timestamp for N days ago
+    const currentTime = Math.floor(Date.now() / 1000);
+    const daysAgoTimestamp = currentTime - (days * 24 * 60 * 60);
+    
+    const query = `
+      query GetPoolsDayData($first: Int!, $timestamp: Int!) {
+        lbpairDayDatas(
+          first: $first
+          where: { date_gte: $timestamp }
+          orderBy: date
+          orderDirection: desc
+        ) {
+          id
+          date
+          lbPair {
+            id
+          }
+          volumeUSD
+          feesUSD
+          totalValueLockedUSD
+          txCount
+        }
+      }
+    `;
+
+    const variables = {
+      first,
+      timestamp: daysAgoTimestamp,
+    };
+
+    const result = await this.query<{ lbpairDayDatas: any[] }>(query, variables);
+    return result.data?.lbpairDayDatas || [];
+  }
+
+  /**
+   * Get specific pool's recent day data
+   */
+  async getPoolDayData(poolId: string, days: number = 1): Promise<any[]> {
+    const currentTime = Math.floor(Date.now() / 1000);
+    const daysAgoTimestamp = currentTime - (days * 24 * 60 * 60);
+    
+    const query = `
+      query GetPoolDayData($poolId: String!, $timestamp: Int!) {
+        lbpairDayDatas(
+          where: { 
+            lbPair: $poolId,
+            date_gte: $timestamp 
+          }
+          orderBy: date
+          orderDirection: desc
+        ) {
+          id
+          date
+          volumeUSD
+          feesUSD
+          totalValueLockedUSD
+          txCount
+        }
+      }
+    `;
+
+    const variables = {
+      poolId: poolId.toLowerCase(),
+      timestamp: daysAgoTimestamp,
+    };
+
+    const result = await this.query<{ lbpairDayDatas: any[] }>(query, variables);
+    return result.data?.lbpairDayDatas || [];
   }
 }
 

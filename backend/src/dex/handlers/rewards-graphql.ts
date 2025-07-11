@@ -69,17 +69,28 @@ async function handleUserRewards(c: Context<{ Bindings: Env }>, subgraphClient: 
 
 	console.log('🔗 Fetching user rewards from subgraph...', userAddress);
 	
-	const [userPositionsRaw, userTransactionsRaw] = await Promise.all([
+	const [userPositionsRaw, userTransactionsRaw, poolsDayData] = await Promise.all([
 		subgraphClient.getUserPositions(userAddress),
-		subgraphClient.getUserTransactions(userAddress, 1000, 0)
+		subgraphClient.getUserTransactions(userAddress, 1000, 0),
+		subgraphClient.getPoolsDayData(1000, 1) // Get 24h data for reward calculations
 	]);
 
 	const userPositions = Array.isArray(userPositionsRaw) ? userPositionsRaw : [];
 	const userTransactions = Array.isArray(userTransactionsRaw) ? userTransactionsRaw : [];
+	
+	// Create a map of pool day data for quick lookup
+	const poolDayDataMap = new Map();
+	poolsDayData.forEach((dayData: any) => {
+		const poolId = dayData.lbPair.id;
+		if (!poolDayDataMap.has(poolId)) {
+			poolDayDataMap.set(poolId, dayData);
+		}
+	});
 
-	// Calculate rewards from each position
+	// Calculate rewards from each position with real 24h data
 	const positionRewards = userPositions.map((position: any) => {
-		const rewards = calculatePositionRewards(position);
+		const poolDayData = poolDayDataMap.get(position.pool.id);
+		const rewards = calculatePositionRewards(position, poolDayData);
 		return {
 			poolId: position.pool.id,
 			poolName: `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol}`,
@@ -144,11 +155,24 @@ async function handleClaimableRewards(c: Context<{ Bindings: Env }>, subgraphCli
 
 	console.log('🔗 Fetching claimable rewards from subgraph...', userAddress);
 	
-	const userPositions = await subgraphClient.getUserPositions(userAddress);
+	const [userPositions, poolsDayData] = await Promise.all([
+		subgraphClient.getUserPositions(userAddress),
+		subgraphClient.getPoolsDayData(1000, 1) // Get 24h data for reward calculations
+	]);
+	
+	// Create a map of pool day data for quick lookup
+	const poolDayDataMap = new Map();
+	poolsDayData.forEach((dayData: any) => {
+		const poolId = dayData.lbPair.id;
+		if (!poolDayDataMap.has(poolId)) {
+			poolDayDataMap.set(poolId, dayData);
+		}
+	});
 
-	// Calculate claimable rewards for each position
+	// Calculate claimable rewards for each position with real 24h data
 	const claimableByPool = userPositions.map((position: any) => {
-		const rewards = calculatePositionRewards(position);
+		const poolDayData = poolDayDataMap.get(position.pool.id);
+		const rewards = calculatePositionRewards(position, poolDayData);
 		return {
 			poolId: position.pool.id,
 			poolName: `${position.pool.tokenX.symbol}/${position.pool.tokenY.symbol}`,
@@ -267,11 +291,24 @@ async function handleBatchProof(c: Context<{ Bindings: Env }>, subgraphClient: a
 
 	console.log('🔗 Generating batch proof for rewards claim...', userAddress, poolIds);
 	
-	// Get user positions for specified pools
-	const userPositions = await subgraphClient.getUserPositions(userAddress);
+	// Get user positions and pool day data for specified pools
+	const [userPositions, poolsDayData] = await Promise.all([
+		subgraphClient.getUserPositions(userAddress),
+		subgraphClient.getPoolsDayData(1000, 1) // Get 24h data for accurate rewards
+	]);
+	
 	const relevantPositions = userPositions.filter((pos: any) => 
 		poolIds.includes(pos.pool.id)
 	);
+	
+	// Create a map of pool day data for quick lookup
+	const poolDayDataMap = new Map();
+	poolsDayData.forEach((dayData: any) => {
+		const poolId = dayData.lbPair.id;
+		if (!poolDayDataMap.has(poolId)) {
+			poolDayDataMap.set(poolId, dayData);
+		}
+	});
 
 	if (relevantPositions.length === 0) {
 		return c.json({
@@ -280,9 +317,10 @@ async function handleBatchProof(c: Context<{ Bindings: Env }>, subgraphClient: a
 		}, 404);
 	}
 
-	// Generate merkle proofs for batch claiming
+	// Generate merkle proofs for batch claiming with real 24h data
 	const proofs = relevantPositions.map((position: any) => {
-		const rewards = calculatePositionRewards(position);
+		const poolDayData = poolDayDataMap.get(position.pool.id);
+		const rewards = calculatePositionRewards(position, poolDayData);
 		return {
 			poolId: position.pool.id,
 			userAddress,
@@ -311,21 +349,34 @@ async function handleBatchProof(c: Context<{ Bindings: Env }>, subgraphClient: a
 }
 
 // Helper functions
-function calculatePositionRewards(position: any) {
+function calculatePositionRewards(position: any, poolDayData?: any) {
 	const liquidityUSD = parseFloat(position.liquidityUSD || '0');
 	const poolTvl = parseFloat(position.pool?.totalValueLockedUSD || '1');
-	const poolFees24h = parseFloat(position.pool?.feesUSD24h || '0');
+	
+	// Use real 24h fees from pool day data if available
+	let dailyFees = 0;
+	if (poolDayData) {
+		dailyFees = parseFloat(poolDayData.feesUSD || '0');
+	} else {
+		// Fallback: estimate from lifetime fees
+		const poolFeesLifetime = parseFloat(position.pool?.feesUSD || '0');
+		dailyFees = poolFeesLifetime / 30; // Rough estimate over 30 days
+	}
 	
 	// Calculate user's share of pool
-	const userShare = liquidityUSD / poolTvl;
+	const userShare = poolTvl > 0 ? liquidityUSD / poolTvl : 0;
 	
-	// Estimate rewards based on fees and time
-	const dailyFeeShare = poolFees24h * userShare;
-	const estimatedDaysActive = 30; // Mock 30 days
+	// Calculate rewards based on real 24h fees
+	const dailyFeeShare = dailyFees * userShare;
+	const estimatedDaysActive = 30; // Mock 30 days for total earned
 	
 	const totalEarned = dailyFeeShare * estimatedDaysActive;
 	const claimable = totalEarned * 0.7; // 70% claimable
 	const pending = totalEarned * 0.3; // 30% pending
+	
+	// Calculate APY based on real daily fees
+	const dailyAPR = liquidityUSD > 0 ? (dailyFeeShare / liquidityUSD) * 100 : 0;
+	const apy = dailyAPR * 365;
 	
 	return {
 		totalEarned: totalEarned.toFixed(6),
@@ -334,7 +385,7 @@ function calculatePositionRewards(position: any) {
 		pending: pending.toFixed(6),
 		pendingUSD: (pending * 1.5).toFixed(2),
 		dailyRate: dailyFeeShare.toFixed(6),
-		apy: ((dailyFeeShare * 365) / liquidityUSD * 100).toFixed(2),
+		apy: apy.toFixed(2),
 	};
 }
 
