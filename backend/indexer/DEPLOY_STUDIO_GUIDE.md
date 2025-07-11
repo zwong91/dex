@@ -3,6 +3,7 @@
 ## 已完成的步骤
 
 ✅ **1. 项目配置和构建**
+
 - 配置文件已准备完成 (BSC Testnet)
 - 代码生成完成
 - 项目构建成功
@@ -38,6 +39,7 @@ npx graph deploy <SUBGRAPH_SLUG> subgraph.bsc.yaml
 ### 5. 配置信息
 
 **BSC Testnet 配置 (已更新):**
+
 - Network: `chapel` (BSC Testnet 的正确网络名称)
 - LB Factory Address: `0x7D73A6eFB91C89502331b2137c2803408838218b`
 - Oracle DEX Lens Address: `0x8C7dc8184F5D78Aa40430b2d37f78fDC3e9A9b78`
@@ -90,6 +92,7 @@ npm run logs:postgres
    - BSC Testnet 在 Studio 中应该是 `chapel`
 
 2. **重试部署**
+
    ```bash
    # 清理并重新构建
    npm run clean
@@ -97,7 +100,7 @@ npm run logs:postgres
    npm run build:bsc-testnet
    
    # 重新部署
-   npx graph deploy --studio <SUBGRAPH_SLUG> subgraph.bsc-testnet.yaml
+   npx graph deploy <SUBGRAPH_SLUG> subgraph.bsc-testnet.yaml
    ```
 
 3. **检查起始区块**
@@ -110,16 +113,19 @@ npm run logs:postgres
 ## 修复和重新部署
 
 **已修复的问题:**
+
 - ✅ 网络名称从 `bsc-testnet` 更改为 `chapel`
 - ✅ 重新生成和构建完成
 
 **现在重新部署:**
+
 ```bash
 # 重新部署到 Studio
 npx graph deploy --studio <SUBGRAPH_SLUG> subgraph.bsc-testnet.yaml
 ```
 
 **更新的配置信息:**
+
 - Network: `chapel` (BSC Testnet 的正确网络名称)
 - Start Block: `44000000` (更安全的起始区块)
 - 其他地址保持不变

@@ -7,34 +7,38 @@
 **For mainnet and testnet deployments**, use The Graph's Subgraph Studio:
 
 #### Step 1: Setup
+
 1. Visit [Subgraph Studio](https://thegraph.com/studio/)
 2. Connect your wallet (MetaMask, WalletConnect, etc.)
 3. Create a new subgraph
 
 #### Step 2: Get Your Deploy Key
+
 1. In your subgraph dashboard, copy the deploy key
 2. Authenticate locally:
+
    ```bash
-   graph auth --studio <YOUR_DEPLOY_KEY>
+   graph auth <YOUR_DEPLOY_KEY>
    ```
 
 #### Step 3: Prepare Your Subgraph
+
 ```bash
 # For different networks
-npm run prepare:ethereum    # Ethereum mainnet
 npm run prepare:bsc         # BSC mainnet  
 
 # Generate TypeScript types
-npm run codegen:ethereum    # or your target network
+npm run codegen:bsc    # or your target network
 
 # Build the subgraph
-npm run build:ethereum      # or your target network
+npm run build:bsc      # or your target network
 ```
 
 #### Step 4: Deploy
+
 ```bash
 # Deploy to Subgraph Studio
-graph deploy --studio <YOUR_SUBGRAPH_SLUG>
+graph deploy <YOUR_SUBGRAPH_SLUG>
 ```
 
 ### 2. 🏠 Local Development
@@ -42,6 +46,7 @@ graph deploy --studio <YOUR_SUBGRAPH_SLUG>
 **For development and testing**, use a local Graph node:
 
 #### Quick Start
+
 ```bash
 # Automated deployment (recommended)
 npm run deploy:testnet      # For testnet setup
@@ -49,6 +54,7 @@ npm run deploy:mainnet      # For mainnet setup
 ```
 
 #### Manual Setup
+
 ```bash
 # Start local Graph node
 npm run start:node
@@ -67,8 +73,9 @@ npm run deploy-local
 ```
 
 #### Access Your Local Subgraph
-- **GraphQL Endpoint**: http://localhost:8000/subgraphs/name/entysquare/indexer-v21
-- **Graph Explorer**: http://localhost:8000/subgraphs/name/entysquare/indexer-v21/graphql
+
+- **GraphQL Endpoint**: <http://localhost:8000/subgraphs/name/entysquare/indexer-v21>
+- **Graph Explorer**: <http://localhost:8000/subgraphs/name/entysquare/indexer-v21/graphql>
 
 ### 3. 🔧 Custom Graph Node (Advanced)
 
@@ -90,6 +97,7 @@ This section was removed as the custom Arbitrum deployment is no longer needed.
 ## 🔍 Monitoring & Debugging
 
 ### View Logs
+
 ```bash
 npm run logs:graph      # Graph Node logs
 npm run logs:ipfs       # IPFS logs  
@@ -97,11 +105,13 @@ npm run logs:postgres   # PostgreSQL logs
 ```
 
 ### Check Status
+
 ```bash
 docker-compose ps       # Container status
 ```
 
 ### Restart Services
+
 ```bash
 npm run restart:node    # Restart all services
 ```
