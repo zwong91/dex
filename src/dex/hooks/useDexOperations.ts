@@ -205,7 +205,7 @@ export const useDexOperations = () => {
 
 			if (isSingleSided) {
 				// Single-sided liquidity mode - use simple bin range around active bin
-				const binCount = 5 // Default to 5 bins for single-sided liquidity
+				const binCount = 20 // Default to 20 bins for single-sided liquidity
 				
 				// Determine if providing tokenX or tokenY
 				const isProvidingTokenX = BigInt(amountX) > 0
@@ -247,7 +247,7 @@ export const useDexOperations = () => {
 				// Dual-sided liquidity mode
 				const binRange: [number, number] = deltaIds ? 
 					[activeBin + Math.min(...deltaIds), activeBin + Math.max(...deltaIds)] :
-					[activeBin - 2, activeBin + 2] // Default 5 bins
+					[activeBin - 10, activeBin + 10] // Default 20 bins
 
 				const { deltaIds: calculatedDeltaIds, distributionX: calculatedDistributionX, distributionY: calculatedDistributionY } = 
 					getUniformDistributionFromBinRange(activeBin, binRange)

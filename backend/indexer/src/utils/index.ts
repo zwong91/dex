@@ -47,9 +47,10 @@ export function isSwapForY(
   return amountYIn.equals(BIG_INT_ZERO);
 }
 
-// https://docs.traderjoexyz.com/guides/byte-32-decoding#liquidity-book-vs-uniswap-v3
+// reference link https://developers.lfj.gg/guides/byte-32-decoding
 export function decodeAmounts(amounts: Bytes): Array<BigInt> {
-  // Convert amounts to a BigInt
+  // Convert amounts to a BigInt, reverse the bytes from big-endian
+  // to little-endian format, as the amounts are stored in little-endian format
   amounts.reverse();
   const amountsBigInt = BigInt.fromUnsignedBytes(amounts);
 

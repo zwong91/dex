@@ -30,16 +30,63 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 	// Use chain price if available, otherwise fallback to pool data or default
 	const activeBinPrice = chainPrice || selectedPool?.currentPrice || 1.0
 	
-	const [minPrice, setMinPrice] = useState(activeBinPrice.toString())
-	const [maxPrice, setMaxPrice] = useState((activeBinPrice * 1.05).toString())
+	// 重新设计初始化逻辑：基于binStep创建合理的价格范围
+	const getInitialPriceRange = (currentPrice: number, binStep?: number) => {
+		const bs = binStep || 50 // 默认50基点(0.5%)
+		const binStepDecimal = bs / 10000
+		
+		// 根据你提供的逻辑：基于binStep计算合理的bin数量和范围
+		// 对于流动性提供，通常需要30-100个bin的范围
+		let targetBins = 50 // 默认50个bin（两边各25个）
+		
+		// 根据binStep调整目标bin数量
+		if (bs <= 20) {
+			targetBins = 80 // 0.2%的池子需要更多bin才能覆盖合理范围
+		} else if (bs <= 50) {
+			targetBins = 60 // 0.5%的池子
+		} else if (bs >= 100) {
+			targetBins = 40 // 1%的池子需要较少bin
+		}
+		
+		// 使用你的公式：P = P0 * (1 + binStep/10000)^n
+		// 两边各取一半的bin数量
+		const binsOnEachSide = Math.floor(targetBins / 2)
+		
+		const minP = currentPrice * Math.pow(1 + binStepDecimal, -binsOnEachSide)
+		const maxP = currentPrice * Math.pow(1 + binStepDecimal, binsOnEachSide)
+		
+		// 计算实际的价格范围百分比用于验证
+		const minPercent = ((minP / currentPrice - 1) * 100).toFixed(1)
+		const maxPercent = ((maxP / currentPrice - 1) * 100).toFixed(1)
+		
+		console.log(`🎯 Initial Price Range Calculation:`, {
+			binStep: bs,
+			binStepDecimal: (binStepDecimal * 100).toFixed(4) + '%',
+			targetBins,
+			binsOnEachSide,
+			currentPrice: currentPrice.toFixed(6),
+			minPrice: minP.toFixed(6),
+			maxPrice: maxP.toFixed(6),
+			minPercent: minPercent + '%',
+			maxPercent: maxPercent + '%',
+			totalRangePercent: ((maxP / minP - 1) * 100).toFixed(1) + '%'
+		})
+		
+		return { minP, maxP }
+	}
+	
+	const initialRange = getInitialPriceRange(activeBinPrice, selectedPool?.binStep)
+	const [minPrice, setMinPrice] = useState(initialRange.minP.toString())
+	const [maxPrice, setMaxPrice] = useState(initialRange.maxP.toString())
 	
 	// Update price range when active price changes
 	useEffect(() => {
 		if (chainPrice) {
-			setMinPrice(chainPrice.toString())
-			setMaxPrice((chainPrice * 1.05).toString())
+			const newRange = getInitialPriceRange(chainPrice, selectedPool?.binStep)
+			setMinPrice(newRange.minP.toString())
+			setMaxPrice(newRange.maxP.toString())
 		}
-	}, [chainPrice])
+	}, [chainPrice, selectedPool?.binStep])
 	
 	// Calculate dynamic number of bins and price range based on token amounts and strategy
 	const calculateDynamicRange = (
@@ -129,8 +176,9 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 	}
 
 	const resetPriceRange = () => {
-		setMinPrice(activeBinPrice.toString())
-		setMaxPrice((activeBinPrice * 1.05).toString())
+		const resetRange = getInitialPriceRange(activeBinPrice, selectedPool?.binStep)
+		setMinPrice(resetRange.minP.toString())
+		setMaxPrice(resetRange.maxP.toString())
 	}
 
 	const getCurrentPrice = () => {

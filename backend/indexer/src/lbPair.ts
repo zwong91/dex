@@ -605,6 +605,12 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
   // total amounts - properly formatted by token decimals
   let totalAmountX = BIG_DECIMAL_ZERO;
   let totalAmountY = BIG_DECIMAL_ZERO;
+  
+  for (let i = 0; i < event.params.amounts.length; i++) {
+    const amounts = decodeAmounts(event.params.amounts[i]);
+    totalAmountX = totalAmountX.plus(formatTokenAmountByDecimals(amounts[0], tokenX.decimals));
+    totalAmountY = totalAmountY.plus(formatTokenAmountByDecimals(amounts[1], tokenY.decimals));
+  }
 
   for (let i = 0; i < event.params.ids.length; i++) {
     const bidId = event.params.ids[i];
@@ -612,10 +618,6 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
     const amounts = decodeAmounts(event.params.amounts[i]);
     const amountX = formatTokenAmountByDecimals(amounts[0], tokenX.decimals);
     const amountY = formatTokenAmountByDecimals(amounts[1], tokenY.decimals);
-
-    // Accumulate totals
-    totalAmountX = totalAmountX.plus(amountX);
-    totalAmountY = totalAmountY.plus(amountY);
 
     trackBin(
       lbPair,
@@ -721,18 +723,12 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
   const tokenX = loadToken(Address.fromString(lbPair.tokenX));
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
 
-  // track bins and calculate total amounts
-  let totalAmountX = BIG_DECIMAL_ZERO;
-  let totalAmountY = BIG_DECIMAL_ZERO;
-  
+  // track bins
   for (let i = 0; i < event.params.amounts.length; i++) {
-    const amounts = decodeAmounts(event.params.amounts[i]);
+    const val = event.params.amounts[i];
+    const amounts = decodeAmounts(val);
     const fmtAmountX = formatTokenAmountByDecimals(amounts[0], tokenX.decimals);
     const fmtAmountY = formatTokenAmountByDecimals(amounts[1], tokenY.decimals);
-
-    // Accumulate totals
-    totalAmountX = totalAmountX.plus(fmtAmountX);
-    totalAmountY = totalAmountY.plus(fmtAmountY);
 
     trackBin(
       lbPair,
@@ -744,6 +740,16 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
       BIG_INT_ZERO,
       BIG_INT_ZERO
     );
+  }
+
+  // total amounts - properly formatted by token decimals
+  let totalAmountX = BIG_DECIMAL_ZERO;
+  let totalAmountY = BIG_DECIMAL_ZERO;
+  
+  for (let i = 0; i < event.params.amounts.length; i++) {
+    const amounts = decodeAmounts(event.params.amounts[i]);
+    totalAmountX = totalAmountX.plus(formatTokenAmountByDecimals(amounts[0], tokenX.decimals));
+    totalAmountY = totalAmountY.plus(formatTokenAmountByDecimals(amounts[1], tokenY.decimals));
   }
 
   // reset tvl aggregates until new amounts calculated

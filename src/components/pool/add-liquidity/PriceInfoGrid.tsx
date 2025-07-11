@@ -36,13 +36,15 @@ const PriceInfoGrid = ({
 	const getMinPriceInfo = () => {
 		const { minPrice: dynMinPrice } = calculateDynamicRange()
 		const displayMinPrice = parseFloat(minPrice) || dynMinPrice
-		const percentChange = Math.abs(((displayMinPrice / activeBinPrice) - 1) * 100)
-		const color = displayMinPrice < activeBinPrice ? '#f59e0b' : '#f97316'
-		const prefix = displayMinPrice < activeBinPrice ? '-' : '+'
+		const percentChange = ((displayMinPrice / activeBinPrice) - 1) * 100
+		
+		// Min Price 应该总是小于等于 activeBinPrice，所以百分比应该是负数或0
+		const color = percentChange < 0 ? '#f59e0b' : '#10b981' // 负数橙色，正数绿色（不应该出现）
+		const formattedPercent = percentChange >= 0 ? `+${percentChange.toFixed(2)}%` : `${percentChange.toFixed(2)}%`
 		
 		return {
 			value: displayMinPrice.toFixed(6),
-			percentage: `${prefix}${percentChange.toFixed(2)}%`,
+			percentage: formattedPercent,
 			color,
 			isAuto: !minPrice
 		}
@@ -51,13 +53,15 @@ const PriceInfoGrid = ({
 	const getMaxPriceInfo = () => {
 		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
 		const displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
-		const percentChange = Math.abs(((displayMaxPrice / activeBinPrice) - 1) * 100)
-		const color = displayMaxPrice < activeBinPrice ? '#f59e0b' : '#f97316'
-		const prefix = displayMaxPrice < activeBinPrice ? '-' : '+'
+		const percentChange = ((displayMaxPrice / activeBinPrice) - 1) * 100
+		
+		// Max Price 应该总是大于等于 activeBinPrice，所以百分比应该是正数或0
+		const color = percentChange > 0 ? '#f97316' : '#10b981' // 正数橙红色，0或负数绿色（不应该出现）
+		const formattedPercent = percentChange >= 0 ? `+${percentChange.toFixed(2)}%` : `${percentChange.toFixed(2)}%`
 		
 		return {
 			value: displayMaxPrice.toFixed(6),
-			percentage: `${prefix}${percentChange.toFixed(2)}%`,
+			percentage: formattedPercent,
 			color,
 			isAuto: !maxPrice
 		}

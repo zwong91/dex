@@ -67,45 +67,85 @@ const PriceRangeVisualizer = ({
 		const positionValue = parseFloat(position.replace('%', ''))
 		const binStepDecimal = binStep / 10000
 		
-		// Convert position (0-100%) to range spread (-100% to +100%)
-		// positionValue 0% = -100% price change, 50% = 0%, 100% = +100%
-		const rangeSpread = (positionValue / 50) - 1 // -1 to +1 range
-		const maxRangePercent = Math.abs(rangeSpread) * 100 // 0% to 100%
+		// 计算距离中心的偏移（-50% 到 +50%）
+		const offsetFromCenter = positionValue - 50 // -50 to +50
 		
-		// Calculate min/max prices with anchor as boundary
+		// 计算实际的价格范围
 		let minPrice: number
 		let maxPrice: number
 		
-		if (rangeSpread >= 0) {
-			// Right side: anchor to maxPrice (0% to +100%)
-			minPrice = anchorPrice
-			maxPrice = anchorPrice * (1 + maxRangePercent / 100)
-		} else {
-			// Left side: minPrice to anchor (-100% to 0%)
-			minPrice = anchorPrice * (1 - maxRangePercent / 100)
+		if (Math.abs(offsetFromCenter) < 3) {
+			// 中心位置（±3%容差）：创建对称的合理范围
+			// 使用固定的bin数量来创建对称范围
+			const symmetricBins = 10 // 两边各10个bin，总共20个bin
+			
+			minPrice = anchorPrice * Math.pow(1 + binStepDecimal, -symmetricBins)
+			maxPrice = anchorPrice * Math.pow(1 + binStepDecimal, symmetricBins)
+		} else if (offsetFromCenter < 0) {
+			// 左侧偏移（USDT only）：liquidty从 minPrice 到 anchorPrice
+			// anchorPrice 是右边界（最高价格）
 			maxPrice = anchorPrice
+			
+			// 计算离中心的距离，转换为bin数量 - 大幅增加范围
+			const offsetPercent = Math.abs(offsetFromCenter) // 0 to 50
+			// 大幅增加bin数量范围：最多可达1000个bin，实现更大的价格变化
+			const binsCount = Math.round((offsetPercent / 50) * 1000) // 0 to 1000 bins
+			
+			// 向左扩展：计算更低的价格
+			minPrice = anchorPrice * Math.pow(1 + binStepDecimal, -binsCount)
+		} else {
+			// 右侧偏移（Token X only）：liquidity从 anchorPrice 到 maxPrice  
+			// anchorPrice 是左边界（最低价格）
+			minPrice = anchorPrice
+			
+			// 计算离中心的距离，转换为bin数量 - 大幅增加范围
+			const offsetPercent = Math.abs(offsetFromCenter) // 0 to 50
+			// 大幅增加bin数量范围：最多可达1000个bin，实现更大的价格变化
+			const binsCount = Math.round((offsetPercent / 50) * 1000) // 0 to 1000 bins
+			
+			// 向右扩展：计算更高的价格
+			maxPrice = anchorPrice * Math.pow(1 + binStepDecimal, binsCount)
 		}
 		
-		// Calculate number of bins based on actual price range and bin step
+		// 关键：基于价格范围动态计算bin数量
+		// 使用对数公式：bins = log(maxPrice/minPrice) / log(1 + binStepDecimal)
 		const priceRatio = maxPrice / minPrice
-		const numBins = Math.ceil(Math.log(priceRatio) / Math.log(1 + binStepDecimal))
+		const numBinsCalculated = Math.round(Math.log(priceRatio) / Math.log(1 + binStepDecimal))
 		
-		// Limit bins to reasonable range
-		const actualNumBins = Math.max(1, Math.min(500, numBins))
+		// 大幅增加bin数量限制，支持更大的价格范围变化
+		const actualNumBins = Math.max(5, Math.min(2000, numBinsCalculated))
 		
-		// Log for debugging
+		// Log for debugging - 验证你的数学计算
 		if (process.env.NODE_ENV === 'development') {
-			console.log('🎯 Price Range Calculation:', {
+			const rangePercent = ((maxPrice / minPrice - 1) * 100).toFixed(1)
+			const minPriceChange = ((minPrice / anchorPrice - 1) * 100).toFixed(2)
+			const maxPriceChange = ((maxPrice / anchorPrice - 1) * 100).toFixed(2)
+			
+			console.log('🎯 Liquidity Book Range Calculation (FIXED):', {
 				positionValue: positionValue.toFixed(1) + '%',
-				rangeSpread: (rangeSpread * 100).toFixed(1) + '%',
-				maxRangePercent: maxRangePercent.toFixed(1) + '%',
+				offsetFromCenter: offsetFromCenter.toFixed(1) + '%',
+				binStep: binStep + ' basis points (' + (binStep / 100).toFixed(2) + '%)',
 				anchorPrice: anchorPrice.toFixed(6),
 				minPrice: minPrice.toFixed(6),
 				maxPrice: maxPrice.toFixed(6),
+				minPriceChange: minPriceChange + '%',
+				maxPriceChange: maxPriceChange + '%',
 				priceRatio: priceRatio.toFixed(4),
+				totalRangePercent: rangePercent + '%',
+				calculatedBins: numBinsCalculated,
 				actualNumBins,
-				binStep,
-				binStepDecimal: (binStepDecimal * 100).toFixed(4) + '%'
+				// 验证Liquidity Book协议
+				protocolCheck: offsetFromCenter < -3 ? 
+					`✅ LEFT SIDE: Range ${minPrice.toFixed(6)} → ${anchorPrice.toFixed(6)} (maxPrice = anchor ✓)` : 
+					offsetFromCenter > 3 ? 
+					`✅ RIGHT SIDE: Range ${anchorPrice.toFixed(6)} → ${maxPrice.toFixed(6)} (minPrice = anchor ✓)` : 
+					`✅ BOTH TOKENS: Symmetric range around anchor`,
+				// 验证计算：如果是20个bin的对称范围
+				verifyRange20Bins: binStep === 20 ? 
+					((Math.pow(1.002, 10) / Math.pow(1.002, -10) - 1) * 100).toFixed(1) + '% (expected ~4%)' : 
+					binStep === 100 ? 
+					((Math.pow(1.01, 10) / Math.pow(1.01, -10) - 1) * 100).toFixed(1) + '% (expected ~22%)' : 
+					'N/A'
 			})
 		}
 		
@@ -173,6 +213,33 @@ const PriceRangeVisualizer = ({
 		// 当amount0或amount1变化时（即模式切换时），重置拖动位置
 		setDragPosition(null)
 	}, [amount0, amount1])
+
+	// 使用useRef来追踪是否已经设置了初始价格范围
+	const hasSetInitialRange = useRef(false)
+
+	// 初始化价格范围 - 确保即使用户不拖拽也有默认的价格范围参数
+	React.useEffect(() => {
+		if (onPriceRangeChange && anchorPrice > 0 && !hasSetInitialRange.current) {
+			// 使用默认位置（50%）计算初始价格范围
+			const defaultPosition = '50%'
+			const { minPrice, maxPrice, numBins } = calculatePriceRangeFromPosition(defaultPosition)
+			
+			// 只在有效的价格范围时调用回调
+			if (minPrice > 0 && maxPrice > minPrice) {
+				onPriceRangeChange(minPrice, maxPrice, numBins)
+				hasSetInitialRange.current = true
+				
+				if (process.env.NODE_ENV === 'development') {
+					console.log('🎯 Initial price range set:', {
+						minPrice: minPrice.toFixed(6),
+						maxPrice: maxPrice.toFixed(6),
+						numBins,
+						anchorPrice: anchorPrice.toFixed(6)
+					})
+				}
+			}
+		}
+	}, [anchorPrice]) // 只依赖anchorPrice，避免无限循环
 
 	// 计算当前价格指示线的位置 - 如果有拖动位置则使用拖动位置，否则使用默认位置
 	const getCurrentPriceIndicatorPosition = () => {
