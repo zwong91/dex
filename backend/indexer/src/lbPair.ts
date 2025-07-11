@@ -603,16 +603,8 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
 
   // total amounts - properly formatted by token decimals
-  const totalAmountX = event.params.amounts
-    .reduce((acc, val) => {
-      const amounts = decodeAmounts(val);
-      return acc.plus(formatTokenAmountByDecimals(amounts[0], tokenX.decimals));
-    }, BIG_DECIMAL_ZERO);
-  const totalAmountY = event.params.amounts
-    .reduce((acc, val) => {
-      const amounts = decodeAmounts(val);
-      return acc.plus(formatTokenAmountByDecimals(amounts[1], tokenY.decimals));
-    }, BIG_DECIMAL_ZERO);
+  let totalAmountX = BIG_DECIMAL_ZERO;
+  let totalAmountY = BIG_DECIMAL_ZERO;
 
   for (let i = 0; i < event.params.ids.length; i++) {
     const bidId = event.params.ids[i];
@@ -620,6 +612,10 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
     const amounts = decodeAmounts(event.params.amounts[i]);
     const amountX = formatTokenAmountByDecimals(amounts[0], tokenX.decimals);
     const amountY = formatTokenAmountByDecimals(amounts[1], tokenY.decimals);
+
+    // Accumulate totals
+    totalAmountX = totalAmountX.plus(amountX);
+    totalAmountY = totalAmountY.plus(amountY);
 
     trackBin(
       lbPair,
@@ -725,12 +721,18 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
   const tokenX = loadToken(Address.fromString(lbPair.tokenX));
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
 
-  // track bins
+  // track bins and calculate total amounts
+  let totalAmountX = BIG_DECIMAL_ZERO;
+  let totalAmountY = BIG_DECIMAL_ZERO;
+  
   for (let i = 0; i < event.params.amounts.length; i++) {
-    const val = event.params.amounts[i];
-    const amounts = decodeAmounts(val);
+    const amounts = decodeAmounts(event.params.amounts[i]);
     const fmtAmountX = formatTokenAmountByDecimals(amounts[0], tokenX.decimals);
     const fmtAmountY = formatTokenAmountByDecimals(amounts[1], tokenY.decimals);
+
+    // Accumulate totals
+    totalAmountX = totalAmountX.plus(fmtAmountX);
+    totalAmountY = totalAmountY.plus(fmtAmountY);
 
     trackBin(
       lbPair,
@@ -743,18 +745,6 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
       BIG_INT_ZERO
     );
   }
-
-  // total amounts - properly formatted by token decimals
-  const totalAmountX = event.params.amounts
-    .reduce((acc, val) => {
-      const amounts = decodeAmounts(val);
-      return acc.plus(formatTokenAmountByDecimals(amounts[0], tokenX.decimals));
-    }, BIG_DECIMAL_ZERO);
-  const totalAmountY = event.params.amounts
-    .reduce((acc, val) => {
-      const amounts = decodeAmounts(val);
-      return acc.plus(formatTokenAmountByDecimals(amounts[1], tokenY.decimals));
-    }, BIG_DECIMAL_ZERO);
 
   // reset tvl aggregates until new amounts calculated
   lbFactory.totalValueLockedBNB = lbFactory.totalValueLockedBNB.minus(
@@ -983,7 +973,7 @@ export function handleStaticFeeParametersSet(
   lbPairParameter.protocolShare = event.params.protocolShare;
   // Convert basis points to percentage: protocolShare (basis points) / 100
   // e.g., 250 basis points = 2.5%
-  lbPairParameter.protocolSharePct = event.params.protocolShare.toI32() / 100;
+  lbPairParameter.protocolSharePct = event.params.protocolShare / 100;
   lbPairParameter.maxVolatilityAccumulator =
     event.params.maxVolatilityAccumulator;
 
