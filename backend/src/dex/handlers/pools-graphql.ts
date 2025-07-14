@@ -35,6 +35,8 @@ export function createPoolsHandler(action: string) {
 					return await handlePoolsList(c, subgraphClient);
 				case 'details':
 					return await handlePoolDetails(c, subgraphClient);
+				case 'bins':
+					return await handlePoolBins(c, subgraphClient);
 				case 'tokens':
 					return await handleTokensList(c, subgraphClient);
 				case 'analytics':
@@ -333,6 +335,126 @@ async function handleAnalytics(c: Context<{ Bindings: Env }>, subgraphClient: an
 		data: analytics,
 		timestamp: new Date().toISOString()
 	});
+}
+
+/**
+ * Get bins for a specific pool
+ */
+async function handlePoolBins(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	try {
+		const { poolId } = c.req.param();
+		
+		if (!poolId) {
+			return c.json({
+				success: false,
+				error: 'Pool ID is required',
+				timestamp: new Date().toISOString()
+			}, 400);
+		}
+
+		// Get query parameters
+		const activeId = c.req.query('activeId') ? parseInt(c.req.query('activeId')!) : undefined;
+		const range = parseInt(c.req.query('range') || '50');
+		const limit = parseInt(c.req.query('limit') || '100');
+
+		// Validate parameters
+		if (range < 1 || range > 200) {
+			return c.json({
+				success: false,
+				error: 'Range must be between 1 and 200',
+				timestamp: new Date().toISOString()
+			}, 400);
+		}
+
+		if (limit < 1 || limit > 1000) {
+			return c.json({
+				success: false,
+				error: 'Limit must be between 1 and 1000',
+				timestamp: new Date().toISOString()
+			}, 400);
+		}
+
+		// Get bins data from subgraph
+		const bins = await subgraphClient.getPoolBins(poolId, activeId, range, limit);
+		
+		if (!bins || bins.length === 0) {
+			return c.json({
+				success: true,
+				data: {
+					poolId,
+					activeId,
+					bins: [],
+					count: 0
+				},
+				message: 'No bins found for this pool',
+				timestamp: new Date().toISOString()
+			});
+		}
+
+		// Get pool info for context
+		const pool = await subgraphClient.getPool(poolId);
+		const currentActiveId = pool?.activeId;
+
+		// Transform bins data
+		const transformedBins = bins.map((bin: any) => ({
+			id: bin.id,
+			binId: parseInt(bin.binId),
+			isActive: currentActiveId ? bin.binId === currentActiveId : false,
+			priceX: parseFloat(bin.priceX || '0'),
+			priceY: parseFloat(bin.priceY || '0'),
+			reserveX: parseFloat(bin.reserveX || '0'),
+			reserveY: parseFloat(bin.reserveY || '0'),
+			totalSupply: bin.totalSupply || '0',
+			liquidityProviderCount: parseInt(bin.liquidityProviderCount || '0'),
+			liquidityUsd: 0, // Calculate if needed
+		}));
+
+		// Calculate total liquidity if possible
+		let totalLiquidityUsd = 0;
+		if (pool) {
+			transformedBins.forEach((bin: any) => {
+				// Simple estimation: use pool's token prices
+				const tokenXValue = bin.reserveX * parseFloat(pool.tokenXPriceUSD || '0');
+				const tokenYValue = bin.reserveY * parseFloat(pool.tokenYPriceUSD || '0');
+				bin.liquidityUsd = tokenXValue + tokenYValue;
+				totalLiquidityUsd += bin.liquidityUsd;
+			});
+		}
+
+		// Sort bins by binId
+		transformedBins.sort((a: any, b: any) => a.binId - b.binId);
+
+		// Find active bin index
+		const activeBinIndex = transformedBins.findIndex((bin: any) => bin.isActive);
+
+		return c.json({
+			success: true,
+			data: {
+				poolId,
+				poolName: pool?.name || 'Unknown Pool',
+				currentActiveId,
+				activeBinIndex,
+				binStep: pool?.binStep || 0,
+				tokenX: pool?.tokenX || null,
+				tokenY: pool?.tokenY || null,
+				totalLiquidityUsd,
+				bins: transformedBins,
+				count: transformedBins.length,
+				range: activeId ? range : null,
+				requestedActiveId: activeId
+			},
+			timestamp: new Date().toISOString()
+		});
+
+	} catch (error: any) {
+		console.error('Pool bins handler error:', error);
+		return c.json({
+			success: false,
+			error: 'Failed to fetch pool bins',
+			message: error.message || 'Unknown error',
+			timestamp: new Date().toISOString()
+		}, 500);
+	}
 }
 
 // Helper functions

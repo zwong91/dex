@@ -811,6 +811,113 @@ export class SubgraphClient {
     const result = await this.query<{ lbpairDayDatas: any[] }>(query, variables);
     return result.data?.lbpairDayDatas || [];
   }
+
+  /**
+   * Get bins for a specific pool around the active ID
+   */
+  async getPoolBins(
+    pairAddress: string, 
+    activeId?: number,
+    range: number = 50,
+    first: number = 100
+  ): Promise<any[]> {
+    let whereClause = `{ lbPair: "${pairAddress.toLowerCase()}" }`;
+    
+    // If activeId is provided, get bins around that range
+    if (activeId !== undefined) {
+      const minId = Math.max(0, activeId - range);
+      const maxId = activeId + range;
+      whereClause = `{ 
+        lbPair: "${pairAddress.toLowerCase()}"
+        binId_gte: ${minId}
+        binId_lte: ${maxId}
+      }`;
+    }
+
+    const query = `
+      query GetPoolBins($first: Int!) {
+        bins(
+          where: ${whereClause}
+          first: $first
+          orderBy: binId
+          orderDirection: asc
+        ) {
+          id
+          binId
+          lbPair {
+            id
+            name
+            activeId
+            binStep
+            tokenX {
+              id
+              symbol
+              decimals
+            }
+            tokenY {
+              id
+              symbol
+              decimals
+            }
+          }
+          priceX
+          priceY
+          totalSupply
+          reserveX
+          reserveY
+          liquidityProviderCount
+        }
+      }
+    `;
+
+    const variables = { first };
+    const result = await this.query<{ bins: any[] }>(query, variables);
+    return result.data?.bins || [];
+  }
+
+  /**
+   * Get active bin for a specific pool
+   */
+  async getPoolActiveBin(pairAddress: string): Promise<any | null> {
+    // First get the pool to find its active ID
+    const pool = await this.getPool(pairAddress);
+    if (!pool) return null;
+
+    const query = `
+      query GetActiveBin($pairAddress: String!, $activeId: Int!) {
+        bins(
+          where: { 
+            lbPair: $pairAddress
+            binId: $activeId
+          }
+          first: 1
+        ) {
+          id
+          binId
+          lbPair {
+            id
+            name
+            activeId
+            binStep
+          }
+          priceX
+          priceY
+          totalSupply
+          reserveX
+          reserveY
+          liquidityProviderCount
+        }
+      }
+    `;
+
+    const variables = {
+      pairAddress: pairAddress.toLowerCase(),
+      activeId: pool.activeId
+    };
+
+    const result = await this.query<{ bins: any[] }>(query, variables);
+    return result.data?.bins?.[0] || null;
+  }
 }
 
 /**

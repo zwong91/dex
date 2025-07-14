@@ -80,6 +80,7 @@ export function createDexRoutes() {
 	// Pools endpoints
 	app.get('/pools/:chain', createPoolsHandler('list'));
 	app.get('/pools/:chain/:poolId', createPoolsHandler('details'));
+	app.get('/pools/:chain/:poolId/bins', createPoolsHandler('bins'));
 	app.get('/tokens/:chain', createPoolsHandler('tokens'));
 	app.get('/analytics/:chain', createPoolsHandler('analytics'));
 

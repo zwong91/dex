@@ -7,7 +7,7 @@
 | **API 名称** | EntySquare Dex API |
 | **版本** | 1.0.0 |
 | **OpenAPI 版本** | 3.0.2 |
-| **基础 URL** | https://api.dex.jongun2038.win |
+| **基础 URL** | <https://api.dex.jongun2038.win> |
 | **许可证** | Apache 2.0 |
 
 ## 🔑 认证方式
@@ -40,17 +40,20 @@ const supportedChains = [
 ## 🏷️ API 分类
 
 ### 1. 📊 DEX Analytics (1个接口)
+
 - **GET** `/v1/api/dex/analytics/{chain}` - 获取每日交易所分析数据 ✅ (已完整实现)
   - 支持参数：startTime, endTime, version
   - 权限要求：`analytics_read`
 
 ### 2. 🏊 Pools (流动性池相关接口) (2个接口)
+
 - **GET** `/v1/api/dex/pools/{chain}` - 按链获取池列表 ✅ (已完整实现)
 - **GET** `/v1/api/dex/pools/{chain}/{address}` - 获取指定池详情 ✅ (已完整实现)
   - 支持分页、排序、过滤
   - 权限要求：`pools_read`
 
 ### 3. 👤 User (用户相关接口) (7个接口)
+
 - **GET** `/v1/api/dex/user/bin-ids/{user_address}/{chain}/{pool_address}` - 获取用户Bin IDs ✅ (已完整实现)
 - **GET** `/v1/api/dex/user/pool-ids/{user_address}/{chain}` - 获取用户池IDs ✅ (已完整实现)
 - **GET** `/v1/api/dex/user/pool-user-balances` - 池用户余额查询 ✅ (已完整实现)
@@ -62,6 +65,7 @@ const supportedChains = [
   - 权限要求：`user_read`
 
 ### 4. 🎁 Rewards (奖励相关接口) (4个接口)
+
 - **GET** `/v1/api/dex/rewards/{chain}/{user_address}` - 获取用户奖励证明
 - **POST** `/v1/api/dex/rewards/batch-proof/{chain}/{user_address}` - 批量获取奖励证明
 - **GET** `/v1/api/dex/rewards/claimable/{chain}/{user_address}` - 获取可领取奖励
@@ -69,10 +73,12 @@ const supportedChains = [
   - 权限要求：`rewards_read`
 
 ### 5. 📈 User Lifetime Stats (用户汇总统计) (1个接口)
+
 - **GET** `/v1/api/dex/user-lifetime-stats/{chain}/users/{user_address}/swap-stats` - 用户交易统计数据
   - 权限要求：`user_read`
 
 ### 6. 🏛️ Vaults (资金库相关接口) (8个接口)
+
 - **GET** `/v1/api/dex/vaults` - 获取所有资金库列表
 - **GET** `/v1/api/dex/vaults/{chain}` - 按链获取资金库列表
 - **GET** `/v1/api/dex/vaults/{chain}/{vault_address}/share-price` - 获取资金库份额价格
@@ -86,11 +92,13 @@ const supportedChains = [
 ## 🏗️ 技术架构特点
 
 ### ✅ 统一路由系统
+
 - 所有新接口通过 `routeDexEndpoints` 函数统一处理
 - 清晰的路径解析和参数提取
 - 统一的错误处理和响应格式
 
 ### ✅ 权限控制
+
 - 基于角色的访问控制 (RBAC)
 - 细粒度权限验证
 - 支持多种权限级别：
@@ -101,10 +109,10 @@ const supportedChains = [
   - `vaults_read` - 资金库数据访问
 
 ### ✅ 数据库驱动
+
 - 所有数据从 D1 数据库查询
 - 支持复杂的过滤、排序、分页
 - 优化的 SQL 查询性能
-
 
 Entysquare DEX API后端v1.0，采用基于数据库的架构，通过监听Trader Joe合约事件和调用链上合约并缓存到Cloudflare D1数据库，实现了极快的API响应速度和高并发支持。
 
@@ -120,6 +128,7 @@ Entysquare DEX API后端v1.0，采用基于数据库的架构，通过监听Trad
 │   (DApp/Page)    │    │   (认证+限制)    │    │   (查询优化)    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
+
 ✅ **性能飞跃**: 从2-5秒响应优化到50-200ms（提升10-25倍）  
 ✅ **事件驱动**: 实时监听链上合约事件并同步到数据库  
 ✅ **智能缓存**: 预计算的池统计和用户数据  
@@ -148,6 +157,7 @@ Entysquare DEX API后端v1.0，采用基于数据库的架构，通过监听Trad
    - 数据清理和维护
 
 4. **新数据库架构**
+
    ```sql
    pools          -- 流动性池信息
    tokens         -- 代币详情  
@@ -186,6 +196,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/analytics/bsc?startTime=1
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -204,6 +215,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/analytics/bsc?startTime=1
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -247,6 +259,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/pools/bsc?pageSize=10&orderBy
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -293,6 +306,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/pools/bsc?pageSize=10&orderBy
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -331,6 +345,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/pools/bsc/0xe785e0899e7acd50a
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 {
   "pairAddress": "0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c", // 流动性池合约地址
@@ -375,6 +390,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/pools/bsc/0xe785e0899e7acd50a
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -415,6 +431,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/bsc/0xe785e0899e7acd5
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   "string"
@@ -422,6 +439,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/bsc/0xe785e0899e7acd5
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -492,6 +510,7 @@ curl -X POST "https://api.dex.jongun2038.win/v1/api/rewards/batch-proof/bsc/0xe7
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   [
@@ -501,6 +520,7 @@ curl -X POST "https://api.dex.jongun2038.win/v1/api/rewards/batch-proof/bsc/0xe7
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -540,6 +560,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/claimable/bsc/0xe785e
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -558,7 +579,9 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/claimable/bsc/0xe785e
   }
 ]
 ```
+
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -596,6 +619,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/history/bsc/0xe785e08
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -631,6 +655,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/rewards/history/bsc/0xe785e08
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -670,6 +695,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bin-ids/0xe785e0899e7acd
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   8388608,                                  // Bin ID 1
@@ -703,6 +729,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/pool-ids/0xe785e0899e7ac
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -710,7 +737,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/pool-ids/0xe785e0899e7ac
     "pairName": "BNB/USDC",                                    // 交易对名称
     "status": "main",                                           // 池状态
     "version": "v2.2",                                          // 协议版本
-    "chain": "bsc",                                       // 区块链
+    "chain": "bsc",                                            // 区块链
     "lbBinStep": 25,                                           // Bin step
     "lbBaseFeePct": 0.15,                                      // 基础手续费百分比
     "lbMaxFeePct": 1.5,                                        // 最大手续费百分比
@@ -763,6 +790,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/pool-user-balances?chain
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -801,6 +829,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bsc/0xe785e0899e7acd50a5
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -844,6 +873,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bsc/0xe785e0899e7acd50a5
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 {
   "farmId": "farm_001",                                         // 农场ID
@@ -868,6 +898,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bsc/0xe785e0899e7acd50a5
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -909,6 +940,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bsc/history/0xe785e0899e
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -946,6 +978,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/bsc/history/0xe785e0899e
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -990,6 +1023,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/fees-earned/all/0xe785e0
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -1016,6 +1050,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user/fees-earned/all/0xe785e0
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -1055,6 +1090,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user-lifetime-stats/bsc/users
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 {
   "userAddress": "0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c",    // 用户地址
@@ -1109,6 +1145,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/user-lifetime-stats/bsc/users
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -1147,6 +1184,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults?pageSize=20&pageNum=1"
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -1219,6 +1257,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults?pageSize=20&pageNum=1"
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -1265,6 +1304,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/all?pageSize=50&pageNu
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -1337,6 +1377,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/all?pageSize=50&pageNu
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -1383,6 +1424,7 @@ curl -X GET "https://api.entySquare.dev/v1/api/vaults/b s c/0xe785e0899e7acd50a5
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 {
   "chain": "bsc",                                         // 区块链名称
@@ -1394,6 +1436,7 @@ curl -X GET "https://api.entySquare.dev/v1/api/vaults/b s c/0xe785e0899e7acd50a5
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -1431,6 +1474,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe785e0899e7acd50
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 {
   "address": "string",                                        // 资金库合约地址
@@ -1464,7 +1508,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe785e0899e7acd50
   "hodl30Day5050Performance": 0,                             // 30日50/50持有策略表现
   "strategy": {                                              // 策略信息
     "address": "string",                                     // 策略地址
-    "chain": "bsc",                                    // 区块链
+    "chain": "bsc",                                         // 区块链
     "aumAnnualFeePct": 0                                    // 资产管理年费百分比
   },
   "aptPrice": 0,                                             // APT价格
@@ -1501,6 +1545,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe785e0899e7acd50
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -1532,6 +1577,7 @@ GET /v1/api/vaults/{chain}/{vault_address}/tvl-history
 | `endTime` | 查询参数 | 否 | integer | - | Unix 时间戳 | 查询结束时间戳 |
 
 **示例地址**:
+
 - `0x755e0899e7acd50a55f6b517f1f9c46574c9d7c`
 - `0xe755e0899e7acd50a55f6b517f1f9c46574c9d7c`
 
@@ -1552,6 +1598,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -1576,6 +1623,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -1592,7 +1640,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50
 
 ---
 
-##6.5 获取资金库最近活动 Get Vault Recent Activity
+## 6.5 获取资金库最近活动 Get Vault Recent Activity
 
 ```http
 GET /v1/api/vaults/{chain}/{vault_address}/recent-activity
@@ -1608,6 +1656,7 @@ GET /v1/api/vaults/{chain}/{vault_address}/recent-activity
 | `pageNum` | 查询参数 | 否 | integer | 1 | > 0 | 页码 |
 
 **示例地址**:
+
 - `0xe755e0899e7acd50a55f6b517f1f9c46574c9d7c`
 - `0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c`
 
@@ -1621,6 +1670,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50
 **响应示例**:
 
 **200 - 成功响应**:
+
 ```json
 [
   {
@@ -1646,6 +1696,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50
 ```
 
 **422 - 参数验证错误**:
+
 ```json
 {
   "detail": [                               // 错误详情数组
@@ -1660,17 +1711,15 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50
 }
 ```
 
-
-
 ### 6.6 Get Vault Withdrawals By User
-
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `chain` | string | Yes | Blockchain identifier. Enum: "all", "bsc", "solana" |
 | `user_address` | string | Yes | The user address (hexadecimal format) |
 
-### Examples:
+### Examples
+
 - `user_address`: `0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c`
 
 ## Query Parameters
@@ -1683,11 +1732,13 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/vaults/bsc/0xe755e0899e7acd50
 ## Responses
 
 ### 200 - Successful Response
+
 Returns an array of withdrawal records for the specified user.
 
 **Content-Type:** `application/json`
 
 **Response Structure:**
+
 ```json
 [
   {
@@ -1701,6 +1752,7 @@ Returns an array of withdrawal records for the specified user.
 ```
 
 **Response Fields:**
+
 - `chain`: The blockchain where the withdrawal occurred
 - `vaultAddress`: The vault address (string)
 - `userAddress`: The user address (string)
@@ -1708,6 +1760,7 @@ Returns an array of withdrawal records for the specified user.
 - `shares`: The number of shares withdrawn (number)
 
 ### 422 - Validation Error
+
 Returned when request parameters are invalid or missing required fields.
 
 ## Example Usage
@@ -1717,7 +1770,6 @@ curl -X GET "https://api.example.com/v1/api/vaults/bsc/withdrawals/0xe785E0899E7
   -H "accept: application/json"
 ```
 
-
 ## 6.7 Get Vault Withdrawals By User And Vault
 
 ```
@@ -1725,6 +1777,7 @@ GET /vaults/{chain}/{vault_address}/withdrawals/{user_address}
 ```
 
 ## Description
+
 Retrieves withdrawal records for a specific user and vault on a given blockchain.
 
 ## Path Parameters
@@ -1735,7 +1788,8 @@ Retrieves withdrawal records for a specific user and vault on a given blockchain
 | `vault_address` | string | Yes | The vault address (hexadecimal format) |
 | `user_address` | string | Yes | The user address (hexadecimal format) |
 
-### Examples:
+### Examples
+
 - `vault_address`: `0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c`
 - `user_address`: `0xe785E0899E7aCD50a55F6B517F1F9C46574c9D7C`
 
@@ -1749,11 +1803,13 @@ Retrieves withdrawal records for a specific user and vault on a given blockchain
 ## Responses
 
 ### 200 - Successful Response
+
 Returns an array of withdrawal records for the specified user and vault.
 
 **Content-Type:** `application/json`
 
 **Response Structure:**
+
 ```json
 [
   {
@@ -1765,13 +1821,13 @@ Returns an array of withdrawal records for the specified user and vault.
   }
 ]
 ```
+
 ## Example Usage
 
 ```bash
 curl -X GET "https://api.example.com/vaults/bsc/0xe785e0899e7acd50a55f6b517f1f9c46574c9d7c/withdrawals/0xe785E0899E7aCD50a55F6B517F1F9C46574c9D7C?pageSize=20&pageNum=1" \
   -H "accept: application/json"
 ```
-
 
 ### 重试机制示例
 
@@ -1829,5 +1885,6 @@ You can copy and run the provided `curl` examples for each endpoint to verify th
 If you want to automate endpoint testing, you can use tools like [Postman](https://www.postman.com/), [Hoppscotch](https://hoppscotch.io/), or write your own integration tests using frameworks such as [Vitest](https://vitest.dev/) or [Jest](https://jestjs.io/).
 
 **Note:**  
+
 - The backend project includes a `test/` directory for automated test cases, but you can always use `curl` for manual endpoint verification.
 - For production or CI/CD, consider writing scripts that use `curl` to check endpoint health and correctness.
