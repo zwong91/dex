@@ -140,8 +140,8 @@ export function handleSwap(event: SwapEvent): void {
 
   const tokenX = loadToken(Address.fromString(lbPair.tokenX));
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
-  const tokenXPriceUSD = tokenX.derivedBNB.times(bundle.bnbPriceUSD);
-  const tokenYPriceUSD = tokenY.derivedBNB.times(bundle.bnbPriceUSD);
+  const tokenXPriceUSD = safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD);
+  const tokenYPriceUSD = safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD);
 
   const amountsIn = decodeAmounts(event.params.amountsIn);
   const amountXIn = amountsIn[0];
@@ -181,9 +181,8 @@ export function handleSwap(event: SwapEvent): void {
   const totalFees = decodeAmounts(event.params.totalFees);
   const totalFeesX = formatTokenAmountByDecimals(totalFees[0], tokenX.decimals);
   const totalFeesY = formatTokenAmountByDecimals(totalFees[1], tokenY.decimals);
-  const feesUSD = totalFeesX
-    .times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
-    .plus(totalFeesY.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD)));
+  const feesUSD = safeMultiply(totalFeesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
+    .plus(safeMultiply(totalFeesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD)));
 
   // For volume calculation, use actual swap amounts, not total of in+out
   const amountXTotal = swapForY ? fmtAmountXIn : fmtAmountXOut;
@@ -320,16 +319,14 @@ export function handleSwap(event: SwapEvent): void {
   tokenY.txCount = tokenY.txCount.plus(BIG_INT_ONE);
   tokenY.volume = tokenY.volume.plus(amountYTotal);
   tokenY.volumeUSD = tokenY.volumeUSD.plus(
-    amountYTotal.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD))
+    safeMultiply(amountYTotal, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenY.totalValueLocked = validateReserve(
     tokenY.totalValueLocked.plus(fmtAmountYIn).minus(fmtAmountYOut),
     tokenY.symbol
   );
   tokenY.totalValueLockedUSD = safeMultiply(tokenY.totalValueLocked, tokenYPriceUSD);
-  const feesUsdY = totalFeesY.times(
-    tokenY.derivedBNB.times(bundle.bnbPriceUSD)
-  );
+  const feesUsdY = safeMultiply(totalFeesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD));
   tokenY.feesUSD = tokenY.feesUSD.plus(feesUsdY);
 
   tokenX.save();
@@ -343,10 +340,10 @@ export function handleSwap(event: SwapEvent): void {
   );
   tokenXHourData.volume = tokenXHourData.volume.plus(amountXTotal);
   tokenXHourData.volumeBNB = tokenXHourData.volumeBNB.plus(
-    amountXTotal.times(tokenX.derivedBNB)
+    safeMultiply(amountXTotal, tokenX.derivedBNB)
   );
   tokenXHourData.volumeUSD = tokenXHourData.volumeUSD.plus(
-    amountXTotal.times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
+    safeMultiply(amountXTotal, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenXHourData.feesUSD = tokenXHourData.feesUSD.plus(feesUsdX);
   tokenXHourData.save();
@@ -359,10 +356,10 @@ export function handleSwap(event: SwapEvent): void {
   );
   tokenYHourData.volume = tokenYHourData.volume.plus(amountYTotal);
   tokenYHourData.volumeBNB = tokenYHourData.volumeBNB.plus(
-    amountYTotal.times(tokenY.derivedBNB)
+    safeMultiply(amountYTotal, tokenY.derivedBNB)
   );
   tokenYHourData.volumeUSD = tokenYHourData.volumeUSD.plus(
-    amountYTotal.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD))
+    safeMultiply(amountYTotal, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenYHourData.feesUSD = tokenYHourData.feesUSD.plus(feesUsdY);
   tokenYHourData.save();
@@ -375,10 +372,10 @@ export function handleSwap(event: SwapEvent): void {
   );
   tokenXDayData.volume = tokenXDayData.volume.plus(amountXTotal);
   tokenXDayData.volumeBNB = tokenXDayData.volumeBNB.plus(
-    amountXTotal.times(tokenX.derivedBNB)
+    safeMultiply(amountXTotal, tokenX.derivedBNB)
   );
   tokenXDayData.volumeUSD = tokenXDayData.volumeUSD.plus(
-    amountXTotal.times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
+    safeMultiply(amountXTotal, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenXDayData.feesUSD = tokenXDayData.feesUSD.plus(feesUsdX);
   tokenXDayData.save();
@@ -391,10 +388,10 @@ export function handleSwap(event: SwapEvent): void {
   );
   tokenYDayData.volume = tokenYDayData.volume.plus(amountYTotal);
   tokenYDayData.volumeBNB = tokenYDayData.volumeBNB.plus(
-    amountYTotal.times(tokenY.derivedBNB)
+    safeMultiply(amountYTotal, tokenY.derivedBNB)
   );
   tokenYDayData.volumeUSD = tokenYDayData.volumeUSD.plus(
-    amountYTotal.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD))
+    safeMultiply(amountYTotal, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenYDayData.feesUSD = tokenYDayData.feesUSD.plus(feesUsdY);
   tokenYDayData.save();
@@ -452,9 +449,8 @@ export function handleFlashLoan(event: FlashLoan): void {
   const totalFees = decodeAmounts(event.params.totalFees);
   const feesX = formatTokenAmountByDecimals(totalFees[0], tokenX.decimals);
   const feesY = formatTokenAmountByDecimals(totalFees[1], tokenY.decimals);
-  const feesUSD = feesX
-    .times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
-    .plus(feesY.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD)));
+  const feesUSD = safeMultiply(feesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
+    .plus(safeMultiply(feesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD)));
 
   const lbFactory = loadLBFactory();
   lbFactory.txCount = lbFactory.txCount.plus(BIG_INT_ONE);
@@ -473,8 +469,8 @@ export function handleFlashLoan(event: FlashLoan): void {
   // Handle individual token fees
   const individualFees = [feesX, feesY];
   const individualFeesUSD = [
-    feesX.times(tokenX.derivedBNB.times(bundle.bnbPriceUSD)),
-    feesY.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD)),
+    safeMultiply(feesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD)),
+    safeMultiply(feesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD)),
   ];
 
   const tokens = [tokenX, tokenY];
@@ -536,9 +532,8 @@ export function handleFlashLoan(event: FlashLoan): void {
   flashloan.origin = event.transaction.from;
   flashloan.amountX = amountX;
   flashloan.amountY = amountY;
-  flashloan.amountUSD = amountX
-    .times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
-    .plus(amountY.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD)));
+  flashloan.amountUSD = safeMultiply(amountX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
+    .plus(safeMultiply(amountY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD)));
   flashloan.feesX = feesX;
   flashloan.feesY = feesY;
   flashloan.feesUSD = feesUSD;
@@ -562,15 +557,14 @@ export function handleCompositionFee(event: CompositionFees): void {
 
   const tokenX = loadToken(Address.fromString(lbPair.tokenX));
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
-  const tokenXPriceUSD = tokenX.derivedBNB.times(bundle.bnbPriceUSD);
-  const tokenYPriceUSD = tokenY.derivedBNB.times(bundle.bnbPriceUSD);
+  const tokenXPriceUSD = safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD);
+  const tokenYPriceUSD = safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD);
 
   const fees = decodeAmounts(event.params.totalFees);
   const feesX = formatTokenAmountByDecimals(fees[0], tokenX.decimals);
   const feesY = formatTokenAmountByDecimals(fees[1], tokenY.decimals);
-  const feesUSD = feesX
-    .times(tokenX.derivedBNB.times(bundle.bnbPriceUSD))
-    .plus(feesY.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD)));
+  const feesUSD = safeMultiply(feesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
+    .plus(safeMultiply(feesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD)));
 
   const lbFactory = loadLBFactory();
   lbFactory.feesUSD = lbFactory.feesUSD.plus(feesUSD);
@@ -585,10 +579,10 @@ export function handleCompositionFee(event: CompositionFees): void {
   traderJoeDayData.feesUSD = traderJoeDayData.feesUSD.plus(feesUSD);
   traderJoeDayData.save();
 
-  tokenX.feesUSD = tokenX.feesUSD.plus(feesX.times(tokenXPriceUSD));
+  tokenX.feesUSD = tokenX.feesUSD.plus(safeMultiply(feesX, tokenXPriceUSD));
   tokenX.save();
 
-  tokenY.feesUSD = tokenY.feesUSD.plus(feesY.times(tokenYPriceUSD));
+  tokenY.feesUSD = tokenY.feesUSD.plus(safeMultiply(feesY, tokenYPriceUSD));
   tokenY.save();
 
   const tokenXHourData = loadTokenHourData(
@@ -597,7 +591,7 @@ export function handleCompositionFee(event: CompositionFees): void {
     false
   );
   tokenXHourData.feesUSD = tokenXHourData.feesUSD.plus(
-    feesX.times(tokenXPriceUSD)
+    safeMultiply(feesX, tokenXPriceUSD)
   );
   tokenXHourData.save();
 
@@ -607,7 +601,7 @@ export function handleCompositionFee(event: CompositionFees): void {
     false
   );
   tokenYHourData.feesUSD = tokenYHourData.feesUSD.plus(
-    feesY.times(tokenYPriceUSD)
+    safeMultiply(feesY, tokenYPriceUSD)
   );
   tokenYHourData.save();
 
@@ -617,7 +611,7 @@ export function handleCompositionFee(event: CompositionFees): void {
     false
   );
   tokenXDayData.feesUSD = tokenXDayData.feesUSD.plus(
-    feesX.times(tokenXPriceUSD)
+    safeMultiply(feesX, tokenXPriceUSD)
   );
   tokenXDayData.save();
 
@@ -627,7 +621,7 @@ export function handleCompositionFee(event: CompositionFees): void {
     false
   );
   tokenYDayData.feesUSD = tokenYDayData.feesUSD.plus(
-    feesY.times(tokenYPriceUSD)
+    safeMultiply(feesY, tokenYPriceUSD)
   );
   tokenYDayData.save();
 
@@ -945,16 +939,15 @@ export function handleProtocolFeesCollected(
   const fees = decodeAmounts(event.params.protocolFees);
   const amountX = formatTokenAmountByDecimals(fees[0], tokenX.decimals);
   const amountY = formatTokenAmountByDecimals(fees[1], tokenY.decimals);
-  const derivedAmountBNB = amountX
-    .times(tokenX.derivedBNB)
-    .plus(amountY.times(tokenY.derivedBNB));
+  const derivedAmountBNB = safeMultiply(amountX, tokenX.derivedBNB)
+    .plus(safeMultiply(amountY, tokenY.derivedBNB));
 
   const sJoeDayData = loadSJoeDayData(event.block.timestamp);
   sJoeDayData.amountX = sJoeDayData.amountX.plus(amountX);
   sJoeDayData.amountY = sJoeDayData.amountY.plus(amountY);
   sJoeDayData.collectedBNB = sJoeDayData.collectedBNB.plus(derivedAmountBNB);
   sJoeDayData.collectedUSD = sJoeDayData.collectedUSD.plus(
-    derivedAmountBNB.times(bundle.bnbPriceUSD)
+    safeMultiply(derivedAmountBNB, bundle.bnbPriceUSD)
   );
   sJoeDayData.save();
 }
