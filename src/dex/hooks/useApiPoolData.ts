@@ -96,10 +96,10 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
     options.excludeLowVolumePools
   ]);
 
-  // 生成缓存键
+  // 生成缓存键 - 包含 chainId 确保网络切换时重新请求
   const cacheKey = useMemo(() => {
-    return JSON.stringify(stableOptions);
-  }, [stableOptions]);
+    return JSON.stringify({ ...stableOptions, chainId });
+  }, [stableOptions, chainId]);
 
   // 构建 API 查询参数
   const buildParams = useCallback(() => {
