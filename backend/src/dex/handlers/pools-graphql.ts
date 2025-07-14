@@ -75,34 +75,24 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
     // 你可以根据 chain 做不同处理，比如切换 subgraphClient，或校验
     console.log('Request chain:', chain);
 
-	// TEMP DEBUG: Test without ordering parameters to see if that's causing corruption
-	console.log('🔍 DEBUG - Testing getPools without ordering parameters...');
+	// Get pools data
+	console.log('🔍 Fetching pools and 24h data...');
 	const subgraphPools = await subgraphClient.getPools(limit, offset, 'totalValueLockedUSD', 'desc');
+	
+	// Get 24h data for all pools to calculate real volume and fees
+	const poolsDayData = await subgraphClient.getPoolsDayData(100, 1); // Get last 24h data for up to 100 pools
+	
+	// Create a map for quick lookup of day data by pool ID
+	const poolDayDataMap = new Map();
+	poolsDayData.forEach((dayData: any) => {
+		// Extract pool ID from dayData.id (format: "0xpoolAddress-timestamp") 
+		// or use lbPair.id if available
+		const poolId = dayData.lbPair?.id || dayData.id.split('-')[0];
+		poolDayDataMap.set(poolId, dayData);
+	});
 	
 	// TEMP DEBUG: Also test the specific problematic pool with playground-style query
 	console.log('🔍 DEBUG - Testing problematic pool with exact playground query...');
-	const debugPool = await subgraphClient.getPoolForDebugging('0x904ede072667c4bc3d7e6919b4a0a442559295c8');
-	
-	if (debugPool) {
-		console.log('🔍 DEBUG - Direct playground query result is:', {
-			id: debugPool.id,
-			reserveX: debugPool.reserveX,
-			reserveY: debugPool.reserveY,
-			totalValueLockedUSD: debugPool.totalValueLockedUSD,
-			reserveXType: typeof debugPool.reserveX,
-			reserveYType: typeof debugPool.reserveY
-		});
-		
-		// Replace the corrupted pool with the correct data from direct query
-		const problematicPoolIndex = subgraphPools.findIndex((pool: any) => 
-			pool.id === '0x904ede072667c4bc3d7e6919b4a0a442559295c8'
-		);
-		
-		if (problematicPoolIndex !== -1) {
-			console.log('🔄 Replacing corrupted pool data with correct playground data');
-			subgraphPools[problematicPoolIndex] = debugPool;
-		}
-	}
 	
 	// Helper function to safely parse reserve values
 	const parseReserveValue = (value: string | undefined, fieldName: string, poolId: string): number => {
@@ -134,18 +124,28 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 		return parsed;
 	};
 
-	// Transform subgraph data to API format
+	// Transform subgraph data to API format with real 24h data
 	const transformedPools = subgraphPools.map((pool: any) => {
+		// Get 24h data for this pool
+		const dayData = poolDayDataMap.get(pool.id);
+		const volume24h = dayData ? parseFloat(dayData.volumeUSD || '0') : 0;
+		const fees24h = dayData ? parseFloat(dayData.feesUSD || '0') : 0;
+		
+		// Calculate APR from 24h fees
+		const tvl = parseFloat(pool.totalValueLockedUSD || '0');
+		const apr = tvl > 0 && fees24h > 0 ? (fees24h * 365 / tvl) * 100 : 0;
+
 		// Debug logging for the problematic pool
 		if (pool.id === '0x904ede072667c4bc3d7e6919b4a0a442559295c8') {
 			console.log('🔍 DEBUG - Processing problematic pool:', {
 				id: pool.id,
 				reserveX: pool.reserveX,
 				reserveY: pool.reserveY,
-				reserveXType: typeof pool.reserveX,
-				reserveYType: typeof pool.reserveY,
-				reserveXParsed: parseFloat(pool.reserveX || '0'),
-				reserveYParsed: parseFloat(pool.reserveY || '0')
+				volume24h,
+				fees24h,
+				tvl,
+				apr,
+				dayDataExists: !!dayData
 			});
 		}
 
@@ -177,12 +177,12 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 			lbBinStep: parseInt(pool.binStep || '10'),
 			activeId: pool.activeId || 0,
 			liquidityUsd: parseUsdValue(pool.totalValueLockedUSD, 'totalValueLockedUSD', pool.id),
-			volume24hUsd: parseUsdValue(pool.volumeUSD, 'volumeUSD', pool.id),
-			fees24hUsd: parseUsdValue(pool.feesUSD, 'feesUSD', pool.id),
+			volume24hUsd: volume24h, // Use real 24h data
+			fees24hUsd: fees24h,    // Use real 24h data  
 			txCount: parseInt(pool.txCount || '0'),
 			liquidityProviderCount: parseInt(pool.liquidityProviderCount || '0'),
-			apr: 0, // Will calculate from fees if needed
-			apy: 0, // Will calculate from fees if needed
+			apr: apr,               // Calculate from real fees
+			apy: apr > 0 ? ((1 + apr/100/365) ** 365 - 1) * 100 : 0, // Compound APR to APY
 			createdAt: new Date().toISOString(),
 			lastUpdate: Date.now(),
 		};

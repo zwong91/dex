@@ -2,9 +2,12 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useChainId } from 'wagmi'
 import { getApiEndpoint } from '../utils/apiEndpoint'
 
-// 简单的内存缓存
+// 更智能的分层缓存
 const cache = new Map<string, { data: ApiPool[]; timestamp: number; total: number }>();
-const CACHE_DURATION = 30000; // 30秒缓存
+const fastCache = new Map<string, { data: ApiPool[]; timestamp: number; total: number }>(); // 快速缓存
+const CACHE_DURATION = 30000; // 30秒正常缓存
+const FAST_CACHE_DURATION = 5000; // 5秒快速缓存
+const BACKGROUND_REFRESH_THRESHOLD = 20000; // 20秒后后台刷新
 
 // 重试机制常量
 const MAX_RETRIES = 2;
@@ -39,7 +42,7 @@ export interface ApiPool {
   lbBinStep: number;
   lbBaseFeePct?: number;
   lbMaxFeePct?: number;
-  activeBinId?: number;
+  activeId?: number;
   liquidityUsd: number;
   liquidityNative?: string;
   liquidityDepthMinus?: number;
@@ -51,6 +54,20 @@ export interface ApiPool {
   feesUsd: number;
   feesNative?: string;
   protocolSharePct?: number;
+  // New fields from actual API
+  volume24hUsd: number;
+  fees24hUsd: number;
+  apr: number;
+  apy: number;
+  txCount: number;
+  liquidityProviderCount: number;
+  createdAt: string;
+  lastUpdate: number;
+  // Pre-formatted fields for display
+  tvlFormatted: string;
+  aprFormatted: string;
+  volume24hFormatted: string;
+  fees24hFormatted: string;
 }
 
 export interface UseApiPoolDataOptions {
@@ -114,19 +131,40 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
     return params;
   }, [stableOptions]);
 
-  // 拉取池子数据
-  const fetchPools = useCallback(async () => {
-    // 检查缓存
+  // 拉取池子数据 - 优化版本
+  const fetchPools = useCallback(async (isBackground = false) => {
+    const now = Date.now();
+    
+    // 检查快速缓存（5秒内直接返回）
+    const fastCached = fastCache.get(cacheKey);
+    if (fastCached && now - fastCached.timestamp < FAST_CACHE_DURATION) {
+      console.log('⚡ Using fast cache (< 5s)');
+      setPools(fastCached.data);
+      setTotal(fastCached.total);
+      setLoading(false);
+      return;
+    }
+    
+    // 检查正常缓存
     const cached = cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    if (cached && now - cached.timestamp < CACHE_DURATION) {
       console.log('📦 Using cached pool data');
       setPools(cached.data);
       setTotal(cached.total);
       setLoading(false);
+      
+      // 如果缓存超过20秒，后台刷新
+      if (now - cached.timestamp > BACKGROUND_REFRESH_THRESHOLD && !isBackground) {
+        console.log('🔄 Background refresh triggered');
+        setTimeout(() => fetchPools(true), 100); // 后台刷新
+      }
       return;
     }
 
-    setLoading(true);
+    // 只有前台请求才显示loading
+    if (!isBackground) {
+      setLoading(true);
+    }
     setError(null);
     
     try {
@@ -135,8 +173,14 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
       const url = `${apiBaseUrl}/v1/api/dex/pools/bsc?${params.toString()}`;
       const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       
-      console.log('🚀 Fetching pool data:', url);
+      if (!isBackground) {
+        console.log('🚀 Fetching pool data:', url);
+      }
       const startTime = performance.now();
+      
+      // 创建超时控制器
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒超时
       
       // 使用内联重试逻辑
       let res: Response;
@@ -148,7 +192,10 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
               'x-api-key': apiKey,
               'Accept': 'application/json'
             },
+            signal: controller.signal,
           });
+          
+          clearTimeout(timeoutId); // 清除超时
           
           if (!res.ok && res.status >= 500 && retries < MAX_RETRIES) {
             console.log(`🔄 Server error ${res.status}, retrying... (${retries + 1}/${MAX_RETRIES})`);
@@ -158,6 +205,10 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
           }
           break;
         } catch (error) {
+          clearTimeout(timeoutId);
+          if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error('Request timeout (8s)');
+          }
           if (retries < MAX_RETRIES) {
             console.log(`🔄 Network error, retrying... (${retries + 1}/${MAX_RETRIES})`);
             retries++;
@@ -185,29 +236,58 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
         poolsData = data.data;
         totalCount = data.pagination?.total || data.data.length;
       }
+
+      // 直接在这里处理字段映射和格式化，避免前端转换
+      const processedPools = poolsData.map((pool: any) => ({
+        ...pool,
+        // 统一字段名映射
+        volumeUsd: pool.volume24hUsd || 0,
+        feesUsd: pool.fees24hUsd || 0,
+        lbBaseFeePct: pool.apr || 0,
+        // 格式化显示字段
+        tvlFormatted: `$${Number(pool.liquidityUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        aprFormatted: pool.apr ? `${pool.apr.toFixed(2)}%` : '0.00%',
+        volume24hFormatted: pool.volume24hUsd ? `$${Number(pool.volume24hUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0',
+        fees24hFormatted: pool.fees24hUsd ? `$${Number(pool.fees24hUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0',
+      }));
       
-      // 存入缓存
-      cache.set(cacheKey, {
-        data: poolsData,
+      // 存入双层缓存
+      const cacheData = {
+        data: processedPools,
         total: totalCount,
         timestamp: Date.now()
-      });
+      };
       
-      setPools(poolsData);
+      // 存入正常缓存
+      cache.set(cacheKey, cacheData);
+      // 存入快速缓存（用于短时间内的快速响应）
+      fastCache.set(cacheKey, cacheData);
+      
+      setPools(processedPools);
       setTotal(totalCount);
       
-      console.log(`✅ Loaded ${poolsData.length} pools`);
+      if (!isBackground) {
+        console.log(`✅ Loaded ${processedPools.length} pools`);
+      } else {
+        console.log(`🔄 Background updated ${processedPools.length} pools`);
+      }
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
       setPools([]);
       setTotal(0);
-      console.error('❌ Pool data fetch error:', errorMessage);
+      
+      if (!isBackground) {
+        console.error('❌ Pool data fetch error:', errorMessage);
+      }
     } finally {
-      setLoading(false);
+      // 只有前台请求才隐藏loading
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
-  }, [cacheKey, buildParams]);
+  }, [cacheKey, buildParams, chainId]);
 
   // 自动拉取数据，依赖稳定的 cacheKey
   useEffect(() => {
@@ -217,8 +297,30 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
   // 支持手动刷新（清除缓存）
   const refetch = useCallback(() => {
     cache.delete(cacheKey);
+    fastCache.delete(cacheKey);
     fetchPools();
   }, [cacheKey, fetchPools]);
+
+  // 清理过期缓存
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      // 清理快速缓存
+      for (const [key, value] of fastCache.entries()) {
+        if (now - value.timestamp > FAST_CACHE_DURATION * 2) {
+          fastCache.delete(key);
+        }
+      }
+      // 清理正常缓存
+      for (const [key, value] of cache.entries()) {
+        if (now - value.timestamp > CACHE_DURATION * 2) {
+          cache.delete(key);
+        }
+      }
+    }, 60000); // 每分钟清理一次
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
 
   return { pools, loading, error, total, refetch };
 };

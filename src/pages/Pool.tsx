@@ -43,17 +43,17 @@ interface PoolData {
   tokenYAddress?: string;
 }
 
-// 转换函数
+// 简化的转换函数 - 直接使用 API 预格式化的数据
 const apiPoolToPoolData = (pool: ApiPool): PoolData => ({
   id: pool.pairAddress,
   token0: pool.tokenX?.symbol || '',
   token1: pool.tokenY?.symbol || '',
   icon0: generateTokenIcon(pool.tokenX?.symbol || 'TOKEN', 36),
   icon1: generateTokenIcon(pool.tokenY?.symbol || 'TOKEN', 36),
-  tvl: `$${Number(pool.liquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-  apr: pool.lbBaseFeePct ? `${pool.lbBaseFeePct.toFixed(2)}%` : '—',
-  volume24h: pool.volumeUsd ? `$${Number(pool.volumeUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—',
-  fees24h: pool.feesUsd ? `$${Number(pool.feesUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—',
+  tvl: pool.tvlFormatted,
+  apr: pool.aprFormatted,
+  volume24h: pool.volume24hFormatted,
+  fees24h: pool.fees24hFormatted,
   userLiquidity: undefined, // Not available in ApiPool
   pairAddress: pool.pairAddress,
   binStep: pool.lbBinStep,
