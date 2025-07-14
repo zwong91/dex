@@ -152,7 +152,7 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 		return {
 			id: pool.id,
 			pairAddress: pool.id,
-			chain: 'bsc-testnet',
+			chain: chain === 'bsc' ? 'bsc' : 'bsc-testnet',  // Use actual chain from request
 			name: pool.name || `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
 			status: parseInt(pool.liquidityProviderCount || '0') > 0 ? 'active' : 'inactive',
 			version: '2.2',
@@ -278,7 +278,7 @@ async function handlePoolDetails(c: Context<{ Bindings: Env }>, subgraphClient: 
 	const transformedPool = {
 		id: pool.id,
 		pairAddress: pool.id,
-		chain: 'bsc-testnet',
+		chain: chain === 'bsc' ? 'bsc' : 'bsc-testnet',  // Use actual chain from request
 		name: pool.name || `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
 		status: parseInt(pool.liquidityProviderCount || '0') > 0 ? 'active' : 'inactive',
 		version: '2.1',

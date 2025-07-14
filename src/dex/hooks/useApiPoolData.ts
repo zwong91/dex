@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useChainId } from 'wagmi'
+import { bscTestnet } from 'wagmi/chains'
 import { getApiEndpoint } from '../utils/apiEndpoint'
 
 // 更智能的分层缓存
@@ -170,11 +171,20 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
     try {
       const params = buildParams();
       const apiBaseUrl = getApiEndpoint(chainId);
-      const url = `${apiBaseUrl}/v1/api/dex/pools/bsc?${params.toString()}`;
+      // Determine chain path based on chainId
+      const chainPath = chainId === bscTestnet.id ? 'bsc-testnet' : 'bsc'; // BSC Testnet vs BSC Mainnet
+      const url = `${apiBaseUrl}/v1/api/dex/pools/${chainPath}?${params.toString()}`;
       const apiKey = import.meta.env.VITE_API_KEY || 'test-key';
       
       if (!isBackground) {
-        console.log('🚀 Fetching pool data:', url);
+        console.log('� Network debug:', { 
+          chainId, 
+          bscTestnetId: bscTestnet.id, 
+          chainPath, 
+          apiBaseUrl,
+          url 
+        });
+        console.log('�🚀 Fetching pool data:', url);
       }
       const startTime = performance.now();
       
