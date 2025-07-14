@@ -40,8 +40,15 @@ export function trackBin(
   const bin = loadBin(lbPair, binId);
 
   bin.totalSupply = bin.totalSupply.plus(minted).minus(burned);
-  bin.reserveX = bin.reserveX.plus(amountXIn).minus(amountXOut);
-  bin.reserveY = bin.reserveY.plus(amountYIn).minus(amountYOut);
+  
+  // Calculate new reserves with safety checks
+  const newReserveX = bin.reserveX.plus(amountXIn).minus(amountXOut);
+  const newReserveY = bin.reserveY.plus(amountYIn).minus(amountYOut);
+  
+  // Prevent negative reserves
+  bin.reserveX = newReserveX.lt(BIG_DECIMAL_ZERO) ? BIG_DECIMAL_ZERO : newReserveX;
+  bin.reserveY = newReserveY.lt(BIG_DECIMAL_ZERO) ? BIG_DECIMAL_ZERO : newReserveY;
+  
   bin.save();
 
   return bin as Bin;

@@ -212,8 +212,15 @@ export function handleSwap(event: SwapEvent): void {
   // LBPair
   lbPair.activeId = event.params.id;
   lbPair.txCount = lbPair.txCount.plus(BIG_INT_ONE);
-  lbPair.reserveX = lbPair.reserveX.plus(fmtAmountXIn).minus(fmtAmountXOut);
-  lbPair.reserveY = lbPair.reserveY.plus(fmtAmountYIn).minus(fmtAmountYOut);
+  
+  // Calculate new reserves with safety checks
+  const newReserveX = lbPair.reserveX.plus(fmtAmountXIn).minus(fmtAmountXOut);
+  const newReserveY = lbPair.reserveY.plus(fmtAmountYIn).minus(fmtAmountYOut);
+  
+  // Prevent negative reserves
+  lbPair.reserveX = validateReserve(newReserveX, tokenX.symbol);
+  lbPair.reserveY = validateReserve(newReserveY, tokenY.symbol);
+  
   lbPair.totalValueLockedUSD = getTrackedLiquidityUSD(
     lbPair.reserveX,
     tokenX as Token,
@@ -265,7 +272,8 @@ export function handleSwap(event: SwapEvent): void {
   lbFactory.totalValueLockedBNB = lbFactory.totalValueLockedBNB.plus(
     lbPair.totalValueLockedBNB
   );
-  lbFactory.totalValueLockedUSD = lbFactory.totalValueLockedBNB.times(
+  lbFactory.totalValueLockedUSD = safeMultiply(
+    lbFactory.totalValueLockedBNB,
     bundle.bnbPriceUSD
   );
   lbFactory.feesUSD = lbFactory.feesUSD.plus(feesUSD);
@@ -300,9 +308,10 @@ export function handleSwap(event: SwapEvent): void {
   tokenX.volumeUSD = tokenX.volumeUSD.plus(
     safeMultiply(amountXTotal, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
   );
-  tokenX.totalValueLocked = tokenX.totalValueLocked
-    .plus(fmtAmountXIn)
-    .minus(fmtAmountXOut);
+  tokenX.totalValueLocked = validateReserve(
+    tokenX.totalValueLocked.plus(fmtAmountXIn).minus(fmtAmountXOut),
+    tokenX.symbol
+  );
   tokenX.totalValueLockedUSD = safeMultiply(tokenX.totalValueLocked, tokenXPriceUSD);
   const feesUsdX = safeMultiply(totalFeesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD));
   tokenX.feesUSD = tokenX.feesUSD.plus(feesUsdX);
@@ -313,10 +322,11 @@ export function handleSwap(event: SwapEvent): void {
   tokenY.volumeUSD = tokenY.volumeUSD.plus(
     amountYTotal.times(tokenY.derivedBNB.times(bundle.bnbPriceUSD))
   );
-  tokenY.totalValueLocked = tokenY.totalValueLocked
-    .plus(fmtAmountYIn)
-    .minus(fmtAmountYOut);
-  tokenY.totalValueLockedUSD = tokenY.totalValueLocked.times(tokenYPriceUSD);
+  tokenY.totalValueLocked = validateReserve(
+    tokenY.totalValueLocked.plus(fmtAmountYIn).minus(fmtAmountYOut),
+    tokenY.symbol
+  );
+  tokenY.totalValueLockedUSD = safeMultiply(tokenY.totalValueLocked, tokenYPriceUSD);
   const feesUsdY = totalFeesY.times(
     tokenY.derivedBNB.times(bundle.bnbPriceUSD)
   );
@@ -735,7 +745,8 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
   lbFactory.totalValueLockedBNB = lbFactory.totalValueLockedBNB.plus(
     lbPair.totalValueLockedBNB
   );
-  lbFactory.totalValueLockedUSD = lbFactory.totalValueLockedBNB.times(
+  lbFactory.totalValueLockedUSD = safeMultiply(
+    lbFactory.totalValueLockedBNB,
     bundle.bnbPriceUSD
   );
   lbFactory.txCount = lbFactory.txCount.plus(BIG_INT_ONE);
@@ -831,15 +842,20 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
 
   // LBPair
   lbPair.txCount = lbPair.txCount.plus(BIG_INT_ONE);
-  lbPair.reserveX = lbPair.reserveX.minus(totalAmountX);
-  lbPair.reserveY = lbPair.reserveY.minus(totalAmountY);
+  
+  // Calculate new reserves with safety checks for removal
+  const newReserveX = lbPair.reserveX.minus(totalAmountX);
+  const newReserveY = lbPair.reserveY.minus(totalAmountY);
+  
+  // Prevent negative reserves
+  lbPair.reserveX = validateReserve(newReserveX, tokenX.symbol);
+  lbPair.reserveY = validateReserve(newReserveY, tokenY.symbol);
 
-  lbPair.totalValueLockedBNB = lbPair.reserveX
-    .times(tokenX.derivedBNB)
-    .plus(lbPair.reserveY.times(tokenY.derivedBNB));
-  lbPair.totalValueLockedUSD = lbPair.totalValueLockedBNB.times(
-    bundle.bnbPriceUSD
-  );
+  // Safe TVL calculation with overflow protection
+  const reserveXValue = safeMultiply(lbPair.reserveX, tokenX.derivedBNB);
+  const reserveYValue = safeMultiply(lbPair.reserveY, tokenY.derivedBNB);
+  lbPair.totalValueLockedBNB = reserveXValue.plus(reserveYValue);
+  lbPair.totalValueLockedUSD = safeMultiply(lbPair.totalValueLockedBNB, bundle.bnbPriceUSD);
 
   // get tracked liquidity - will be 0 if neither is in whitelist
   let trackedLiquidityBNB: BigDecimal;
@@ -862,7 +878,8 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
   lbFactory.totalValueLockedBNB = lbFactory.totalValueLockedBNB.plus(
     lbPair.totalValueLockedBNB
   );
-  lbFactory.totalValueLockedUSD = lbFactory.totalValueLockedBNB.times(
+  lbFactory.totalValueLockedUSD = safeMultiply(
+    lbFactory.totalValueLockedBNB,
     bundle.bnbPriceUSD
   );
   lbFactory.txCount = lbFactory.txCount.plus(BIG_INT_ONE);
@@ -875,7 +892,8 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
 
   // TokenX
   tokenX.txCount = tokenX.txCount.plus(BIG_INT_ONE);
-  tokenX.totalValueLocked = tokenX.totalValueLocked.minus(totalAmountX);
+  const newTokenXLocked = tokenX.totalValueLocked.minus(totalAmountX);
+  tokenX.totalValueLocked = validateReserve(newTokenXLocked, tokenX.symbol);
   tokenX.totalValueLockedUSD = safeMultiply(
     tokenX.totalValueLocked,
     safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD)
@@ -884,7 +902,8 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
 
   // TokenY
   tokenY.txCount = tokenY.txCount.plus(BIG_INT_ONE);
-  tokenY.totalValueLocked = tokenY.totalValueLocked.minus(totalAmountY);
+  const newTokenYLocked = tokenY.totalValueLocked.minus(totalAmountY);
+  tokenY.totalValueLocked = validateReserve(newTokenYLocked, tokenY.symbol);
   tokenY.totalValueLockedUSD = safeMultiply(
     tokenY.totalValueLocked,
     safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD)
