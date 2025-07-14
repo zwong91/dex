@@ -75,46 +75,118 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
     // 你可以根据 chain 做不同处理，比如切换 subgraphClient，或校验
     console.log('Request chain:', chain);
 
-	const subgraphPools = await subgraphClient.getPools(limit, offset, 'timestamp', 'desc');
+	// TEMP DEBUG: Test without ordering parameters to see if that's causing corruption
+	console.log('🔍 DEBUG - Testing getPools without ordering parameters...');
+	const subgraphPools = await subgraphClient.getPools(limit, offset, 'totalValueLockedUSD', 'desc');
 	
+	// TEMP DEBUG: Also test the specific problematic pool with playground-style query
+	console.log('🔍 DEBUG - Testing problematic pool with exact playground query...');
+	const debugPool = await subgraphClient.getPoolForDebugging('0x904ede072667c4bc3d7e6919b4a0a442559295c8');
+	
+	if (debugPool) {
+		console.log('🔍 DEBUG - Direct playground query result is:', {
+			id: debugPool.id,
+			reserveX: debugPool.reserveX,
+			reserveY: debugPool.reserveY,
+			totalValueLockedUSD: debugPool.totalValueLockedUSD,
+			reserveXType: typeof debugPool.reserveX,
+			reserveYType: typeof debugPool.reserveY
+		});
+		
+		// Replace the corrupted pool with the correct data from direct query
+		const problematicPoolIndex = subgraphPools.findIndex((pool: any) => 
+			pool.id === '0x904ede072667c4bc3d7e6919b4a0a442559295c8'
+		);
+		
+		if (problematicPoolIndex !== -1) {
+			console.log('🔄 Replacing corrupted pool data with correct playground data');
+			subgraphPools[problematicPoolIndex] = debugPool;
+		}
+	}
+	
+	// Helper function to safely parse reserve values
+	const parseReserveValue = (value: string | undefined, fieldName: string, poolId: string): number => {
+		if (!value || value === '0') return 0;
+		
+		const parsed = parseFloat(value);
+		
+		// Check for corruption (massive negative numbers or NaN)
+		if (isNaN(parsed) || parsed < -1e15 || parsed > 1e15) {
+			console.warn(`🚨 Corrupted ${fieldName} detected for pool ${poolId}: ${value} -> ${parsed}, using 0 instead`);
+			return 0;
+		}
+		
+		return parsed;
+	};
+
+	// Helper function to safely parse USD values (same validation)
+	const parseUsdValue = (value: string | undefined, fieldName: string, poolId: string): number => {
+		if (!value || value === '0') return 0;
+		
+		const parsed = parseFloat(value);
+		
+		// Check for corruption (massive negative numbers or NaN)
+		if (isNaN(parsed) || parsed < -1e15 || parsed > 1e15) {
+			console.warn(`🚨 Corrupted ${fieldName} detected for pool ${poolId}: ${value} -> ${parsed}, using 0 instead`);
+			return 0;
+		}
+		
+		return parsed;
+	};
+
 	// Transform subgraph data to API format
-	const transformedPools = subgraphPools.map((pool: any) => ({
-		id: pool.id,
-		pairAddress: pool.id,
-		chain: 'bsc-testnet',
-		name: pool.name || `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
-		status: parseInt(pool.liquidityProviderCount || '0') > 0 ? 'active' : 'inactive',
-		version: '2.1',
-		tokenX: {
-			address: pool.tokenX.id,
-			symbol: pool.tokenX.symbol,
-			name: pool.tokenX.name,
-			decimals: parseInt(pool.tokenX.decimals),
-			priceUsd: parseFloat(pool.tokenXPriceUSD || '0'),
-			priceNative: pool.tokenXPrice || '0',
-		},
-		tokenY: {
-			address: pool.tokenY.id,
-			symbol: pool.tokenY.symbol,
-			name: pool.tokenY.name,
-			decimals: parseInt(pool.tokenY.decimals),
-			priceUsd: parseFloat(pool.tokenYPriceUSD || '0'),
-			priceNative: pool.tokenYPrice || '0',
-		},
-		reserveX: parseFloat(pool.reserveX || '0'),
-		reserveY: parseFloat(pool.reserveY || '0'),
-		lbBinStep: parseInt(pool.binStep || '10'),
-		activeId: pool.activeId || 0,
-		liquidityUsd: parseFloat(pool.totalValueLockedUSD || '0'),
-		volume24hUsd: parseFloat(pool.volumeUSD || '0'),
-		fees24hUsd: parseFloat(pool.feesUSD || '0'),
-		txCount: parseInt(pool.txCount || '0'),
-		liquidityProviderCount: parseInt(pool.liquidityProviderCount || '0'),
-		apr: 0, // Will calculate from fees if needed
-		apy: 0, // Will calculate from fees if needed
-		createdAt: new Date().toISOString(),
-		lastUpdate: Date.now(),
-	}));
+	const transformedPools = subgraphPools.map((pool: any) => {
+		// Debug logging for the problematic pool
+		if (pool.id === '0x904ede072667c4bc3d7e6919b4a0a442559295c8') {
+			console.log('🔍 DEBUG - Processing problematic pool:', {
+				id: pool.id,
+				reserveX: pool.reserveX,
+				reserveY: pool.reserveY,
+				reserveXType: typeof pool.reserveX,
+				reserveYType: typeof pool.reserveY,
+				reserveXParsed: parseFloat(pool.reserveX || '0'),
+				reserveYParsed: parseFloat(pool.reserveY || '0')
+			});
+		}
+
+		return {
+			id: pool.id,
+			pairAddress: pool.id,
+			chain: 'bsc-testnet',
+			name: pool.name || `${pool.tokenX.symbol}/${pool.tokenY.symbol}`,
+			status: parseInt(pool.liquidityProviderCount || '0') > 0 ? 'active' : 'inactive',
+			version: '2.2',
+			tokenX: {
+				address: pool.tokenX.id,
+				symbol: pool.tokenX.symbol,
+				name: pool.tokenX.name,
+				decimals: parseInt(pool.tokenX.decimals),
+				priceUsd: parseFloat(pool.tokenXPriceUSD || '0'),
+				priceNative: pool.tokenXPrice || '0',
+			},
+			tokenY: {
+				address: pool.tokenY.id,
+				symbol: pool.tokenY.symbol,
+				name: pool.tokenY.name,
+				decimals: parseInt(pool.tokenY.decimals),
+				priceUsd: parseFloat(pool.tokenYPriceUSD || '0'),
+				priceNative: pool.tokenYPrice || '0',
+			},
+			reserveX: parseReserveValue(pool.reserveX, 'reserveX', pool.id),
+			reserveY: parseReserveValue(pool.reserveY, 'reserveY', pool.id),
+			lbBinStep: parseInt(pool.binStep || '10'),
+			activeId: pool.activeId || 0,
+			liquidityUsd: parseUsdValue(pool.totalValueLockedUSD, 'totalValueLockedUSD', pool.id),
+			volume24hUsd: parseUsdValue(pool.volumeUSD, 'volumeUSD', pool.id),
+			fees24hUsd: parseUsdValue(pool.feesUSD, 'feesUSD', pool.id),
+			txCount: parseInt(pool.txCount || '0'),
+			liquidityProviderCount: parseInt(pool.liquidityProviderCount || '0'),
+			apr: 0, // Will calculate from fees if needed
+			apy: 0, // Will calculate from fees if needed
+			createdAt: new Date().toISOString(),
+			lastUpdate: Date.now(),
+		};
+	});
 
 	// Create pagination info  
 	const totalCount = subgraphPools.length; // Use returned count as approximation
@@ -172,6 +244,36 @@ async function handlePoolDetails(c: Context<{ Bindings: Env }>, subgraphClient: 
 		}, 404);
 	}
 
+	// Helper function to safely parse reserve values  
+	const parseReserveValue = (value: string | undefined, fieldName: string, poolId: string): number => {
+		if (!value || value === '0') return 0;
+		
+		const parsed = parseFloat(value);
+		
+		// Check for corruption (massive negative numbers or NaN)
+		if (isNaN(parsed) || parsed < -1e15 || parsed > 1e15) {
+			console.warn(`🚨 Corrupted ${fieldName} detected for pool ${poolId}: ${value} -> ${parsed}, using 0 instead`);
+			return 0;
+		}
+		
+		return parsed;
+	};
+
+	// Helper function to safely parse USD values
+	const parseUsdValue = (value: string | undefined, fieldName: string, poolId: string): number => {
+		if (!value || value === '0') return 0;
+		
+		const parsed = parseFloat(value);
+		
+		// Check for corruption (massive negative numbers or NaN)
+		if (isNaN(parsed) || parsed < -1e15 || parsed > 1e15) {
+			console.warn(`🚨 Corrupted ${fieldName} detected for pool ${poolId}: ${value} -> ${parsed}, using 0 instead`);
+			return 0;
+		}
+		
+		return parsed;
+	};
+
 	// Transform and enrich pool data
 	const transformedPool = {
 		id: pool.id,
@@ -196,13 +298,13 @@ async function handlePoolDetails(c: Context<{ Bindings: Env }>, subgraphClient: 
 			priceUsd: parseFloat(pool.tokenYPriceUSD || '0'),
 			priceNative: pool.tokenYPrice || '0',
 		},
-		reserveX: parseFloat(pool.reserveX || '0'),
-		reserveY: parseFloat(pool.reserveY || '0'),
+		reserveX: parseReserveValue(pool.reserveX, 'reserveX', pool.id),
+		reserveY: parseReserveValue(pool.reserveY, 'reserveY', pool.id),
 		lbBinStep: parseInt(pool.binStep || '10'),
 		activeId: pool.activeId || 0,
-		liquidityUsd: parseFloat(pool.totalValueLockedUSD || '0'),
-		volume24hUsd: parseFloat(pool.volumeUSD || '0'),
-		fees24hUsd: parseFloat(pool.feesUSD || '0'),
+		liquidityUsd: parseUsdValue(pool.totalValueLockedUSD, 'totalValueLockedUSD', pool.id),
+		volume24hUsd: parseUsdValue(pool.volumeUSD, 'volumeUSD', pool.id),
+		fees24hUsd: parseUsdValue(pool.feesUSD, 'feesUSD', pool.id),
 		txCount: parseInt(pool.txCount || '0'),
 		liquidityProviderCount: parseInt(pool.liquidityProviderCount || '0'),
 		apr: 0, // Will calculate if needed

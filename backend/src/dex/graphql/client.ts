@@ -31,31 +31,57 @@ export interface SubgraphMeta {
 export interface LBPair {
   id: string;
   name: string;
+  factory?: {
+    id: string;
+  };
+  baseFeePct?: string;
   tokenX: {
     id: string;
     symbol: string;
     name: string;
     decimals: string;
+    totalValueLocked?: string;
+    totalValueLockedUSD?: string;
+    derivedBNB?: string;
+    volume?: string;
+    volumeUSD?: string;
+    txCount?: string;
+    feesUSD?: string;
   };
   tokenY: {
     id: string;
     symbol: string;
     name: string;
     decimals: string;
+    totalValueLocked?: string;
+    totalValueLockedUSD?: string;
+    derivedBNB?: string;
+    volume?: string;
+    volumeUSD?: string;
+    txCount?: string;
+    feesUSD?: string;
   };
   reserveX: string;
   reserveY: string;
+  totalValueLockedBNB?: string;
   totalValueLockedUSD: string;
+  volumeTokenX?: string;
+  volumeTokenY?: string;
   volumeUSD: string;
+  untrackedVolumeUSD?: string;
   txCount: string;
+  feesTokenX?: string;
+  feesTokenY?: string;
+  feesUSD: string;
   binStep: string;
   activeId: number;
   tokenXPrice: string;
   tokenYPrice: string;
   tokenXPriceUSD: string;
   tokenYPriceUSD: string;
-  feesUSD: string;
   liquidityProviderCount: string;
+  timestamp?: string;
+  block?: string;
 }
 
 export interface Token {
@@ -122,6 +148,10 @@ export class SubgraphClient {
       env?.SUBGRAPH_URL ||
       'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet';
     this.auth_token = env?.SUBGRAPH_AUTH_TOKEN || ''; // Optional auth token for private subgraphs
+    
+    // Debug logging to see which endpoint is being used
+    console.log('🔗 GraphQL Client initialized with endpoint:', this.endpoint);
+    console.log('🔗 Environment SUBGRAPH_URL:', env?.SUBGRAPH_URL || 'NOT SET');
   }
 
   /**
@@ -229,7 +259,7 @@ export class SubgraphClient {
   }
 
   /**
-   * Get all pools with basic information
+   * Get all pools with comprehensive information (matches playground query)
    */
   async getPools(
     first: number = 100, 
@@ -247,31 +277,57 @@ export class SubgraphClient {
         ) {
           id
           name
+          factory {
+            id
+          }
+          baseFeePct
           tokenX {
             id
             symbol
             name
             decimals
+            totalValueLocked
+            totalValueLockedUSD
+            derivedBNB
+            volume
+            volumeUSD
+            txCount
+            feesUSD
           }
           tokenY {
             id
             symbol
             name
             decimals
+            totalValueLocked
+            totalValueLockedUSD
+            derivedBNB
+            volume
+            volumeUSD
+            txCount
+            feesUSD
           }
-          reserveX
-          reserveY
-          totalValueLockedUSD
-          volumeUSD
-          txCount
           binStep
           activeId
+          reserveX
+          reserveY
+          totalValueLockedBNB
+          totalValueLockedUSD
           tokenXPrice
           tokenYPrice
           tokenXPriceUSD
           tokenYPriceUSD
+          volumeTokenX
+          volumeTokenY
+          volumeUSD
+          untrackedVolumeUSD
+          txCount
+          feesTokenX
+          feesTokenY
           feesUSD
           liquidityProviderCount
+          timestamp
+          block
         }
       }
     `;
@@ -283,7 +339,26 @@ export class SubgraphClient {
       orderDirection,
     };
 
+    console.log('🔍 DEBUG - GraphQL Query Variables:', variables);
     const result = await this.query<{ lbpairs: LBPair[] }>(query, variables);
+    
+    // Add debug logging for the problematic pool
+    if (result.data?.lbpairs) {
+      const problematicPool = result.data.lbpairs.find(pool => 
+        pool.id === '0x904ede072667c4bc3d7e6919b4a0a442559295c8'
+      );
+      if (problematicPool) {
+        console.log('🔍 DEBUG - Raw GraphQL response for problematic pool:', {
+          id: problematicPool.id,
+          reserveX: problematicPool.reserveX,
+          reserveY: problematicPool.reserveY,
+          totalValueLockedUSD: problematicPool.totalValueLockedUSD,
+          reserveXType: typeof problematicPool.reserveX,
+          reserveYType: typeof problematicPool.reserveY
+        });
+      }
+    }
+    
     return result.data?.lbpairs || [];
   }
 
@@ -917,6 +992,87 @@ export class SubgraphClient {
 
     const result = await this.query<{ bins: any[] }>(query, variables);
     return result.data?.bins?.[0] || null;
+  }
+
+  /**
+   * Test method: Get specific pool exactly like playground (for debugging)
+   */
+  async getPoolForDebugging(poolId: string): Promise<LBPair | null> {
+    const query = `
+      query {
+        lbpairs(where: { id: "${poolId.toLowerCase()}" }) {
+          id
+          name
+          factory {
+            id
+          }
+          baseFeePct
+          tokenX {
+            id
+            symbol
+            name
+            decimals
+            totalValueLocked
+            totalValueLockedUSD
+            derivedBNB
+            volume
+            volumeUSD
+            txCount
+            feesUSD
+          }
+          tokenY {
+            id
+            symbol
+            name
+            decimals
+            totalValueLocked
+            totalValueLockedUSD
+            derivedBNB
+            volume
+            volumeUSD
+            txCount
+            feesUSD
+          }
+          binStep
+          activeId
+          reserveX
+          reserveY
+          totalValueLockedBNB
+          totalValueLockedUSD
+          tokenXPrice
+          tokenYPrice
+          tokenXPriceUSD
+          tokenYPriceUSD
+          volumeTokenX
+          volumeTokenY
+          volumeUSD
+          untrackedVolumeUSD
+          txCount
+          feesTokenX
+          feesTokenY
+          feesUSD
+          liquidityProviderCount
+          timestamp
+          block
+        }
+      }
+    `;
+
+    console.log('🔍 DEBUG - Executing exact playground query for pool:', poolId);
+    const result = await this.query<{ lbpairs: LBPair[] }>(query);
+    
+    const pool = result.data?.lbpairs?.[0];
+    if (pool) {
+      console.log('🔍 DEBUG - Direct playground-style query result:', {
+        id: pool.id,
+        reserveX: pool.reserveX,
+        reserveY: pool.reserveY,
+        reserveXType: typeof pool.reserveX,
+        reserveYType: typeof pool.reserveY
+      });
+    }
+    
+    return pool || null;
   }
 }
 
