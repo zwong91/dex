@@ -455,15 +455,23 @@ async function handlePoolBins(c: Context<{ Bindings: Env }>, subgraphClient: any
 		}
 
 		// Get query parameters
-		const activeId = c.req.query('activeId') ? parseInt(c.req.query('activeId')!) : undefined;
+		let activeId = c.req.query('activeId') ? parseInt(c.req.query('activeId')!) : undefined;
 		const range = parseInt(c.req.query('range') || '50');
 		const limit = parseInt(c.req.query('limit') || '100');
 
+		// Special case: range=0 with no activeId should use pool's current activeId
+		if (range === 0 && activeId === undefined) {
+			const pool = await subgraphClient.getPool(poolId);
+			if (pool?.activeId) {
+				activeId = parseInt(pool.activeId);
+			}
+		}
+
 		// Validate parameters
-		if (range < 1 || range > 200) {
+		if (range < 0 || range > 200) {
 			return c.json({
 				success: false,
-				error: 'Range must be between 1 and 200',
+				error: 'Range must be between 0 and 200',
 				timestamp: new Date().toISOString()
 			}, 400);
 		}

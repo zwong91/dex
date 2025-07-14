@@ -86,7 +86,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/pools/bsc/0x904ede072667c
 
 **参数说明：**
 - `activeId`（可选）：指定中心 bin ID，如果不提供则使用池子当前的 active ID
-- `range`（可选，默认50）：获取指定 ID 前后多少个 bins，范围 1-200
+- `range`（可选，默认50）：获取指定 ID 前后多少个 bins，范围 0-200（range=0 表示只获取当前 active bin）
 - `limit`（可选，默认100）：最大返回 bins 数量，范围 1-1000
 
 **返回数据包含：**

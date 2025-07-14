@@ -900,13 +900,21 @@ export class SubgraphClient {
     
     // If activeId is provided, get bins around that range
     if (activeId !== undefined) {
-      const minId = Math.max(0, activeId - range);
-      const maxId = activeId + range;
-      whereClause = `{ 
-        lbPair: "${pairAddress.toLowerCase()}"
-        binId_gte: ${minId}
-        binId_lte: ${maxId}
-      }`;
+      if (range === 0) {
+        // Special case: get only the exact active bin
+        whereClause = `{ 
+          lbPair: "${pairAddress.toLowerCase()}"
+          binId: ${activeId}
+        }`;
+      } else {
+        const minId = Math.max(0, activeId - range);
+        const maxId = activeId + range;
+        whereClause = `{ 
+          lbPair: "${pairAddress.toLowerCase()}"
+          binId_gte: ${minId}
+          binId_lte: ${maxId}
+        }`;
+      }
     }
 
     const query = `
