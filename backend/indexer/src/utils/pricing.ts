@@ -13,8 +13,10 @@ import { loadBundle, loadToken, loadLbPair } from "../entities";
 
 // Known stable tokens for price correction
 const STABLE_TOKENS = [
+  "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", // USDC on BSC Mainnet
+  "0x55d398326f99059ff775485246999027b3197955", // USDT on BSC Mainnet
   "0x64544969ed7EBf5f083679233325356EbE738930", // USDC on BSC Testnet
-  "0x337610d27c682e347c9cd60bd4b3b107c9d34ddd", // USDT on BSC Testnet (if any)
+  "0x337610d27c682e347c9cd60bd4b3b107c9d34ddd", // USDT on BSC Testnet
 ];
 
 // Known WBNB/stable pairs for price discovery
@@ -32,6 +34,26 @@ function getBNBPriceFromStablePair(): BigDecimal {
   // For now, use a hardcoded reasonable BNB price
   // TODO: Replace with actual pool-based price discovery
   return BigDecimal.fromString("600"); // Approximate BNB price
+}
+
+/**
+ * Safe division that prevents overflow and returns zero for invalid operations
+ */
+function safeDivision(numerator: BigDecimal, denominator: BigDecimal): BigDecimal {
+  if (denominator.equals(BIG_DECIMAL_ZERO)) {
+    log.warning("[safeDivision] Division by zero attempted", []);
+    return BIG_DECIMAL_ZERO;
+  }
+  
+  // Check for potential overflow scenarios
+  const maxSafeValue = BigDecimal.fromString("1e20"); // 100 quintillion
+  if (numerator.gt(maxSafeValue) || denominator.lt(BigDecimal.fromString("1e-10"))) {
+    log.warning("[safeDivision] Potential overflow detected, numerator: {}, denominator: {}", 
+                [numerator.toString(), denominator.toString()]);
+    return BIG_DECIMAL_ZERO;
+  }
+  
+  return numerator.div(denominator);
 }
 
 export function getNativePriceInUSD(): BigDecimal {
@@ -70,7 +92,10 @@ export function getTokenPriceInNative(token: Token): BigDecimal {
     // For stable tokens, calculate price as $1 / BNB_price_USD
     const bnbPriceUSD = getNativePriceInUSD();
     if (bnbPriceUSD.gt(BIG_DECIMAL_ZERO)) {
-      return BIG_DECIMAL_ONE.div(bnbPriceUSD); // $1 worth of BNB
+      const stablePrice = safeDivision(BIG_DECIMAL_ONE, bnbPriceUSD);
+      log.info("[getTokenPriceInNative] Stable token {} price calculated as {} BNB", 
+               [token.id, stablePrice.toString()]);
+      return stablePrice;
     }
   }
 

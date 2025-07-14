@@ -22,9 +22,15 @@ export function formatTokenAmountByDecimals(
 export function safeDiv(amount0: BigDecimal, amount1: BigDecimal): BigDecimal {
   if (amount1.equals(BIG_DECIMAL_ZERO)) {
     return BIG_DECIMAL_ZERO;
-  } else {
-    return amount0.div(amount1);
   }
+  
+  // Check for potential overflow scenarios
+  const maxSafeValue = BigDecimal.fromString("1e20"); // 100 quintillion
+  if (amount0.gt(maxSafeValue) || amount1.lt(BigDecimal.fromString("1e-10"))) {
+    return BIG_DECIMAL_ZERO;
+  }
+  
+  return amount0.div(amount1);
 }
 
 export function isAccountApproved(
