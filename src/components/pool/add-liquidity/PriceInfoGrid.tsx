@@ -53,14 +53,18 @@ const PriceInfoGrid = ({
 	const handleEditMinPrice = () => {
 		setIsEditingMin(true)
 		const { minPrice: dynMinPrice } = calculateDynamicRange()
-		const displayMinPrice = parseFloat(minPrice) || dynMinPrice
+		const displayMinPrice = minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice))
+			? parseFloat(minPrice)
+			: dynMinPrice
 		setTempMinPrice(displayMinPrice.toFixed(6))
 	}
 
 	const handleEditMaxPrice = () => {
 		setIsEditingMax(true)
 		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
-		const displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
+		const displayMaxPrice = maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice))
+			? parseFloat(maxPrice)
+			: dynMaxPrice
 		setTempMaxPrice(displayMaxPrice.toFixed(6))
 	}
 
@@ -95,15 +99,22 @@ const PriceInfoGrid = ({
 
 	const getMinPriceInfo = () => {
 		const { minPrice: dynMinPrice } = calculateDynamicRange()
-		let displayMinPrice = parseFloat(minPrice) || dynMinPrice
+		
+		// 🎯 优先使用传入的minPrice，只有在真正为空时才用fallback
+		let displayMinPrice = minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)) 
+			? parseFloat(minPrice) 
+			: dynMinPrice
+		
 		let referencePrice = activeBinPrice
 		
 		console.log('🚨 PriceInfoGrid Min Price Debug:', {
 			minPriceString: minPrice,
 			minPriceParsed: parseFloat(minPrice),
+			minPriceIsValid: minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)),
 			dynMinPrice: dynMinPrice,
 			displayMinPrice: displayMinPrice,
-			isUsingDynamic: !parseFloat(minPrice)
+			isUsingDynamic: !(minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice))),
+			activeBinPrice: activeBinPrice
 		})
 		
 		// 如果价格被反转，需要反转计算
@@ -122,21 +133,28 @@ const PriceInfoGrid = ({
 			value: displayMinPrice.toFixed(6),
 			percentage: formattedPercent,
 			color,
-			isAuto: !minPrice
+			isAuto: !(minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)))
 		}
 	}
 
 	const getMaxPriceInfo = () => {
 		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
-		let displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
+		
+		// 🎯 优先使用传入的maxPrice，只有在真正为空时才用fallback  
+		let displayMaxPrice = maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice))
+			? parseFloat(maxPrice)
+			: dynMaxPrice
+			
 		let referencePrice = activeBinPrice
 		
 		console.log('🚨 PriceInfoGrid Max Price Debug:', {
 			maxPriceString: maxPrice,
 			maxPriceParsed: parseFloat(maxPrice),
+			maxPriceIsValid: maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice)),
 			dynMaxPrice: dynMaxPrice,
 			displayMaxPrice: displayMaxPrice,
-			isUsingDynamic: !parseFloat(maxPrice)
+			isUsingDynamic: !(maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice))),
+			activeBinPrice: activeBinPrice
 		})
 		
 		// 如果价格被反转，需要反转计算
@@ -155,7 +173,7 @@ const PriceInfoGrid = ({
 			value: displayMaxPrice.toFixed(6),
 			percentage: formattedPercent,
 			color,
-			isAuto: !maxPrice
+			isAuto: !(maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice)))
 		}
 	}
 

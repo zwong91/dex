@@ -104,68 +104,70 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 		const amt0 = parseFloat(amount0 || '0')
 		const amt1 = parseFloat(amount1 || '0')
 		
-		// Base range calculation
-		let baseRangeMultiplier = 0.05 // 5% default
+		// 🎯 使用与getInitialPriceRange相同的Liquidity Book逻辑，而不是百分比逻辑
+		const bs = selectedPool?.binStep || 25 // 默认25基点(0.25%)
+		const binStepDecimal = bs / 10000
 		
-		// Adjust range based on token amounts
-		const totalValue = amt0 + amt1
-		if (totalValue > 0) {
-			baseRangeMultiplier = Math.min(0.2, 0.05 + (totalValue / 1000) * 0.1)
-		}
+		// 基础70 bins (左右各35个)，根据策略和代币数量调整
+		let binsOnEachSide = 35 // 默认35个bin每边
 		
-		// Strategy-specific adjustments
-		let leftMultiplier = 0
-		let rightMultiplier = baseRangeMultiplier
-		
-		if (strategy === 'spot') {
-			if (amt0 > 0 && amt1 > 0) {
-				const tokenXRatio = amt0 / (amt0 + amt1)
-				const tokenYRatio = amt1 / (amt0 + amt1)
-				leftMultiplier = baseRangeMultiplier * tokenYRatio * 2
-				rightMultiplier = baseRangeMultiplier * tokenXRatio * 2
-			} else if (amt0 > 0) {
-				leftMultiplier = baseRangeMultiplier * 0.1
-				rightMultiplier = baseRangeMultiplier * 2
-			} else if (amt1 > 0) {
-				leftMultiplier = baseRangeMultiplier * 2
-				rightMultiplier = baseRangeMultiplier * 0.1
-			}
-		} else if (strategy === 'curve') {
-			const concentrationFactor = 0.3
-			if (amt0 > 0 && amt1 > 0) {
-				leftMultiplier = baseRangeMultiplier * concentrationFactor
-				rightMultiplier = baseRangeMultiplier * concentrationFactor
-			} else if (amt0 > 0) {
-				leftMultiplier = baseRangeMultiplier * concentrationFactor * 0.5
-				rightMultiplier = baseRangeMultiplier * concentrationFactor * 1.5
-			} else if (amt1 > 0) {
-				leftMultiplier = baseRangeMultiplier * concentrationFactor * 1.5
-				rightMultiplier = baseRangeMultiplier * concentrationFactor * 0.5
-			}
+		// 根据策略调整bin数量
+		if (strategy === 'curve') {
+			// 曲线策略：更集中的流动性，减少bins
+			binsOnEachSide = 25 // 总共50个bins
 		} else if (strategy === 'bid-ask') {
-			const spreadFactor = 1.5
-			if (amt0 > 0 && amt1 > 0) {
-				leftMultiplier = baseRangeMultiplier * spreadFactor
-				rightMultiplier = baseRangeMultiplier * spreadFactor
-			} else if (amt0 > 0) {
-				leftMultiplier = baseRangeMultiplier * 0.2
-				rightMultiplier = baseRangeMultiplier * spreadFactor * 2
-			} else if (amt1 > 0) {
-				leftMultiplier = baseRangeMultiplier * spreadFactor * 2
-				rightMultiplier = baseRangeMultiplier * 0.2
-			}
+			// 买卖价差策略：更广的范围，增加bins
+			binsOnEachSide = 50 // 总共100个bins
 		}
+		// spot策略保持默认35个bins
+		
+		// 根据代币分布调整范围
+		let leftBins = binsOnEachSide
+		let rightBins = binsOnEachSide
+		
+		if (amt0 > 0 && amt1 > 0) {
+			// 双代币：保持对称
+		} else if (amt0 > 0) {
+			// 只有token0：更多bins在左边 (价格下降方向)
+			leftBins = Math.floor(binsOnEachSide * 0.3)
+			rightBins = Math.floor(binsOnEachSide * 1.7)
+		} else if (amt1 > 0) {
+			// 只有token1：更多bins在右边 (价格上升方向)
+			leftBins = Math.floor(binsOnEachSide * 1.7)
+			rightBins = Math.floor(binsOnEachSide * 0.3)
+		}
+		
+		// 使用Liquidity Book公式计算价格范围
+		const minPrice = activeBinPrice * Math.pow(1 + binStepDecimal, -leftBins)
+		const maxPrice = activeBinPrice * Math.pow(1 + binStepDecimal, rightBins)
+		
+		// 计算multiplier用于兼容性 (虽然不再使用)
+		const leftMultiplier = 1 - (minPrice / activeBinPrice)
+		const rightMultiplier = (maxPrice / activeBinPrice) - 1
+		
+		console.log('🎯 calculateDynamicRange using Liquidity Book logic:', {
+			strategy,
+			binStep: bs + 'bp',
+			amt0, amt1,
+			leftBins, rightBins,
+			totalBins: leftBins + rightBins,
+			activeBinPrice: activeBinPrice.toFixed(6),
+			minPrice: minPrice.toFixed(6),
+			maxPrice: maxPrice.toFixed(6),
+			minPercent: ((minPrice / activeBinPrice - 1) * 100).toFixed(2) + '%',
+			maxPercent: ((maxPrice / activeBinPrice - 1) * 100).toFixed(2) + '%'
+		})
 		
 		return {
-			minPrice: activeBinPrice * (1 - leftMultiplier),
-			maxPrice: activeBinPrice * (1 + rightMultiplier),
+			minPrice,
+			maxPrice,
 			leftMultiplier,
 			rightMultiplier
 		}
 	}
 
 	// Calculate dynamic number of bins based on price range and bin step
-	const getNumBins = (amount0: string, amount1: string) => {
+	const getNumBins = (_amount0: string, _amount1: string) => {
 		// 🎯 强制返回70 bins，与你的要求一致（左右各35个bin）
 		return '70'
 	}
