@@ -322,7 +322,7 @@ const PriceRangeVisualizer = ({
 	const renderLiquidityBars = () => {
 		const amt0 = parseFloat(amount0 || '0')
 		const amt1 = parseFloat(amount1 || '0')
-		
+
 		if (amt0 === 0 && amt1 === 0) {
 			return (
 				<Box
@@ -333,7 +333,7 @@ const PriceRangeVisualizer = ({
 						height: '100%',
 						color: 'rgba(255, 255, 255, 0.5)',
 						fontSize: '14px',
-						fontStyle: 'italic'
+						fontStyle: 'italic',
 					}}
 				>
 					Enter token amounts to see liquidity distribution
@@ -341,38 +341,30 @@ const PriceRangeVisualizer = ({
 			)
 		}
 
-		// 根据token分布决定柱子数量和分布
 		const barsToRender = []
 		const baseHeight = 200
-		
-		// Get dynamic range info based on current drag position or default
+
 		const currentPosition = dragPosition || getCurrentPriceIndicatorPosition()
 		const { numBins: dynamicNumBins } = calculatePriceRangeFromPosition(currentPosition)
-		
-		// Use a reasonable number of visual bars (not necessarily equal to numBins)
-		const numBars = Math.min(50, Math.max(10, Math.floor(dynamicNumBins / 2))) // Display 10-50 bars for visualization
+
+		// 让初始柱子数量更密集，最多70根，最少50根
+		const numBars = Math.min(70, Math.max(50, dynamicNumBins))
 
 		if (amt0 > 0 && amt1 === 0) {
-			// 只有Token X：从指示棒(锚点)向右渲染
 			for (let i = 0; i < numBars; i++) {
 				let height = baseHeight
 				if (strategy === 'curve') {
-					// 每根柱子一个台阶 - 固定台阶高度（下台阶）
-					height = 450 - (i * 6) // 增加起始高度到450px，确保69根柱子6px阶梯完整显示
+					height = 450 - (i * 6)
 				} else if (strategy === 'bid-ask') {
-					// 每根柱子一个台阶 - 固定台阶高度（上台阶）
-					height = 30 + (i * 6) // 增加阶梯步长：每根柱子上升6个像素
+					height = 30 + (i * 6)
 				}
-
-				// 获取柱子的消失效果
 				const dissolveEffect = getBarDissolveEffect(i, numBars, false)
-				
 				barsToRender.push(
 					<Box
 						key={i}
 						sx={{
-							width: 4, // 减小宽度
-							height: Math.max(30, height), // 移除最大高度限制，让台阶更明显
+							width: 4,
+							height: Math.max(30, height),
 							background: dissolveEffect.background || `linear-gradient(135deg,
 								rgba(123, 104, 238, 0.8) 0%,
 								rgba(100, 80, 200, 0.9) 50%,
@@ -386,26 +378,19 @@ const PriceRangeVisualizer = ({
 				)
 			}
 		} else if (amt1 > 0 && amt0 === 0) {
-			// 只有Token Y：从指示棒向左渲染，第一根柱子最靠近指示线
 			for (let i = 0; i < numBars; i++) {
 				let height = baseHeight
 				if (strategy === 'curve') {
-					// 每根柱子一个台阶 - 从指示线开始下降
-					height = 450 - (i * 6) // 增加起始高度到450px，确保69根柱子6px阶梯完整显示
+					height = 450 - (i * 6)
 				} else if (strategy === 'bid-ask') {
-					// 每根柱子一个台阶 - 从指示线开始上升
-					height = 30 + (i * 6) // 增加阶梯步长：每根柱子上升6个像素
+					height = 30 + (i * 6)
 				}
-
-				// 获取柱子的消失效果
 				const dissolveEffect = getBarDissolveEffect(i, numBars, true)
-				
-				// 直接push，配合flexDirection: 'row-reverse'实现从右向左
 				barsToRender.push(
 					<Box
-						key={i}
+					key={i}
 						sx={{
-							width: 4, // 减小宽度以适应69根柱子
+							width: 4,
 							height: Math.max(30, height),
 							background: dissolveEffect.background || `linear-gradient(135deg,
 								rgba(0, 217, 255, 0.8) 0%,
@@ -420,19 +405,14 @@ const PriceRangeVisualizer = ({
 				)
 			}
 		} else if (amt0 > 0 && amt1 > 0) {
-			// AutoFill模式：以指示棒为中心，左右分布
-			for (let i = -34; i <= 34; i++) { // 总共69根柱子 (-34到34)
+			for (let i = -Math.floor(numBars / 2); i <= Math.floor(numBars / 2); i++) {
 				let height = baseHeight
 				const distance = Math.abs(i)
-				
 				if (strategy === 'curve') {
-					// 每根柱子一个台阶 - 固定台阶高度（下台阶）
-					height = 450 - (distance * 6) // 增加起始高度到450px，确保69根柱子6px阶梯完整显示
+					height = 450 - (distance * 6)
 				} else if (strategy === 'bid-ask') {
-					// 每根柱子一个台阶 - 固定台阶高度（上台阶）
-					height = 30 + (distance * 6) // 增加阶梯步长：每根柱子上升6个像素
+					height = 30 + (distance * 6)
 				}
-
 				const isCenter = i === 0
 				let barColor
 				if (isCenter) {
@@ -448,22 +428,19 @@ const PriceRangeVisualizer = ({
 						rgba(100, 80, 200, 0.9) 50%,
 						rgba(80, 60, 160, 0.7) 100%)`
 				}
-
-				// 获取柱子的消失效果（AutoFill模式使用索引 i + 34 来映射到0-68范围）
-				const dissolveEffect = getBarDissolveEffect(i + 34, 69, false)
-
+				const dissolveEffect = getBarDissolveEffect(i + Math.floor(numBars / 2), numBars, false)
 				barsToRender.push(
 					<Box
 						key={i}
 						sx={{
-							width: 4, // 减小宽度以适应69根柱子
-							height: Math.max(30, height), // 移除最大高度限制，让台阶更明显
+							width: 4,
+							height: Math.max(30, height),
 							background: dissolveEffect.background || barColor,
 							borderRadius: '3px 3px 0 0',
 							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-							boxShadow: isCenter 
+							boxShadow: isCenter
 								? '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.4)'
-								: i < 0 
+								: i < 0
 									? '0 0 10px rgba(0, 217, 255, 0.4), 0 2px 8px rgba(0, 217, 255, 0.3)'
 									: '0 0 10px rgba(123, 104, 238, 0.4), 0 2px 8px rgba(123, 104, 238, 0.3)',
 							opacity: dissolveEffect.opacity,
