@@ -33,7 +33,13 @@ interface PoolBinsData {
 interface LiquidityBinsChartProps {
 	poolAddress: string
 	chainId: string
-	onBinRangeChange?: (minBinId: number, maxBinId: number) => void
+	onBinRangeChange?: (minBinId: number, maxBinId: number, priceRange?: {
+		minPrice: number
+		maxPrice: number
+		binCount: number
+		centerOffset: number
+		percentageRange: { min: number, max: number }
+	}) => void
 	minPrice?: number // 最小价格，用于动态调整刻度
 	maxPrice?: number // 最大价格，用于动态调整刻度  
 	currentPrice?: number // 当前价格，用于计算涨幅
@@ -94,13 +100,15 @@ const LiquidityBinsChart = ({
 		setError(null)
 
 		try {
-			// 🎯 动态计算bin范围，基于当前的价格范围
-			let dynamicRange = 50 // 默认范围
-			let dynamicLimit = 80  // 默认限制
+			// 🎯 使用固定的合理范围进行初始数据获取
+			// 不再依赖外部传入的价格范围，因为拖动时会在现有数据上计算
+			let dynamicRange = 100 // 增加默认范围，确保有足够的bins用于拖动计算
+			let dynamicLimit = 150  // 增加默认限制
 			
-			// 如果有minPrice和maxPrice，计算更精确的bin范围
+			// 🎯 可选：如果有初始价格参数，可以使用它们来优化首次请求
+			// 但不会在每次价格变化时重新请求
 			if (minPrice && maxPrice && currentPrice && binStep) {
-				// 使用Liquidity Book公式计算bin范围
+				// 使用Liquidity Book公式计算bin范围 - 仅用于初始优化
 				const binStepDecimal = binStep / 10000
 				
 				// 计算价格范围对应的bin数量
@@ -109,10 +117,10 @@ const LiquidityBinsChart = ({
 				
 				// 计算需要查询的范围（添加一些缓冲区）
 				const rangeBins = Math.max(Math.abs(minBins), Math.abs(maxBins))
-				dynamicRange = Math.max(10, Math.min(200, rangeBins + 20)) // 添加20个bin的缓冲区
-				dynamicLimit = Math.max(50, Math.min(300, rangeBins * 2 + 40)) // 动态限制
+				dynamicRange = Math.max(50, Math.min(200, rangeBins + 50)) // 增加缓冲区
+				dynamicLimit = Math.max(100, Math.min(300, rangeBins * 2 + 100)) // 增加缓冲区
 				
-				console.log('🎯 Dynamic bin range calculation:', {
+				console.log('🎯 Initial bin range calculation (one-time):', {
 					minPrice: minPrice.toFixed(6),
 					maxPrice: maxPrice.toFixed(6),
 					currentPrice: currentPrice.toFixed(6),
@@ -121,7 +129,8 @@ const LiquidityBinsChart = ({
 					maxBins,
 					calculatedRange: rangeBins,
 					finalRange: dynamicRange,
-					finalLimit: dynamicLimit
+					finalLimit: dynamicLimit,
+					note: '这只在初始加载时计算，拖动时不会重新请求'
 				})
 			}
 
@@ -175,11 +184,11 @@ const LiquidityBinsChart = ({
 			}
 
 			setBinsData(transformedData)
-			console.log('🎯 Bins data loaded:', transformedData)
-			console.log('📊 Total bins count:', transformedData.bins.length) // 新增：显示bins数量
-			console.log('📊 Bins with liquidity:', transformedData.bins.filter(bin => bin.reserveX > 0 || bin.reserveY > 0).length) // 新增：有流动性的bins
+			console.log('🎯 Bins data loaded (one-time fetch):', transformedData)
+			console.log('📊 Total bins count:', transformedData.bins.length, '- 这些数据将用于所有拖动计算，不会重新请求')
+			console.log('📊 Bins with liquidity:', transformedData.bins.filter(bin => bin.reserveX > 0 || bin.reserveY > 0).length)
 			console.log('🚨 BinStep from API:', transformedData.poolInfo.binStep, 'basis points')
-			console.log('🚨 API returned', transformedData.bins.length, 'bins - this should be 20 total for proper range calculation')
+			console.log('✅ 拖动时将在这', transformedData.bins.length, '个bins上进行价格计算，无需重新请求API')
 			console.log('📊 Price debugging:', {
 				activeId: transformedData.poolInfo.activeId,
 				tokenX: transformedData.poolInfo.tokenX.symbol,
@@ -198,25 +207,26 @@ const LiquidityBinsChart = ({
 		} finally {
 			setLoading(false)
 		}
-	}, [poolAddress, chainId, minPrice, maxPrice, currentPrice, binStep])
+	}, [poolAddress, chainId, binStep]) // 🎯 移除minPrice, maxPrice, currentPrice - 只在池子或binStep变化时重新请求
 
 	// 初始加载数据
 	useEffect(() => {
 		fetchBinsData()
 	}, [fetchBinsData])
 	
-	// 🎯 当价格范围变化时重新获取bins数据
-	useEffect(() => {
-		if (minPrice && maxPrice && currentPrice && binStep) {
-			console.log('🔄 Price range changed, refetching bins data:', {
-				minPrice: minPrice.toFixed(6),
-				maxPrice: maxPrice.toFixed(6),
-				currentPrice: currentPrice.toFixed(6),
-				binStep: binStep + 'bp'
-			})
-			fetchBinsData()
-		}
-	}, [minPrice, maxPrice, currentPrice, binStep, fetchBinsData])
+	// 🎯 只在真正需要时重新获取bins数据（池子变化或binStep变化）
+	// 不在价格范围变化时重新获取，因为拖动时只需要在现有数据上计算
+	// useEffect(() => {
+	// 	if (minPrice && maxPrice && currentPrice && binStep) {
+	// 		console.log('🔄 Price range changed, refetching bins data:', {
+	// 			minPrice: minPrice.toFixed(6),
+	// 			maxPrice: maxPrice.toFixed(6),
+	// 			currentPrice: currentPrice.toFixed(6),
+	// 			binStep: binStep + 'bp'
+	// 		})
+	// 		fetchBinsData()
+	// 	}
+	// }, [minPrice, maxPrice, currentPrice, binStep, fetchBinsData])
 
 	// 处理拖拽选择
 	const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -261,19 +271,97 @@ const LiquidityBinsChart = ({
 			
 			console.log(`🔴 拖动 ${isDraggingDot} 圆点到: ${newPositions[isDraggingDot].toFixed(1)}%`)
 			
-			// 计算对应的bin范围并触发回调
+			// 计算选中的bin范围和数量
 			const leftBinIndex = Math.floor((newPositions.left / 100) * binsData.bins.length)
 			const rightBinIndex = Math.floor((newPositions.right / 100) * binsData.bins.length)
 			const leftBinId = binsData.bins[leftBinIndex]?.binId
 			const rightBinId = binsData.bins[rightBinIndex]?.binId
 			
 			if (leftBinId !== undefined && rightBinId !== undefined && onBinRangeChange) {
-				onBinRangeChange(leftBinId, rightBinId)
+				// 🎯 计算实际的bin数量（基于拖动范围和价格计算）
+				const leftBinIndex = Math.floor((newPositions.left / 100) * binsData.bins.length)
+				const rightBinIndex = Math.floor((newPositions.right / 100) * binsData.bins.length)
+				const selectionCenterIndex = (leftBinIndex + rightBinIndex) / 2
+				const totalBins = binsData.bins.length
+				const centerIndex = totalBins / 2
+				const centerOffset = selectionCenterIndex - centerIndex
+				
+				// 🎯 使用Liquidity Book公式重新计算价格范围
+				const poolActiveId = binsData.poolInfo.activeId
+				const activeBin = binsData.bins.find(bin => bin.binId === poolActiveId)
+				const referencePrice = currentPrice || (activeBin ? (activeBin.priceY || (1 / activeBin.priceX)) : 1)
+				const effectiveBinStep = binStep || binsData.poolInfo.binStep || 25
+				const binStepDecimal = effectiveBinStep / 10000
+				
+				// 计算选择范围的中心bin相对于当前价格的偏移
+				const activeBinIndex = binsData.bins.findIndex(bin => bin.binId === poolActiveId)
+				const selectedCenterBinIndex = Math.floor(selectionCenterIndex)
+				const binOffsetFromActive = selectedCenterBinIndex - activeBinIndex
+				
+				// 🎯 基于拖动范围百分比计算实际的价格范围
+				const selectionRangePercentage = newPositions.right - newPositions.left
+				
+				// 假设当前显示的图表覆盖的是一个固定的价格范围（比如 ±30%）
+				// 根据拖动百分比映射到实际的价格范围
+				const chartDisplayRange = 0.6 // 图表显示 ±30% = 60% 总范围
+				const actualPriceRangeRatio = selectionRangePercentage / 100 * chartDisplayRange
+				
+				// 基于价格范围比例计算bin数量
+				// 使用对数公式：bins = log(maxPrice/minPrice) / log(1 + binStep)
+				const priceRatioForBinCount = 1 + actualPriceRangeRatio
+				const calculatedBinCount = Math.round(Math.log(priceRatioForBinCount) / Math.log(1 + binStepDecimal))
+				
+				// 确保bin数量合理（至少1个，最多200个）
+				const actualBinCount = Math.max(1, Math.min(200, calculatedBinCount))
+				
+				// 重新计算精确的价格范围（基于实际bin数量）
+				const halfRange = Math.floor(actualBinCount / 2)
+				const centerPriceMultiplier = Math.pow(1 + binStepDecimal, binOffsetFromActive)
+				const centerPrice = referencePrice * centerPriceMultiplier
+				
+				// 计算最终的min/max价格
+				const newMinPrice = centerPrice * Math.pow(1 + binStepDecimal, -halfRange)
+				const newMaxPrice = centerPrice * Math.pow(1 + binStepDecimal, halfRange)
+				
+				// 计算百分比范围
+				const minPercent = ((newMinPrice / referencePrice) - 1) * 100
+				const maxPercent = ((newMaxPrice / referencePrice) - 1) * 100
+				
+				console.log('🎯 拖动重新计算价格范围 (纯本地计算，无API请求):', {
+					selectionPercentage: `${newPositions.left.toFixed(1)}% - ${newPositions.right.toFixed(1)}%`,
+					selectionRangePercentage: selectionRangePercentage.toFixed(1) + '%',
+					arrayBasedBinCount: rightBinIndex - leftBinIndex + 1,
+					calculatedBinCount: calculatedBinCount,
+					actualBinCount: actualBinCount,
+					centerOffset: centerOffset.toFixed(1),
+					binOffsetFromActive: binOffsetFromActive,
+					referencePrice: referencePrice.toFixed(6),
+					centerPrice: centerPrice.toFixed(6),
+					newMinPrice: newMinPrice.toFixed(6),
+					newMaxPrice: newMaxPrice.toFixed(6),
+					minPercent: minPercent.toFixed(1) + '%',
+					maxPercent: maxPercent.toFixed(1) + '%',
+					priceRangeSpread: (((newMaxPrice - newMinPrice) / referencePrice) * 100).toFixed(1) + '%',
+					isAsymmetric: Math.abs(centerOffset) > 1 ? '✅ 支持非对称选择' : '⚖️ 居中选择',
+					note: '⚡ 基于现有bins数据计算，无需重新请求API'
+				})
+				
+				// 触发回调，传递bin IDs和计算的价格信息
+				onBinRangeChange(leftBinId, rightBinId, {
+					minPrice: newMinPrice,
+					maxPrice: newMaxPrice,
+					binCount: actualBinCount, // 🎯 使用实际计算的bin数量
+					centerOffset: centerOffset,
+					percentageRange: { 
+						min: minPercent, 
+						max: maxPercent 
+					}
+				})
 			}
 			
 			return newPositions
 		})
-	}, [isDraggingDot, binsData, onBinRangeChange])
+	}, [isDraggingDot, binsData, onBinRangeChange, currentPrice, binStep])
 
 	const handleDotMouseUp = useCallback(() => {
 		if (isDraggingDot) {
@@ -302,11 +390,76 @@ const LiquidityBinsChart = ({
 	)
 
 	const handleMouseUp = useCallback(() => {
-		if (isDragging && selectedRange && onBinRangeChange) {
-			onBinRangeChange(selectedRange.start, selectedRange.end)
+		if (isDragging && selectedRange && onBinRangeChange && binsData?.bins) {
+			// 🎯 计算选择范围的价格信息（与拖动圆点逻辑一致）
+			const leftBinIndex = binsData.bins.findIndex(bin => bin.binId === selectedRange.start)
+			const rightBinIndex = binsData.bins.findIndex(bin => bin.binId === selectedRange.end)
+			
+			if (leftBinIndex !== -1 && rightBinIndex !== -1) {
+				const arrayBasedBinCount = rightBinIndex - leftBinIndex + 1
+				const selectionCenterIndex = (leftBinIndex + rightBinIndex) / 2
+				const totalBins = binsData.bins.length
+				const centerIndex = totalBins / 2
+				const centerOffset = selectionCenterIndex - centerIndex
+				
+				// 计算价格范围（与拖动圆点逻辑一致）
+				const poolActiveId = binsData.poolInfo.activeId
+				const activeBin = binsData.bins.find(bin => bin.binId === poolActiveId)
+				const referencePrice = currentPrice || (activeBin ? (activeBin.priceY || (1 / activeBin.priceX)) : 1)
+				const effectiveBinStep = binStep || binsData.poolInfo.binStep || 25
+				const binStepDecimal = effectiveBinStep / 10000
+				
+				const activeBinIndex = binsData.bins.findIndex(bin => bin.binId === poolActiveId)
+				const selectedCenterBinIndex = Math.floor(selectionCenterIndex)
+				const binOffsetFromActive = selectedCenterBinIndex - activeBinIndex
+				
+				// 🎯 基于数组索引范围计算实际的价格范围百分比
+				const selectionRangePercentage = ((rightBinIndex - leftBinIndex) / totalBins) * 100
+				
+				// 使用类似的逻辑计算实际bin数量
+				const chartDisplayRange = 0.6 // 图表显示 ±30% = 60% 总范围
+				const actualPriceRangeRatio = selectionRangePercentage / 100 * chartDisplayRange
+				const priceRatioForBinCount = 1 + actualPriceRangeRatio
+				const calculatedBinCount = Math.round(Math.log(priceRatioForBinCount) / Math.log(1 + binStepDecimal))
+				const actualBinCount = Math.max(1, Math.min(200, calculatedBinCount))
+				
+				const halfRange = Math.floor(actualBinCount / 2)
+				const centerPriceMultiplier = Math.pow(1 + binStepDecimal, binOffsetFromActive)
+				const centerPrice = referencePrice * centerPriceMultiplier
+				
+				const newMinPrice = centerPrice * Math.pow(1 + binStepDecimal, -halfRange)
+				const newMaxPrice = centerPrice * Math.pow(1 + binStepDecimal, halfRange)
+				
+				const minPercent = ((newMinPrice / referencePrice) - 1) * 100
+				const maxPercent = ((newMaxPrice / referencePrice) - 1) * 100
+				
+				console.log('🎯 鼠标选择重新计算价格范围 (纯本地计算，无API请求):', {
+					arrayBasedBinCount: arrayBasedBinCount,
+					actualBinCount: actualBinCount,
+					binRange: `${selectedRange.start} - ${selectedRange.end}`,
+					newMinPrice: newMinPrice.toFixed(6),
+					newMaxPrice: newMaxPrice.toFixed(6),
+					percentageRange: `${minPercent.toFixed(1)}% to ${maxPercent.toFixed(1)}%`,
+					note: '⚡ 基于现有bins数据计算，无需重新请求API'
+				})
+				
+				onBinRangeChange(selectedRange.start, selectedRange.end, {
+					minPrice: newMinPrice,
+					maxPrice: newMaxPrice,
+					binCount: actualBinCount, // 🎯 使用实际计算的bin数量
+					centerOffset: centerOffset,
+					percentageRange: { 
+						min: minPercent, 
+						max: maxPercent 
+					}
+				})
+			} else {
+				// 如果没有找到对应的bin，使用简化版本
+				onBinRangeChange(selectedRange.start, selectedRange.end)
+			}
 		}
 		setIsDragging(false)
-	}, [isDragging, selectedRange, onBinRangeChange])
+	}, [isDragging, selectedRange, onBinRangeChange, binsData, currentPrice, binStep])
 
 	// 绑定全局鼠标事件
 	useEffect(() => {
@@ -626,6 +779,57 @@ Reserve: ${bin.reserveX.toFixed(2)} USDC + ${bin.reserveY.toFixed(4)} WBNB`}
 						pointerEvents: 'none',
 					}}
 				/>
+
+				{/* 🎯 拖动信息实时显示 */}
+				{isDraggingDot && binsData?.bins && (
+					<Box
+						sx={{
+							position: 'absolute',
+							top: -60,
+							left: '50%',
+							transform: 'translateX(-50%)',
+							background: 'rgba(0, 0, 0, 0.8)',
+							backdropFilter: 'blur(8px)',
+							border: '1px solid rgba(255, 255, 255, 0.2)',
+							borderRadius: 2,
+							px: 2,
+							py: 1,
+							zIndex: 10,
+							pointerEvents: 'none',
+							boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)'
+						}}
+					>
+						{(() => {
+							const leftBinIndex = Math.floor((dotPositions.left / 100) * binsData.bins.length)
+							const rightBinIndex = Math.floor((dotPositions.right / 100) * binsData.bins.length)
+							const arrayBasedBinCount = rightBinIndex - leftBinIndex + 1
+							const selectionPercentage = dotPositions.right - dotPositions.left
+							
+							// 🎯 计算实际的bin数量（与拖动逻辑一致）
+							const effectiveBinStep = binStep || binsData.poolInfo.binStep || 25
+							const binStepDecimal = effectiveBinStep / 10000
+							const chartDisplayRange = 0.6
+							const actualPriceRangeRatio = selectionPercentage / 100 * chartDisplayRange
+							const priceRatioForBinCount = 1 + actualPriceRangeRatio
+							const calculatedBinCount = Math.round(Math.log(priceRatioForBinCount) / Math.log(1 + binStepDecimal))
+							const actualBinCount = Math.max(1, Math.min(200, calculatedBinCount))
+							
+							return (
+								<Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+									<Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600, fontSize: '0.75rem' }}>
+										{actualBinCount} bins selected
+									</Typography>
+									<Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.65rem' }}>
+										{selectionPercentage.toFixed(1)}% of range
+									</Typography>
+									<Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.6rem' }}>
+										(Array: {arrayBasedBinCount})
+									</Typography>
+								</Box>
+							)
+						})()}
+					</Box>
+				)}
 
 				{/* 价格刻度轴 - 与PriceRangeVisualizer一致的动态刻度 */}
 				<Box

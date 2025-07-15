@@ -129,16 +129,39 @@ const AddLiquidityForm = ({
 	}
 
 	// Handle bin range selection from LiquidityBinsChart
-	const handleBinRangeChange = (minBinId: number, maxBinId: number) => {
+	const handleBinRangeChange = (minBinId: number, maxBinId: number, priceRange?: {
+		minPrice: number
+		maxPrice: number
+		binCount: number
+		centerOffset: number
+		percentageRange: { min: number, max: number }
+	}) => {
 		if (selectedPool && process.env.NODE_ENV === 'development') {
 			console.log('🎯 Bin range selected:', {
 				minBinId,
 				maxBinId,
 				poolBinStep: selectedPool.binStep,
+				priceRange: priceRange
 			})
 		}
-		// TODO: Convert bin IDs to prices and update price range
-		// This would require additional calculation based on the pool's bin step
+		
+		// 🎯 如果有价格范围信息，更新价格输入
+		if (priceRange) {
+			console.log('🎯 更新价格范围基于拖动选择:', {
+				binCount: priceRange.binCount,
+				centerOffset: priceRange.centerOffset.toFixed(2),
+				minPrice: priceRange.minPrice.toFixed(6),
+				maxPrice: priceRange.maxPrice.toFixed(6),
+				percentageRange: `${priceRange.percentageRange.min.toFixed(1)}% to ${priceRange.percentageRange.max.toFixed(1)}%`
+			})
+			
+			// 更新价格输入框
+			setMinPrice(priceRange.minPrice.toString())
+			setMaxPrice(priceRange.maxPrice.toString())
+			
+			// 🚨 可选：触发价格范围变化事件，让其他组件同步
+			handlePriceRangeChange(priceRange.minPrice, priceRange.maxPrice, priceRange.binCount)
+		}
 	}
 
 	// Add liquidity hook
