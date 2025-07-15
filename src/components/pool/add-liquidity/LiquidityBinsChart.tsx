@@ -94,8 +94,39 @@ const LiquidityBinsChart = ({
 		setError(null)
 
 		try {
+			// 🎯 动态计算bin范围，基于当前的价格范围
+			let dynamicRange = 50 // 默认范围
+			let dynamicLimit = 80  // 默认限制
+			
+			// 如果有minPrice和maxPrice，计算更精确的bin范围
+			if (minPrice && maxPrice && currentPrice && binStep) {
+				// 使用Liquidity Book公式计算bin范围
+				const binStepDecimal = binStep / 10000
+				
+				// 计算价格范围对应的bin数量
+				const minBins = Math.round(Math.log(minPrice / currentPrice) / Math.log(1 + binStepDecimal))
+				const maxBins = Math.round(Math.log(maxPrice / currentPrice) / Math.log(1 + binStepDecimal))
+				
+				// 计算需要查询的范围（添加一些缓冲区）
+				const rangeBins = Math.max(Math.abs(minBins), Math.abs(maxBins))
+				dynamicRange = Math.max(10, Math.min(200, rangeBins + 20)) // 添加20个bin的缓冲区
+				dynamicLimit = Math.max(50, Math.min(300, rangeBins * 2 + 40)) // 动态限制
+				
+				console.log('🎯 Dynamic bin range calculation:', {
+					minPrice: minPrice.toFixed(6),
+					maxPrice: maxPrice.toFixed(6),
+					currentPrice: currentPrice.toFixed(6),
+					binStep: binStep + 'bp',
+					minBins,
+					maxBins,
+					calculatedRange: rangeBins,
+					finalRange: dynamicRange,
+					finalLimit: dynamicLimit
+				})
+			}
+
 			const response = await fetch(
-				`https://api.dex.jongun2038.win/v1/api/dex/pools/${chainId}/${poolAddress}/bins?range=50&limit=80`,
+				`https://api.dex.jongun2038.win/v1/api/dex/pools/${chainId}/${poolAddress}/bins?range=${dynamicRange}&limit=${dynamicLimit}`,
 				{
 					headers: {
 						'x-api-key': 'test-key',
@@ -167,12 +198,25 @@ const LiquidityBinsChart = ({
 		} finally {
 			setLoading(false)
 		}
-	}, [poolAddress, chainId])
+	}, [poolAddress, chainId, minPrice, maxPrice, currentPrice, binStep])
 
 	// 初始加载数据
 	useEffect(() => {
 		fetchBinsData()
 	}, [fetchBinsData])
+	
+	// 🎯 当价格范围变化时重新获取bins数据
+	useEffect(() => {
+		if (minPrice && maxPrice && currentPrice && binStep) {
+			console.log('🔄 Price range changed, refetching bins data:', {
+				minPrice: minPrice.toFixed(6),
+				maxPrice: maxPrice.toFixed(6),
+				currentPrice: currentPrice.toFixed(6),
+				binStep: binStep + 'bp'
+			})
+			fetchBinsData()
+		}
+	}, [minPrice, maxPrice, currentPrice, binStep, fetchBinsData])
 
 	// 处理拖拽选择
 	const handleMouseDown = useCallback((e: React.MouseEvent) => {

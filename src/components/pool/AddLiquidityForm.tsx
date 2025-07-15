@@ -418,6 +418,8 @@ const AddLiquidityForm = ({
 									binStep={selectedPool?.binStep}
 									onPriceRangeChange={handlePriceRangeChange}
 									resetTrigger={resetTrigger}
+									minPrice={parseFloat(minPrice) || undefined}
+									maxPrice={parseFloat(maxPrice) || undefined}
 								/>
 							</Box>
 
