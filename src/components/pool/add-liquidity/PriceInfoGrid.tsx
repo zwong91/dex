@@ -52,20 +52,18 @@ const PriceInfoGrid = ({
 	// 编辑处理函数
 	const handleEditMinPrice = () => {
 		setIsEditingMin(true)
-		const { minPrice: dynMinPrice } = calculateDynamicRange()
-		const displayMinPrice = minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice))
-			? parseFloat(minPrice)
-			: dynMinPrice
-		setTempMinPrice(displayMinPrice.toFixed(6))
+		// 🎯 优先使用当前显示的值，而不是重新计算
+		const minPriceInfo = getMinPriceInfo()
+		setTempMinPrice(minPriceInfo.value)
+		console.log('🎯 Edit Min Price - using displayed value:', minPriceInfo.value)
 	}
 
 	const handleEditMaxPrice = () => {
 		setIsEditingMax(true)
-		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
-		const displayMaxPrice = maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice))
-			? parseFloat(maxPrice)
-			: dynMaxPrice
-		setTempMaxPrice(displayMaxPrice.toFixed(6))
+		// 🎯 优先使用当前显示的值，而不是重新计算
+		const maxPriceInfo = getMaxPriceInfo()
+		setTempMaxPrice(maxPriceInfo.value)
+		console.log('🎯 Edit Max Price - using displayed value:', maxPriceInfo.value)
 	}
 
 	const handleConfirmMinPrice = () => {

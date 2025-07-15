@@ -70,6 +70,7 @@ const AddLiquidityForm = ({
 		resetPriceRange,
 		getCurrentPrice,
 		getTokenPairDisplay,
+		userHasManuallyEdited,
 	} = usePriceRange(selectedPool)
 
 	// Enhanced price display with toggle functionality
@@ -97,6 +98,12 @@ const AddLiquidityForm = ({
 
 	// Handle price range changes from visualizer drag
 	const handlePriceRangeChange = (newMinPrice: number, newMaxPrice: number, numBins: number) => {
+		// 🎯 如果用户正在手动编辑，则忽略visualizer的更新
+		if (userHasManuallyEdited) {
+			console.log('🚫 Ignoring visualizer update - user is manually editing prices')
+			return
+		}
+		
 		setMinPrice(newMinPrice.toString())
 		setMaxPrice(newMaxPrice.toString())
 		
@@ -106,7 +113,8 @@ const AddLiquidityForm = ({
 				newMinPrice: newMinPrice.toFixed(6),
 				newMaxPrice: newMaxPrice.toFixed(6),
 				numBins,
-				strategy: liquidityStrategy
+				strategy: liquidityStrategy,
+				userHasManuallyEdited: userHasManuallyEdited
 			})
 		}
 	}

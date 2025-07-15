@@ -620,16 +620,20 @@ Reserve: ${bin.reserveX.toFixed(2)} USDC + ${bin.reserveY.toFixed(4)} WBNB`}
 						}}
 					>
 						{Array.from({ length: 7 }, (_, i) => {
-							// 🎯 使用内部计算的40bin范围价格，忽略外部传入的props
+							// 🎯 优先使用外部传入的minPrice/maxPrice，fallback到内部计算
 							const referencePrice = currentPrice || activeBinPrice
 							
-							// 使用计算出的精确价格范围（40bin范围）
-							const effectiveMinPrice = calculatedMinPrice
-							const effectiveMaxPrice = calculatedMaxPrice
+							// 使用传入的价格范围，如果有的话
+							const effectiveMinPrice = minPrice || calculatedMinPrice
+							const effectiveMaxPrice = maxPrice || calculatedMaxPrice
 							
 							console.log('🎯 Price scale calculation (70 bins):', {
+								propsMinPrice: minPrice,
+								propsMaxPrice: maxPrice,
 								calculatedMinPrice: calculatedMinPrice,
 								calculatedMaxPrice: calculatedMaxPrice,
+								effectiveMinPrice: effectiveMinPrice,
+								effectiveMaxPrice: effectiveMaxPrice,
 								referencePrice: referencePrice,
 								stepPrice: effectiveMinPrice + (effectiveMaxPrice - effectiveMinPrice) * i / 6,
 								binStepProp: binStep

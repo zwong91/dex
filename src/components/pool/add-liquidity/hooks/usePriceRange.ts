@@ -30,6 +30,14 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 	// Use chain price if available, otherwise fallback to pool data or default
 	const activeBinPrice = chainPrice || selectedPool?.currentPrice || 1.0
 	
+	// 🎯 添加用户手动编辑标志，防止自动覆盖用户输入
+	const [userHasManuallyEdited, setUserHasManuallyEdited] = useState(false)
+	
+	// 🎯 当池子改变时重置手动编辑标志
+	useEffect(() => {
+		setUserHasManuallyEdited(false)
+	}, [selectedPool?.id])
+	
 	// 🎯 只有当我们有真实价格时才初始化范围，避免使用1.0的fallback值
 	const shouldInitialize = chainPrice || selectedPool?.currentPrice
 	const getInitialPriceRange = (currentPrice: number, binStep?: number) => {
@@ -80,20 +88,20 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 	// Update price range when active price changes or when we get the first real price
 	useEffect(() => {
 		const realPrice = chainPrice || selectedPool?.currentPrice
-		if (realPrice) {
+		if (realPrice && !userHasManuallyEdited) {
 			const newRange = getInitialPriceRange(realPrice, selectedPool?.binStep)
-			// 只有当前值为空或者是基于1.0计算的错误值时才更新
-			if (!minPrice || !maxPrice || Math.abs(parseFloat(minPrice) - 1.0) < 0.1) {
-				setMinPrice(newRange.minP.toString())
-				setMaxPrice(newRange.maxP.toString())
-				console.log('🎯 Price range initialized with real price:', {
-					realPrice: realPrice.toFixed(6),
-					newMinPrice: newRange.minP.toFixed(6),
-					newMaxPrice: newRange.maxP.toFixed(6)
-				})
-			}
+			// 只在初始化时更新，不依赖当前的minPrice/maxPrice值
+			setMinPrice(newRange.minP.toString())
+			setMaxPrice(newRange.maxP.toString())
+			console.log('🎯 Price range initialized with real price:', {
+				realPrice: realPrice.toFixed(6),
+				newMinPrice: newRange.minP.toFixed(6),
+				newMaxPrice: newRange.maxP.toFixed(6),
+				userHasManuallyEdited: userHasManuallyEdited
+			})
 		}
-	}, [chainPrice, selectedPool?.binStep, selectedPool?.currentPrice, minPrice, maxPrice])
+	}, [chainPrice, selectedPool?.binStep, selectedPool?.currentPrice, userHasManuallyEdited])
+	// 🎯 移除minPrice, maxPrice的依赖，防止手动编辑后触发重新计算
 	
 	// Calculate dynamic number of bins and price range based on token amounts and strategy
 	const calculateDynamicRange = (
@@ -176,6 +184,69 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 		const resetRange = getInitialPriceRange(activeBinPrice, selectedPool?.binStep)
 		setMinPrice(resetRange.minP.toString())
 		setMaxPrice(resetRange.maxP.toString())
+		// 重置时清除手动编辑标志
+		setUserHasManuallyEdited(false)
+	}
+
+	// 🎯 手动设置价格的函数，标记用户已编辑
+	const setMinPriceManually = (price: string) => {
+		const newMinPrice = parseFloat(price)
+		if (!isNaN(newMinPrice) && newMinPrice > 0) {
+			setMinPrice(price)
+			
+			// 🎯 根据新的MinPrice自动计算对应的MaxPrice，保持70 bins范围
+			const bs = selectedPool?.binStep || 25
+			const binStepDecimal = bs / 10000
+			const binsOnEachSide = 35
+			
+			// 从MinPrice反推当前价格，然后计算MaxPrice
+			// minPrice = currentPrice * (1 + binStep)^(-35)
+			// 所以 currentPrice = minPrice / (1 + binStep)^(-35)
+			const impliedCurrentPrice = newMinPrice / Math.pow(1 + binStepDecimal, -binsOnEachSide)
+			const newMaxPrice = impliedCurrentPrice * Math.pow(1 + binStepDecimal, binsOnEachSide)
+			
+			setMaxPrice(newMaxPrice.toString())
+			setUserHasManuallyEdited(true)
+			
+			console.log('🎯 User manually set min price, auto-calculated max price:', {
+				newMinPrice: newMinPrice.toFixed(6),
+				impliedCurrentPrice: impliedCurrentPrice.toFixed(6),
+				newMaxPrice: newMaxPrice.toFixed(6),
+				totalRange: ((newMaxPrice / newMinPrice - 1) * 100).toFixed(2) + '%',
+				binStep: bs + 'bp',
+				totalBins: binsOnEachSide * 2
+			})
+		}
+	}
+
+	const setMaxPriceManually = (price: string) => {
+		const newMaxPrice = parseFloat(price)
+		if (!isNaN(newMaxPrice) && newMaxPrice > 0) {
+			setMaxPrice(price)
+			
+			// 🎯 根据新的MaxPrice自动计算对应的MinPrice，保持70 bins范围
+			const bs = selectedPool?.binStep || 25
+			const binStepDecimal = bs / 10000
+			const binsOnEachSide = 35
+			
+			// 从MaxPrice反推当前价格，然后计算MinPrice
+			// maxPrice = currentPrice * (1 + binStep)^35
+			// 所以 currentPrice = maxPrice / (1 + binStep)^35
+			const impliedCurrentPrice = newMaxPrice / Math.pow(1 + binStepDecimal, binsOnEachSide)
+			const newMinPrice = impliedCurrentPrice * Math.pow(1 + binStepDecimal, -binsOnEachSide)
+			
+			setMinPrice(newMinPrice.toString())
+			setUserHasManuallyEdited(true)
+			
+			console.log('🎯 User manually set max price, auto-calculated min price:', {
+				newMaxPrice: newMaxPrice.toFixed(6),
+				impliedCurrentPrice: impliedCurrentPrice.toFixed(6),
+				newMinPrice: newMinPrice.toFixed(6),
+				totalRange: ((newMaxPrice / newMinPrice - 1) * 100).toFixed(2) + '%',
+				binStep: bs + 'bp',
+				totalBins: binsOnEachSide * 2
+			})
+		}
 	}
 
 	const getCurrentPrice = () => {
@@ -207,8 +278,8 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 		activeBinPrice,
 		minPrice,
 		maxPrice,
-		setMinPrice,
-		setMaxPrice,
+		setMinPrice: setMinPriceManually,
+		setMaxPrice: setMaxPriceManually,
 		calculateDynamicRange,
 		getNumBins,
 		resetPriceRange,
@@ -216,5 +287,6 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 		getTokenPairDisplay,
 		priceLoading, // Include loading state for price fetching
 		chainPrice, // Include raw chain price for debugging
+		userHasManuallyEdited, // Export the manual edit flag for debugging
 	}
 }
