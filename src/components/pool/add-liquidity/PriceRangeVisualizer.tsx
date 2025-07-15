@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Box, Typography, IconButton } from '@mui/material'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { LiquidityStrategy } from './StrategySelection'
@@ -30,6 +30,7 @@ interface PriceRangeVisualizerProps {
 	strategy: LiquidityStrategy
 	binStep?: number // 添加 binStep prop，以基点为单位（例如25表示0.25%）
 	onPriceRangeChange?: (minPrice: number, maxPrice: number, numBins: number) => void // 添加价格范围变化回调
+	resetTrigger?: number // 添加重置触发器，当这个数字变化时重置拖动位置
 }
 
 const PriceRangeVisualizer = ({
@@ -39,14 +40,77 @@ const PriceRangeVisualizer = ({
 	strategy,
 	binStep = 1, // 默认值1基点（0.01%）
 	onPriceRangeChange, // 添加价格范围变化回调
+	resetTrigger, // 添加重置触发器
 }: PriceRangeVisualizerProps) => {
 	// 拖动状态
 	const [isDragging, setIsDragging] = useState(false)
 	const [dragPosition, setDragPosition] = useState<string | null>(null) // 存储拖动位置，null表示使用默认位置
+	const [isAnimating, setIsAnimating] = useState(false) // 添加动画状态
+	const [animationTargetPosition, setAnimationTargetPosition] = useState<string | null>(null) // 动画目标位置
+	const [hasUserDragged, setHasUserDragged] = useState(false) // 追踪用户是否已经手动拖动过
 	const containerRef = useRef<HTMLDivElement>(null)
 	
 	// 使用全局价格切换状态
 	const { isReversed, togglePriceDirection } = usePriceToggle()
+	
+	// 监听金额变化，触发自动动画
+	useEffect(() => {
+		const amt0 = parseFloat(amount0) || 0
+		const amt1 = parseFloat(amount1) || 0
+		
+		// 只有在用户没有手动拖动过且输入单侧流动性时才触发动画
+		if (!hasUserDragged && !isDragging) {
+			// 只有在用户输入左侧token（amount0 > 0 且 amount1 = 0）时触发动画
+			if (amt0 > 0 && amt1 === 0) {
+				console.log('🎬 Triggering auto animation: indicator moving to left (first time)')
+				setIsAnimating(true)
+				setAnimationTargetPosition('1%') // 移动到最左侧1%位置，真正的边界
+				
+				// 1秒后设置最终位置并结束动画
+				setTimeout(() => {
+					setDragPosition('1%')
+					setIsAnimating(false)
+					setAnimationTargetPosition(null)
+					
+					// 触发价格范围变化回调
+					if (onPriceRangeChange) {
+						const { minPrice, maxPrice, numBins } = calculatePriceRangeFromPosition('1%')
+						onPriceRangeChange(minPrice, maxPrice, numBins)
+					}
+				}, 1000)
+			}
+			// 如果用户只输入右侧token（amount1 > 0 且 amount0 = 0）时触发动画到右侧
+			else if (amt1 > 0 && amt0 === 0) {
+				console.log('🎬 Triggering auto animation: indicator moving to right (first time)')
+				setIsAnimating(true)
+				setAnimationTargetPosition('99%') // 移动到最右侧99%位置，真正的边界
+				
+				// 1秒后设置最终位置并结束动画
+				setTimeout(() => {
+					setDragPosition('99%')
+					setIsAnimating(false)
+					setAnimationTargetPosition(null)
+					
+					// 触发价格范围变化回调
+					if (onPriceRangeChange) {
+						const { minPrice, maxPrice, numBins } = calculatePriceRangeFromPosition('99%')
+						onPriceRangeChange(minPrice, maxPrice, numBins)
+					}
+				}, 1000)
+			}
+		}
+	}, [amount0, amount1, hasUserDragged, isDragging, onPriceRangeChange]) // 添加hasUserDragged依赖
+	
+	// 监听重置触发器
+	useEffect(() => {
+		if (resetTrigger !== undefined) {
+			console.log('🔄 Reset triggered, clearing drag position and user drag flag')
+			setDragPosition(null)
+			setIsAnimating(false)
+			setAnimationTargetPosition(null)
+			setHasUserDragged(false) // 重置时清除用户拖动标志，允许下次自动动画
+		}
+	}, [resetTrigger])
 	
 	// 价格锚点：永远显示 activeBinPrice
 	const anchorPrice = activeBinPrice
@@ -66,8 +130,14 @@ const PriceRangeVisualizer = ({
 	// 拖动开始
 	const handleDragStart = useCallback((e: React.MouseEvent) => {
 		e.preventDefault()
+		// 如果正在动画，立即停止动画并允许拖动
+		if (isAnimating) {
+			setIsAnimating(false)
+			setAnimationTargetPosition(null)
+		}
 		setIsDragging(true)
-	}, [])
+		setHasUserDragged(true) // 标记用户已经手动拖动过
+	}, [isAnimating])
 	
 	// 计算基于拖动位置的价格范围
 	const calculatePriceRangeFromPosition = useCallback((position: string) => {
@@ -215,12 +285,6 @@ const PriceRangeVisualizer = ({
 		}
 	}, [isDragging, handleDragMove, handleDragEnd])
 
-	// 监听模式变化，重置拖动位置
-	React.useEffect(() => {
-		// 当amount0或amount1变化时（即模式切换时），重置拖动位置
-		setDragPosition(null)
-	}, [amount0, amount1])
-
 	// 使用useRef来追踪是否已经设置了初始价格范围
 	const hasSetInitialRange = useRef(false)
 
@@ -262,7 +326,9 @@ const PriceRangeVisualizer = ({
 
 	// 获取价格标签的定位样式
 	const getPriceLabelStyles = () => {
-		const position = getCurrentPriceIndicatorPosition()
+		const position = isAnimating 
+			? animationTargetPosition || getCurrentPriceIndicatorPosition()
+			: getCurrentPriceIndicatorPosition()
 		const positionValue = parseFloat(position.replace('%', ''))
 		
 		// 判断指示器的位置范围来决定标签的定位策略
@@ -271,18 +337,21 @@ const PriceRangeVisualizer = ({
 			return {
 				left: position,
 				transform: 'translateX(4px)', // 减小偏移距离，更贴近指示棒
+				transition: isAnimating ? 'left 1s cubic-bezier(0.4, 0, 0.2, 1)' : 'left 0.3s ease-out',
 			}
 		} else if (positionValue >= 95) {
 			// 指示器在最右边：标签显示在左侧，紧贴指示棒
 			return {
 				left: position,
 				transform: 'translateX(-100%) translateX(-4px)', // 完全向左偏移再减去间距
+				transition: isAnimating ? 'left 1s cubic-bezier(0.4, 0, 0.2, 1)' : 'left 0.3s ease-out',
 			}
 		} else {
 			// 指示器在中间：标签居中对齐到指示器位置
 			return {
 				left: position,
 				transform: 'translateX(-50%)',
+				transition: isAnimating ? 'left 1s cubic-bezier(0.4, 0, 0.2, 1)' : 'left 0.3s ease-out',
 			}
 		}
 	}
@@ -550,7 +619,9 @@ const PriceRangeVisualizer = ({
 				{/* Current price indicator line with draggable handle */}
 				<Box sx={{
 					position: 'absolute',
-					left: getCurrentPriceIndicatorPosition(),
+					left: isAnimating 
+						? animationTargetPosition || getCurrentPriceIndicatorPosition()
+						: getCurrentPriceIndicatorPosition(),
 					top: 30,
 					bottom: 0,
 					width: 2,
@@ -567,6 +638,12 @@ const PriceRangeVisualizer = ({
 						0 0 16px rgba(255, 255, 255, 0.3),
 						0 2px 4px rgba(0, 0, 0, 0.2)
 					`,
+					// 添加动画过渡
+					transition: isAnimating 
+						? 'left 1s cubic-bezier(0.4, 0, 0.2, 1)'
+						: isDragging 
+							? 'none' 
+							: 'left 0.3s ease-out',
 					// 添加脉冲动画增强视觉关联
 					animation: isDragging ? 'none' : 'pulse 2s ease-in-out infinite',
 					'@keyframes pulse': {
@@ -592,7 +669,9 @@ const PriceRangeVisualizer = ({
 					onMouseDown={handleDragStart}
 					sx={{
 						position: 'absolute',
-						left: getCurrentPriceIndicatorPosition(),
+						left: isAnimating 
+							? animationTargetPosition || getCurrentPriceIndicatorPosition()
+							: getCurrentPriceIndicatorPosition(),
 						bottom: -8,
 						width: 20,
 						height: 16,
@@ -604,6 +683,12 @@ const PriceRangeVisualizer = ({
 						borderRadius: '8px 8px 4px 4px',
 						cursor: isDragging ? 'grabbing' : 'grab',
 						border: isDragging ? '2px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.6)',
+						// 添加动画过渡
+						transition: isAnimating 
+							? 'left 1s cubic-bezier(0.4, 0, 0.2, 1)'
+							: isDragging 
+								? 'none' 
+								: 'all 0.2s ease',
 						boxShadow: isDragging ? `
 							0 6px 20px rgba(0, 0, 0, 0.4),
 							0 3px 10px rgba(0, 0, 0, 0.25),
@@ -615,7 +700,6 @@ const PriceRangeVisualizer = ({
 							inset 0 1px 0 rgba(255, 255, 255, 0.8),
 							0 0 0 1px rgba(255, 255, 255, 0.2)
 						`,
-						transition: isDragging ? 'none' : 'all 0.2s ease',
 						'&:hover': {
 							transform: 'translateX(-50%) scale(1.1)',
 							boxShadow: `

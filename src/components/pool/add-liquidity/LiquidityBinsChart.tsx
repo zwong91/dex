@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
+import { usePriceToggle } from './contexts/PriceToggleContext'
 
 interface BinData {
 	binId: number
@@ -70,6 +71,9 @@ const LiquidityBinsChart = ({
 	const [hoveredBinId, setHoveredBinId] = useState<number | null>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
 
+	// 使用全局价格切换状态
+	const { isReversed } = usePriceToggle()
+
 	// 获取bins数据
 	const fetchBinsData = useCallback(async () => {
 		if (!poolAddress || !chainId) return
@@ -129,6 +133,18 @@ const LiquidityBinsChart = ({
 
 			setBinsData(transformedData)
 			console.log('🎯 Bins data loaded:', transformedData)
+			console.log('📊 Price debugging:', {
+				activeId: transformedData.poolInfo.activeId,
+				tokenX: transformedData.poolInfo.tokenX.symbol,
+				tokenY: transformedData.poolInfo.tokenY.symbol,
+				isReversed: isReversed,
+				sampleBinPrices: transformedData.bins.slice(0, 3).map(bin => ({
+					binId: bin.binId,
+					priceX: bin.priceX,
+					priceY: bin.priceY,
+					isActive: bin.isActive
+				}))
+			})
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to fetch bins data')
 			console.error('Error fetching bins data:', err)
@@ -271,22 +287,22 @@ const LiquidityBinsChart = ({
 	}
 
 	return (
-		<Box sx={{ mt: 3 }}>
-			{/* 柱状图容器 */}
+		<Box sx={{ mt: 2 }}>
+			{/* 柱状图容器 - 更紧凑的设计 */}
 			<Box
 				ref={containerRef}
 				onMouseDown={handleMouseDown}
 				sx={{
 					position: 'relative',
-					height: 180,
+					height: 120, // 从 180 降到 120
 					background: 'rgba(30, 32, 60, 0.4)',
 					borderRadius: 2,
 					border: '1px solid rgba(120, 113, 108, 0.2)',
-					p: 2,
+					p: 1.5, // 从 2 降到 1.5
 					cursor: isDragging ? 'grabbing' : 'crosshair',
 					userSelect: 'none',
-					overflow: 'hidden',
-					mb: 2,
+					overflow: 'visible',
+					mb: 3, // 从 5 降到 3
 				}}
 			>
 				{/* 柱状图 */}
@@ -301,7 +317,7 @@ const LiquidityBinsChart = ({
 				>
 					{binsData.bins.map((bin) => {
 						const totalReserve = bin.reserveX + bin.reserveY
-						const height = maxReserve > 0 ? (totalReserve / maxReserve) * 100 : 0
+						const height = maxReserve > 0 ? (totalReserve / maxReserve) * 80 : 0 // 最大高度从 100% 降到 80%
 						const isActive = bin.binId === activeId
 						const isSelected = isBinSelected(bin.binId)
 						const isHovered = hoveredBinId === bin.binId
@@ -309,11 +325,11 @@ const LiquidityBinsChart = ({
 						return (
 							<Box
 								key={bin.binId}
-								onMouseEnter={() => setHoveredBinId(bin.binId)}
+								onMouseEnter={() => !isDragging && setHoveredBinId(bin.binId)}
 								onMouseLeave={() => setHoveredBinId(null)}
 								sx={{
 									width: `${Math.max(1, 90 / binsData.bins.length)}%`,
-									height: `${Math.max(2, height)}%`,
+									height: `${Math.max(3, height)}%`, // 最小高度从 2% 增加到 3%
 									background: isActive
 										? 'linear-gradient(to top, #ffffff 0%, #f5f5f5 100%)'
 										: isHovered
@@ -327,33 +343,29 @@ const LiquidityBinsChart = ({
 										: bin.reserveY > 0
 										? 'linear-gradient(to top, #6366f1 0%, #4f46e5 100%)'
 										: 'linear-gradient(to top, rgba(120, 113, 108, 0.3) 0%, rgba(120, 113, 108, 0.5) 100%)',
-									borderRadius: '2px 2px 0 0',
+									borderRadius: '1px 1px 0 0', // 从 2px 降到 1px
 									transition: 'all 0.2s ease',
 									opacity: isHovered || isActive || isSelected ? 1 : 0.8,
 									boxShadow: isActive
-										? '0 0 8px rgba(255, 255, 255, 0.8), 0 0 16px rgba(255, 255, 255, 0.4)'
+										? '0 0 6px rgba(255, 255, 255, 0.8), 0 0 12px rgba(255, 255, 255, 0.4)' // 减小阴影
 										: isHovered
-										? '0 0 6px rgba(251, 191, 36, 0.6)'
+										? '0 0 4px rgba(251, 191, 36, 0.6)'
 										: isSelected
-										? '0 0 4px rgba(59, 130, 246, 0.4)'
+										? '0 0 3px rgba(59, 130, 246, 0.4)'
 										: 'none',
-									transform: isHovered && !isDragging ? 'scaleY(1.1)' : 'none',
+									transform: isHovered && !isDragging ? 'scaleY(1.05)' : 'none', // 从 1.1 降到 1.05
 									cursor: 'pointer',
 									border: isActive ? '1px solid rgba(255, 255, 255, 0.6)' : 'none',
 								}}
-								title={`Bin ${bin.binId}
-Liquidity: $${bin.liquidityUsd.toFixed(2)}
-Price X: ${bin.priceX.toFixed(6)}
-Price Y: ${bin.priceY.toFixed(6)}
-Reserve X: ${bin.reserveX.toFixed(4)}
-Reserve Y: ${bin.reserveY.toFixed(4)}
-LPs: ${bin.liquidityProviderCount}`}
+								title={`Bin ${bin.binId}${bin.isActive ? ' (Active)' : ''}
+Price: ${(isReversed ? (bin.priceX) : (bin.priceY || (1 / bin.priceX))).toFixed(6)} ${isReversed ? 'USDC/WBNB' : 'WBNB/USDC'}
+Reserve: ${bin.reserveX.toFixed(2)} USDC + ${bin.reserveY.toFixed(4)} WBNB`}
 							/>
 						)
 					})}
 				</Box>
 
-				{/* Active bin 指示线 */}
+				{/* Active bin 指示线 - 更细更紧凑 */}
 				{(() => {
 					const activeBinIndex = binsData.bins.findIndex(bin => bin.binId === activeId)
 					if (activeBinIndex === -1) return null
@@ -367,112 +379,133 @@ LPs: ${bin.liquidityProviderCount}`}
 								left: `${position}%`,
 								top: 0,
 								bottom: 0,
-								width: 3,
+								width: 2, // 从 3 降到 2
 								background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%)',
 								transform: 'translateX(-50%)',
 								zIndex: 3,
 								pointerEvents: 'none',
-								boxShadow: '0 0 8px rgba(255, 255, 255, 0.8), 0 0 16px rgba(255, 255, 255, 0.4)',
+								boxShadow: '0 0 4px rgba(255, 255, 255, 0.8), 0 0 8px rgba(255, 255, 255, 0.4)', // 减小阴影
 								borderRadius: '1px',
 							}}
 						/>
 					)
 				})()}
 
-				{/* 价格标签 */}
+				{/* 价格刻度轴 - 更紧凑的设计 */}
 				<Box
 					sx={{
 						position: 'absolute',
-						bottom: -25,
+						bottom: -25, // 从 -35 调整到 -25
 						left: 0,
 						right: 0,
-						display: 'flex',
-						justifyContent: 'space-between',
-						px: 1,
+						height: 20, // 从 30 降到 20
 					}}
 				>
-					<Typography variant="caption" sx={{ color: 'rgba(120, 113, 108, 0.7)', fontSize: '0.7rem' }}>
-						{binsData.bins[0]?.priceX.toFixed(4)}
-					</Typography>
-					<Typography variant="caption" sx={{ color: 'rgba(120, 113, 108, 0.7)', fontSize: '0.7rem' }}>
-						{binsData.bins[Math.floor(binsData.bins.length / 2)]?.priceX.toFixed(4)}
-					</Typography>
-					<Typography variant="caption" sx={{ color: 'rgba(120, 113, 108, 0.7)', fontSize: '0.7rem' }}>
-						{binsData.bins[binsData.bins.length - 1]?.priceX.toFixed(4)}
-					</Typography>
-				</Box>
-			</Box>
-
-			{/* 悬停信息提示 */}
-			{hoveredBinId && (() => {
-				const hoveredBin = binsData.bins.find(bin => bin.binId === hoveredBinId)
-				if (!hoveredBin) return null
-
-				return (
+					{/* 刻度底线 */}
 					<Box
 						sx={{
-							p: 1.5,
-							background: 'rgba(30, 32, 60, 0.95)',
-							borderRadius: 2,
-							border: '1px solid rgba(251, 191, 36, 0.3)',
-							mb: 1,
-							backdropFilter: 'blur(8px)',
+							position: 'absolute',
+							top: 0,
+							left: 0,
+							right: 0,
+							height: '1px',
+							background: 'linear-gradient(90deg, transparent 0%, rgba(120, 113, 108, 0.3) 10%, rgba(120, 113, 108, 0.3) 90%, transparent 100%)',
+						}}
+					/>
+					
+					{/* 价格标签 */}
+					<Box
+						sx={{
+							display: 'flex',
+							justifyContent: 'space-between',
+							px: 1,
+							position: 'relative',
 						}}
 					>
-						<Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-							<Typography variant="caption" sx={{ 
-								color: hoveredBin.isActive ? '#ffffff' : 'rgba(251, 191, 36, 0.9)', 
-								fontWeight: 600,
-								fontSize: '0.75rem'
-							}}>
-								Bin #{hoveredBin.binId} {hoveredBin.isActive && '(Active)'}
-							</Typography>
-							<Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.7rem' }}>
-								Price: {hoveredBin.priceX.toFixed(6)}
-							</Typography>
-							<Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.7rem' }}>
-								Reserve: {(hoveredBin.reserveX + hoveredBin.reserveY).toExponential(2)}
-							</Typography>
-							<Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.7rem' }}>
-								LPs: {hoveredBin.liquidityProviderCount}
-							</Typography>
-						</Box>
+						{Array.from({ length: 7 }, (_, i) => {
+							const binIndex = Math.floor((i / 6) * (binsData.bins.length - 1))
+							const bin = binsData.bins[binIndex]
+							if (!bin) return null
+
+							// 智能格式化价格显示
+							const formatPrice = () => {
+								const basePrice = bin.priceY || (1 / bin.priceX)
+								const displayPrice = isReversed ? (1 / basePrice) : basePrice
+								
+								if (displayPrice >= 1000) {
+									return displayPrice.toFixed(0)
+								} else if (displayPrice >= 100) {
+									return displayPrice.toFixed(1)
+								} else if (displayPrice >= 10) {
+									return displayPrice.toFixed(2)
+								} else if (displayPrice >= 1) {
+									return displayPrice.toFixed(3)
+								} else if (displayPrice >= 0.1) {
+									return displayPrice.toFixed(4)
+								} else if (displayPrice >= 0.01) {
+									return displayPrice.toFixed(5)
+								} else {
+									return displayPrice.toFixed(6)
+								}
+							}
+
+							const isActive = bin.binId === activeId
+							
+							return (
+								<Box key={i} sx={{ 
+									display: 'flex', 
+									flexDirection: 'column', 
+									alignItems: 'center', 
+									flex: 1,
+									position: 'relative'
+								}}>
+									{/* 刻度线 - 更小 */}
+									<Box sx={{
+										width: isActive ? '1.5px' : '1px', // 从 2px/1px 降到 1.5px/1px
+										height: isActive ? '8px' : '6px', // 从 12px/8px 降到 8px/6px
+										background: isActive 
+											? 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)'
+											: 'rgba(120, 113, 108, 0.4)',
+										borderRadius: '1px',
+										mb: 0.5, // 从 0.8 降到 0.5
+									}} />
+									
+									{/* 价格标签 - 更小 */}
+									<Typography 
+										variant="caption" 
+										sx={{ 
+											color: isActive ? '#f59e0b' : 'rgba(120, 113, 108, 0.7)',
+											fontSize: isActive ? '0.65rem' : '0.6rem', // 减小字体
+											fontWeight: isActive ? 600 : 500,
+											textAlign: 'center',
+											whiteSpace: 'nowrap',
+											letterSpacing: '0.02em',
+											background: isActive ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+											px: isActive ? 0.5 : 0.25, // 减小padding
+											py: isActive ? 0.2 : 0,
+											borderRadius: isActive ? '4px' : 0,
+											border: isActive ? '1px solid rgba(245, 158, 11, 0.2)' : 'none',
+											transition: 'all 0.2s ease',
+										}}
+									>
+										{formatPrice()}
+										{isActive && (
+											<Typography component="span" sx={{ 
+												fontSize: '0.5rem', // 减小圆点大小
+												ml: 0.3, 
+												opacity: 0.7,
+												color: '#f59e0b'
+											}}>
+												●
+											</Typography>
+										)}
+									</Typography>
+								</Box>
+							)
+						})}
 					</Box>
-				)
-			})()}
-
-			{/* Bin 信息显示 */}
-			{selectedRange && (
-				<Box
-					sx={{
-						p: 2,
-						background: 'rgba(255, 251, 235, 0.1)',
-						borderRadius: 2,
-						border: '1px solid rgba(249, 115, 22, 0.2)',
-					}}
-				>
-					{(() => {
-						const selectedBins = binsData.bins.filter(bin =>
-							isBinSelected(bin.binId)
-						)
-						const totalLiquidity = selectedBins.reduce((sum, bin) => sum + bin.liquidityUsd, 0)
-
-						return (
-							<Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-								<Typography variant="caption" sx={{ color: 'rgba(120, 113, 108, 0.8)' }}>
-									Range: {selectedRange.start} - {selectedRange.end}
-								</Typography>
-								<Typography variant="caption" sx={{ color: 'rgba(120, 113, 108, 0.8)' }}>
-									Liquidity: ${totalLiquidity.toFixed(2)}
-								</Typography>
-								<Typography variant="caption" sx={{ color: 'rgba(120, 113, 108, 0.8)' }}>
-									Bins: {selectedBins.length}
-								</Typography>
-							</Box>
-						)
-					})()}
 				</Box>
-			)}
+			</Box>
 		</Box>
 	)
 }

@@ -50,6 +50,7 @@ const AddLiquidityForm = ({
 	const [amount0, setAmount0] = useState('')
 	const [amount1, setAmount1] = useState('')
 	const [autoFill, setAutoFill] = useState(false)
+	const [resetTrigger, setResetTrigger] = useState(0) // 重置触发器
 
 	// Strategy state
 	const [liquidityStrategy, setLiquidityStrategy] = useState<LiquidityStrategy>('spot')
@@ -198,6 +199,7 @@ const AddLiquidityForm = ({
 	// Handle reset price
 	const handleResetPrice = () => {
 		resetPriceRange()
+		setResetTrigger(prev => prev + 1) // 触发重置
 		console.log('🔄 Price range reset to current market price')
 	}
 
@@ -407,6 +409,7 @@ const AddLiquidityForm = ({
 									strategy={liquidityStrategy}
 									binStep={selectedPool?.binStep}
 									onPriceRangeChange={handlePriceRangeChange}
+									resetTrigger={resetTrigger}
 								/>
 							</Box>
 
