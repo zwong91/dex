@@ -1,4 +1,5 @@
-import { Box, Button, Card, Grid, Typography } from '@mui/material'
+import { Box, Button, Card, Grid, Typography, IconButton } from '@mui/material'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { ethers } from 'ethers'
 import { useState } from 'react'
 import {
@@ -12,6 +13,7 @@ import {
 	useAddLiquidity,
 	calculateAutoFillAmount,
 	calculatePercentageAmount,
+	usePriceToggle,
 	type LiquidityStrategy,
 } from './add-liquidity'
 
@@ -38,6 +40,7 @@ interface AddLiquidityFormProps {
 	onSuccess?: () => void
 }
 
+// 内部组件，包含所有逻辑
 const AddLiquidityForm = ({
 	selectedPool,
 	chainId: _chainId,
@@ -50,6 +53,9 @@ const AddLiquidityForm = ({
 
 	// Strategy state
 	const [liquidityStrategy, setLiquidityStrategy] = useState<LiquidityStrategy>('spot')
+
+	// 使用全局价格切换状态
+	const { isReversed: isPriceReversed, togglePriceDirection } = usePriceToggle()
 
 	// Price range hook
 	const {
@@ -64,6 +70,29 @@ const AddLiquidityForm = ({
 		getCurrentPrice,
 		getTokenPairDisplay,
 	} = usePriceRange(selectedPool)
+
+	// Enhanced price display with toggle functionality
+	const getToggleablePrice = () => {
+		const price = isPriceReversed ? (1 / parseFloat(getCurrentPrice())) : parseFloat(getCurrentPrice())
+		
+		// Format price with appropriate decimal places
+		if (price >= 1) {
+			return price.toFixed(4)
+		} else if (price >= 0.01) {
+			return price.toFixed(6)
+		} else if (price >= 0.0001) {
+			return price.toFixed(8)
+		} else {
+			return price.toExponential(4)
+		}
+	}
+
+	const getToggleableTokenPair = () => {
+		if (!selectedPool) return 'TOKEN/TOKEN'
+		return isPriceReversed ? 
+			`${selectedPool.token0}/${selectedPool.token1}` : 
+			`${selectedPool.token1}/${selectedPool.token0}`
+	}
 
 	// Handle price range changes from visualizer drag
 	const handlePriceRangeChange = (newMinPrice: number, newMaxPrice: number, numBins: number) => {
@@ -310,17 +339,32 @@ const AddLiquidityForm = ({
 									border: 1,
 									borderColor: 'rgba(245, 158, 11, 0.3)',
 								}}>
-									<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" sx={{ fontSize: '0.8rem' }}>
-										Current Price:
-									</Typography>
-									<Typography variant="body1" fontWeight={600} sx={{
-										background: 'linear-gradient(135deg, #f59e0b, #f97316)',
-										backgroundClip: 'text',
-										WebkitBackgroundClip: 'text',
-										WebkitTextFillColor: 'transparent',
-									}}>
-										{getCurrentPrice()} {getTokenPairDisplay()}
-									</Typography>
+									<Box>
+										<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" sx={{ fontSize: '0.8rem' }}>
+											Current Price:
+										</Typography>
+										<Typography variant="body1" fontWeight={600} sx={{
+											background: 'linear-gradient(135deg, #f59e0b, #f97316)',
+											backgroundClip: 'text',
+											WebkitBackgroundClip: 'text',
+											WebkitTextFillColor: 'transparent',
+										}}>
+											{getToggleablePrice()} {getToggleableTokenPair()}
+										</Typography>
+									</Box>
+									<IconButton 
+										size="small"
+										onClick={togglePriceDirection}
+										sx={{ 
+											color: 'rgba(245, 158, 11, 0.8)',
+											'&:hover': {
+												color: 'rgba(245, 158, 11, 1)',
+												backgroundColor: 'rgba(245, 158, 11, 0.1)',
+											}
+										}}
+									>
+										<SwapHorizIcon sx={{ fontSize: 16 }} />
+									</IconButton>
 								</Box>
 								<Button
 									onClick={handleResetPrice}

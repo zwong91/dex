@@ -10,6 +10,9 @@ export { default as LiquidityBinsChart } from './LiquidityBinsChart'
 export { usePriceRange } from './hooks/usePriceRange'
 export { useAddLiquidity } from './hooks/useAddLiquidity'
 
+// Context
+export { PriceToggleProvider, usePriceToggle } from './contexts/PriceToggleContext'
+
 // Utils
 export * from './utils/calculations'
 

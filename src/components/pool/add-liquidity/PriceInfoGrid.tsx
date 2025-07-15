@@ -1,6 +1,7 @@
 import { Box, Grid, Typography, TextField, IconButton } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import { useState } from 'react'
+import { usePriceToggle } from './contexts/PriceToggleContext'
 
 type LiquidityStrategy = 'spot' | 'curve' | 'bid-ask'
 
@@ -39,6 +40,9 @@ const PriceInfoGrid = ({
 	onMinPriceChange,
 	onMaxPriceChange,
 }: PriceInfoGridProps) => {
+	// 使用全局价格切换状态
+	const { isReversed } = usePriceToggle()
+	
 	// 编辑状态
 	const [isEditingMin, setIsEditingMin] = useState(false)
 	const [isEditingMax, setIsEditingMax] = useState(false)
@@ -91,10 +95,18 @@ const PriceInfoGrid = ({
 
 	const getMinPriceInfo = () => {
 		const { minPrice: dynMinPrice } = calculateDynamicRange()
-		const displayMinPrice = parseFloat(minPrice) || dynMinPrice
-		const percentChange = ((displayMinPrice / activeBinPrice) - 1) * 100
+		let displayMinPrice = parseFloat(minPrice) || dynMinPrice
+		let referencePrice = activeBinPrice
 		
-		// Min Price 应该总是小于等于 activeBinPrice，所以百分比应该是负数或0
+		// 如果价格被反转，需要反转计算
+		if (isReversed) {
+			displayMinPrice = 1 / displayMinPrice
+			referencePrice = 1 / referencePrice
+		}
+		
+		const percentChange = ((displayMinPrice / referencePrice) - 1) * 100
+		
+		// Min Price 应该总是小于等于 referencePrice，所以百分比应该是负数或0
 		const color = percentChange < 0 ? '#f59e0b' : '#10b981' // 负数橙色，正数绿色（不应该出现）
 		const formattedPercent = percentChange >= 0 ? `+${percentChange.toFixed(2)}%` : `${percentChange.toFixed(2)}%`
 		
@@ -108,10 +120,18 @@ const PriceInfoGrid = ({
 
 	const getMaxPriceInfo = () => {
 		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
-		const displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
-		const percentChange = ((displayMaxPrice / activeBinPrice) - 1) * 100
+		let displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
+		let referencePrice = activeBinPrice
 		
-		// Max Price 应该总是大于等于 activeBinPrice，所以百分比应该是正数或0
+		// 如果价格被反转，需要反转计算
+		if (isReversed) {
+			displayMaxPrice = 1 / displayMaxPrice
+			referencePrice = 1 / referencePrice
+		}
+		
+		const percentChange = ((displayMaxPrice / referencePrice) - 1) * 100
+		
+		// Max Price 应该总是大于等于 referencePrice，所以百分比应该是正数或0
 		const color = percentChange > 0 ? '#f97316' : '#10b981' // 正数橙红色，0或负数绿色（不应该出现）
 		const formattedPercent = percentChange >= 0 ? `+${percentChange.toFixed(2)}%` : `${percentChange.toFixed(2)}%`
 		

@@ -34,6 +34,7 @@ interface PoolData {
 
 // Import the AddLiquidity component content from the dialog
 import AddLiquidityForm from '../components/pool/AddLiquidityForm';
+import { PriceToggleProvider } from '../components/pool/add-liquidity';
 
 const AddLiquidityPage: React.FC = () => {
   const navigate = useNavigate();
@@ -182,71 +183,73 @@ const AddLiquidityPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg">
-      <Navigation />
-      <Box sx={{ mt: 4 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-          <IconButton 
-            onClick={handleBack} 
-            sx={{ 
-              mr: 2,
-              color: '#f97316',
-              '&:hover': {
-                backgroundColor: 'rgba(249, 115, 22, 0.08)',
-                color: '#ea580c',
-              }
-            }}
-            aria-label="back to pools"
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h4" component="h1" fontWeight={600}>
-            Add Liquidity to {selectedPool.token0}/{selectedPool.token1}
-          </Typography>
-        </Box>
+    <PriceToggleProvider>
+      <Container maxWidth="lg">
+        <Navigation />
+        <Box sx={{ mt: 4 }}>
+          {/* Header */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+            <IconButton 
+              onClick={handleBack} 
+              sx={{ 
+                mr: 2,
+                color: '#f97316',
+                '&:hover': {
+                  backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                  color: '#ea580c',
+                }
+              }}
+              aria-label="back to pools"
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h4" component="h1" fontWeight={600}>
+              Add Liquidity to {selectedPool.token0}/{selectedPool.token1}
+            </Typography>
+          </Box>
 
-        {/* Pool Info Card */}
-        <Card sx={{ mb: 4 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <img
-                  src={selectedPool.icon0}
-                  alt={selectedPool.token0}
-                  style={{ width: 32, height: 32, borderRadius: '50%' }}
-                  onError={e => (e.currentTarget.src = '/src/assets/react.svg')}
-                />
-                <img
-                  src={selectedPool.icon1}
-                  alt={selectedPool.token1}
-                  style={{ width: 32, height: 32, borderRadius: '50%', marginLeft: -8 }}
-                  onError={e => (e.currentTarget.src = '/src/assets/react.svg')}
-                />
-              </Box>
-              <Typography variant="h6" fontWeight={600}>
-                {selectedPool.token0}/{selectedPool.token1}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                TVL: {selectedPool.tvl} • APR: {selectedPool.apr}
-              </Typography>
-              {selectedPool.binStep !== undefined && (
-                <Typography variant="body2" color="text.secondary">
-                  Bin Step: {selectedPool.binStep}
+          {/* Pool Info Card */}
+          <Card sx={{ mb: 4 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <img
+                    src={selectedPool.icon0}
+                    alt={selectedPool.token0}
+                    style={{ width: 32, height: 32, borderRadius: '50%' }}
+                    onError={e => (e.currentTarget.src = '/src/assets/react.svg')}
+                  />
+                  <img
+                    src={selectedPool.icon1}
+                    alt={selectedPool.token1}
+                    style={{ width: 32, height: 32, borderRadius: '50%', marginLeft: -8 }}
+                    onError={e => (e.currentTarget.src = '/src/assets/react.svg')}
+                  />
+                </Box>
+                <Typography variant="h6" fontWeight={600}>
+                  {selectedPool.token0}/{selectedPool.token1}
                 </Typography>
-              )}
-            </Box>
-          </CardContent>
-        </Card>
+                <Typography variant="body2" color="text.secondary">
+                  TVL: {selectedPool.tvl} • APR: {selectedPool.apr}
+                </Typography>
+                {selectedPool.binStep !== undefined && (
+                  <Typography variant="body2" color="text.secondary">
+                    Bin Step: {selectedPool.binStep}
+                  </Typography>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
 
-        {/* Add Liquidity Form */}
-        <AddLiquidityForm 
-          selectedPool={selectedPool}
-          chainId={chainId}
-          onSuccess={handleBack}
-        />
-      </Box>
-    </Container>
+          {/* Add Liquidity Form */}
+          <AddLiquidityForm 
+            selectedPool={selectedPool}
+            chainId={chainId}
+            onSuccess={handleBack}
+          />
+        </Box>
+      </Container>
+    </PriceToggleProvider>
   );
 };
 

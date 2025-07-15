@@ -1,6 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, IconButton } from '@mui/material'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { LiquidityStrategy } from './StrategySelection'
+import { usePriceToggle } from './contexts/PriceToggleContext'
 
 /**
  * PriceRangeVisualizer Component
@@ -43,11 +45,16 @@ const PriceRangeVisualizer = ({
 	const [dragPosition, setDragPosition] = useState<string | null>(null) // 存储拖动位置，null表示使用默认位置
 	const containerRef = useRef<HTMLDivElement>(null)
 	
+	// 使用全局价格切换状态
+	const { isReversed, togglePriceDirection } = usePriceToggle()
+	
 	// 价格锚点：永远显示 activeBinPrice
 	const anchorPrice = activeBinPrice
 	const getCurrentPrice = () => {
 		// 指示棒上的价格始终显示锚点价格，不随拖动变化
-		return anchorPrice.toFixed(8)
+		const price = isReversed ? (1 / anchorPrice) : anchorPrice
+		const tokenPair = isReversed ? "USDC/WBNB" : "WBNB/USDC"
+		return `${price.toFixed(4)} ${tokenPair}`
 	}
 	
 	// 计算位置基于鼠标坐标的拖动处理
@@ -710,7 +717,33 @@ const PriceRangeVisualizer = ({
 						display: 'block',
 					},
 				}}>
+					<Typography component="span" sx={{ 
+						fontSize: '10px',
+						color: 'rgba(26, 27, 46, 0.6)',
+						fontWeight: 500,
+						mr: 0.5
+					}}>
+						Current Price:
+					</Typography>
 					{getCurrentPrice()}
+					<IconButton 
+						size="small"
+						onClick={togglePriceDirection}
+						sx={{ 
+							ml: 0.5,
+							width: 16,
+							height: 16,
+							minWidth: 16,
+							padding: 0,
+							color: 'rgba(26, 27, 46, 0.6)',
+							'&:hover': {
+								color: 'rgba(26, 27, 46, 0.8)',
+								backgroundColor: 'rgba(255, 255, 255, 0.1)',
+							}
+						}}
+					>
+						<SwapHorizIcon sx={{ fontSize: 10 }} />
+					</IconButton>
 					{isDragging && (
 						<Typography variant="caption" sx={{ 
 							ml: 1, 
@@ -764,6 +797,9 @@ const PriceRangeVisualizer = ({
 						price = anchorPrice * Math.pow(1 + binStepDecimal, binsFromAnchor)
 					}
 					
+					// 应用价格反转逻辑
+					const displayPrice = isReversed && price !== 0 ? 1 / price : price
+					
 					// 判断当前刻度是否是 anchor price 位置
 					const isAtAnchor = Math.abs(offsetFromIndicator) < 2 // 2% 容差
 					
@@ -814,8 +850,8 @@ const PriceRangeVisualizer = ({
 									fontSize: isAtAnchor ? '11px' : '10px',
 									fontWeight: isAtAnchor ? 700 : 500,
 									color: isAtAnchor ? '#7c2d12' : 
-										  price < anchorPrice ? '#00D9FF' : 
-										  price > anchorPrice ? '#7B68EE' : 'rgba(255, 255, 255, 0.8)',
+										  displayPrice < (isReversed && anchorPrice !== 0 ? 1 / anchorPrice : anchorPrice) ? '#00D9FF' : 
+										  displayPrice > (isReversed && anchorPrice !== 0 ? 1 / anchorPrice : anchorPrice) ? '#7B68EE' : 'rgba(255, 255, 255, 0.8)',
 									transition: 'all 0.3s ease',
 									whiteSpace: 'nowrap',
 									textAlign: 'center',
@@ -833,7 +869,7 @@ const PriceRangeVisualizer = ({
 									},
 								}}
 							>
-								{formatPrice(price)}
+								{formatPrice(displayPrice)}
 								{isAtAnchor && (
 									<Typography component="span" sx={{ 
 										fontSize: '8px', 

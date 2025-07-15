@@ -22,6 +22,7 @@ import Navigation from '../components/Navigation';
 import CreatePoolDialog from '../components/pool/CreatePoolDialog';
 import TokenSelectionDialog from '../components/pool/TokenSelectionDialog';
 import AddLiquidityForm from '../components/pool/AddLiquidityForm';
+import { PriceToggleProvider } from '../components/pool/add-liquidity';
 import { useApiPoolData, type ApiPool } from '../dex/hooks/useApiPoolData';
 import { getTokensForChain } from '../dex/networkTokens';
 import { generateTokenIcon } from '../dex/utils/tokenIconGenerator';
@@ -393,13 +394,15 @@ const PoolPage = () => {
                   boxShadow: '0 4px 20px rgba(249, 115, 22, 0.08)'
                 }}>
                   <CardContent sx={{ p: 4 }}>
-                    <AddLiquidityForm
-                      selectedPool={selectedPool}
-                      chainId={chainId}
-                      onSuccess={() => {
-                        // Handle success
-                      }}
-                    />
+                    <PriceToggleProvider>
+                      <AddLiquidityForm
+                        selectedPool={selectedPool}
+                        chainId={chainId}
+                        onSuccess={() => {
+                          // Handle success
+                        }}
+                      />
+                    </PriceToggleProvider>
                   </CardContent>
                 </Card>
               </Grid>
