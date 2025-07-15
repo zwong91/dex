@@ -68,13 +68,13 @@ const AddLiquidityForm = ({
 		calculateDynamicRange,
 		getNumBins,
 		resetPriceRange,
-		getCurrentPrice,
 		userHasManuallyEdited,
 	} = usePriceRange(selectedPool)
 
 	// Enhanced price display with toggle functionality
 	const getToggleablePrice = () => {
-		const price = isPriceReversed ? (1 / parseFloat(getCurrentPrice())) : parseFloat(getCurrentPrice())
+		// 直接使用 activeBinPrice 数值，而不是 getCurrentPrice() 字符串
+		const price = isPriceReversed ? (1 / activeBinPrice) : activeBinPrice
 		
 		// Format price with appropriate decimal places
 		if (price >= 1) {
@@ -90,6 +90,7 @@ const AddLiquidityForm = ({
 
 	const getToggleableTokenPair = () => {
 		if (!selectedPool) return 'TOKEN/TOKEN'
+		// 🎯 保持与价格逻辑一致：reversed时显示 token0/token1
 		return isPriceReversed ? 
 			`${selectedPool.token0}/${selectedPool.token1}` : 
 			`${selectedPool.token1}/${selectedPool.token0}`

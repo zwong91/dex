@@ -194,28 +194,41 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 		if (!isNaN(newMinPrice) && newMinPrice > 0) {
 			setMinPrice(price)
 			
-			// 🎯 根据新的MinPrice自动计算对应的MaxPrice，保持70 bins范围
-			const bs = selectedPool?.binStep || 25
-			const binStepDecimal = bs / 10000
-			const binsOnEachSide = 35
+			// 🚨 判断流动性类型：如果MinPrice > CurrentPrice，这是左侧流动性  
+			if (newMinPrice > activeBinPrice) {
+				// 左侧流动性：用户设置的MinPrice保持不变，MaxPrice自动设为用户输入的值
+				// 实际上，在这种情况下，用户想要的是 [currentPrice, userInput] 的范围
+				// 所以 MinPrice = currentPrice, MaxPrice = userInput
+				const userInputPrice = newMinPrice
+				setMinPrice(activeBinPrice.toString()) // MinPrice = 当前价格
+				setMaxPrice(userInputPrice.toString()) // MaxPrice = 用户输入值
+				console.log('🎯 Left-sided liquidity detected (User input > CurrentPrice):', {
+					minPrice: activeBinPrice.toFixed(6) + ' (CurrentPrice)',
+					maxPrice: userInputPrice.toFixed(6) + ' (User input)',
+					currentPrice: activeBinPrice.toFixed(6),
+					type: 'USDT only (left-sided)',
+					liquidityRange: `${activeBinPrice.toFixed(6)} → ${userInputPrice.toFixed(6)}`
+				})
+			} else {
+				// 对称流动性：保持70 bins范围
+				const bs = selectedPool?.binStep || 25
+				const binStepDecimal = bs / 10000
+				const binsOnEachSide = 35
+				
+				const impliedCurrentPrice = newMinPrice / Math.pow(1 + binStepDecimal, -binsOnEachSide)
+				const newMaxPrice = impliedCurrentPrice * Math.pow(1 + binStepDecimal, binsOnEachSide)
+				
+				setMaxPrice(newMaxPrice.toString())
+				console.log('🎯 Symmetric liquidity (MinPrice < CurrentPrice):', {
+					newMinPrice: newMinPrice.toFixed(6),
+					impliedCurrentPrice: impliedCurrentPrice.toFixed(6),
+					newMaxPrice: newMaxPrice.toFixed(6),
+					totalRange: ((newMaxPrice / newMinPrice - 1) * 100).toFixed(2) + '%',
+					type: 'Both tokens (symmetric)'
+				})
+			}
 			
-			// 从MinPrice反推当前价格，然后计算MaxPrice
-			// minPrice = currentPrice * (1 + binStep)^(-35)
-			// 所以 currentPrice = minPrice / (1 + binStep)^(-35)
-			const impliedCurrentPrice = newMinPrice / Math.pow(1 + binStepDecimal, -binsOnEachSide)
-			const newMaxPrice = impliedCurrentPrice * Math.pow(1 + binStepDecimal, binsOnEachSide)
-			
-			setMaxPrice(newMaxPrice.toString())
 			setUserHasManuallyEdited(true)
-			
-			console.log('🎯 User manually set min price, auto-calculated max price:', {
-				newMinPrice: newMinPrice.toFixed(6),
-				impliedCurrentPrice: impliedCurrentPrice.toFixed(6),
-				newMaxPrice: newMaxPrice.toFixed(6),
-				totalRange: ((newMaxPrice / newMinPrice - 1) * 100).toFixed(2) + '%',
-				binStep: bs + 'bp',
-				totalBins: binsOnEachSide * 2
-			})
 		}
 	}
 
@@ -224,28 +237,41 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 		if (!isNaN(newMaxPrice) && newMaxPrice > 0) {
 			setMaxPrice(price)
 			
-			// 🎯 根据新的MaxPrice自动计算对应的MinPrice，保持70 bins范围
-			const bs = selectedPool?.binStep || 25
-			const binStepDecimal = bs / 10000
-			const binsOnEachSide = 35
+			// 🚨 判断流动性类型：如果MaxPrice < CurrentPrice，这是右侧流动性
+			if (newMaxPrice < activeBinPrice) {
+				// 右侧流动性：用户设置的MaxPrice保持不变，MinPrice自动设为用户输入的值
+				// 实际上，在这种情况下，用户想要的是 [userInput, currentPrice] 的范围
+				// 所以 MinPrice = userInput, MaxPrice = currentPrice
+				const userInputPrice = newMaxPrice
+				setMinPrice(userInputPrice.toString()) // MinPrice = 用户输入值
+				setMaxPrice(activeBinPrice.toString()) // MaxPrice = 当前价格
+				console.log('🎯 Right-sided liquidity detected (User input < CurrentPrice):', {
+					minPrice: userInputPrice.toFixed(6) + ' (User input)',
+					maxPrice: activeBinPrice.toFixed(6) + ' (CurrentPrice)', 
+					currentPrice: activeBinPrice.toFixed(6),
+					type: 'Token X only (right-sided)',
+					liquidityRange: `${userInputPrice.toFixed(6)} → ${activeBinPrice.toFixed(6)}`
+				})
+			} else {
+				// 对称流动性：保持70 bins范围
+				const bs = selectedPool?.binStep || 25
+				const binStepDecimal = bs / 10000
+				const binsOnEachSide = 35
+				
+				const impliedCurrentPrice = newMaxPrice / Math.pow(1 + binStepDecimal, binsOnEachSide)
+				const newMinPrice = impliedCurrentPrice * Math.pow(1 + binStepDecimal, -binsOnEachSide)
+				
+				setMinPrice(newMinPrice.toString())
+				console.log('🎯 Symmetric liquidity (MaxPrice > CurrentPrice):', {
+					newMinPrice: newMinPrice.toFixed(6),
+					impliedCurrentPrice: impliedCurrentPrice.toFixed(6),
+					newMaxPrice: newMaxPrice.toFixed(6),
+					totalRange: ((newMaxPrice / newMinPrice - 1) * 100).toFixed(2) + '%',
+					type: 'Both tokens (symmetric)'
+				})
+			}
 			
-			// 从MaxPrice反推当前价格，然后计算MinPrice
-			// maxPrice = currentPrice * (1 + binStep)^35
-			// 所以 currentPrice = maxPrice / (1 + binStep)^35
-			const impliedCurrentPrice = newMaxPrice / Math.pow(1 + binStepDecimal, binsOnEachSide)
-			const newMinPrice = impliedCurrentPrice * Math.pow(1 + binStepDecimal, -binsOnEachSide)
-			
-			setMinPrice(newMinPrice.toString())
 			setUserHasManuallyEdited(true)
-			
-			console.log('🎯 User manually set max price, auto-calculated min price:', {
-				newMaxPrice: newMaxPrice.toFixed(6),
-				impliedCurrentPrice: impliedCurrentPrice.toFixed(6),
-				newMinPrice: newMinPrice.toFixed(6),
-				totalRange: ((newMaxPrice / newMinPrice - 1) * 100).toFixed(2) + '%',
-				binStep: bs + 'bp',
-				totalBins: binsOnEachSide * 2
-			})
 		}
 	}
 

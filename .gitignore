@@ -28,3 +28,4 @@ dist-ssr
 *tsbuildinfo
 *backend/**/*.map
 backend/indexer/graph_data/
+backend/oracle-dex-lens/

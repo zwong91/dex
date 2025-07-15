@@ -499,18 +499,13 @@ const LiquidityBinsChart = ({
 										? 'linear-gradient(to top, #fbbf24 0%, #f59e0b 100%)'
 										: isSelected
 										? 'linear-gradient(to top, #3b82f6 0%, #1d4ed8 100%)'
-										: isInDotRange // 拖动范围内的bin变灰
-										? 'linear-gradient(to top, rgba(120, 113, 108, 0.5) 0%, rgba(120, 113, 108, 0.7) 100%)'
-										: bin.reserveX > 0 && bin.reserveY > 0
-										? 'linear-gradient(to top, #10b981 0%, #6366f1 100%)' // 统一双币种颜色
-										: bin.reserveX > 0
-										? 'linear-gradient(to top, #10b981 0%, #059669 100%)' // 保持绿色系
-										: bin.reserveY > 0
-										? 'linear-gradient(to top, #6366f1 0%, #4f46e5 100%)' // 保持蓝色系
-										: 'linear-gradient(to top, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.4) 100%)', // 空bins改为蓝色系
+										: isInDotRange // 🎯 正确逻辑：拖动范围内的bin变蓝色（被选中）
+										? 'linear-gradient(to top, #6366f1 0%, #4f46e5 100%)'
+										: // 🎯 默认状态：所有bins都是灰色
+										  'linear-gradient(to top, rgba(120, 113, 108, 0.5) 0%, rgba(120, 113, 108, 0.7) 100%)',
 									borderRadius: '1px 1px 0 0', // 从 2px 降到 1px
 									transition: 'all 0.2s ease',
-									opacity: isHovered || isActive || isSelected ? 1 : isInDotRange ? 0.8 : 0.7, // 拖动范围内的透明度调整
+									opacity: isHovered || isActive || isSelected ? 1 : isInDotRange ? 1 : 0.7, // 拖动范围内保持完全不透明
 									boxShadow: isActive
 										? '0 0 8px rgba(16, 185, 129, 0.6), 0 0 16px rgba(99, 102, 241, 0.4)' // 交界颜色阴影
 										: isHovered
@@ -527,7 +522,7 @@ const LiquidityBinsChart = ({
 										: 'none', // 移除拖动范围内的边框
 								}}
 								title={`Bin ${bin.binId}${bin.isActive ? ' (Active)' : ''}${isInDotRange ? ' (In Range)' : ''}
-Price: ${(isReversed ? (bin.priceX) : (bin.priceY || (1 / bin.priceX))).toFixed(6)} ${isReversed ? 'USDC/WBNB' : 'WBNB/USDC'}
+Price: ${(isReversed ? (1 / (bin.priceY || (1 / bin.priceX))) : (bin.priceY || (1 / bin.priceX))).toFixed(6)} ${isReversed ? 'WBNB/USDC' : 'USDC/WBNB'}
 Reserve: ${bin.reserveX.toFixed(2)} USDC + ${bin.reserveY.toFixed(4)} WBNB`}
 							/>
 						)
@@ -567,24 +562,24 @@ Reserve: ${bin.reserveX.toFixed(2)} USDC + ${bin.reserveY.toFixed(4)} WBNB`}
 					sx={{
 						position: 'absolute',
 						left: `${dotPositions.left}%`,
-						bottom: -8, // 放在底部坐标轴上
+						bottom: -10, // 稍微下移，给更大的按钮留空间
 						transform: 'translateX(-50%)',
-						width: 12,
-						height: 12,
+						width: 18, // 从12增加到18
+						height: 18, // 从12增加到18
 						borderRadius: '50%',
 						background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-						border: '2px solid rgba(255, 255, 255, 0.9)',
+						border: '3px solid rgba(255, 255, 255, 0.9)', // 从2px增加到3px
 						cursor: 'grab',
 						zIndex: 6,
-						boxShadow: '0 2px 6px rgba(16, 185, 129, 0.8)',
+						boxShadow: '0 3px 8px rgba(16, 185, 129, 0.8)', // 增强阴影
 						transition: 'all 0.2s ease',
 						'&:hover': {
-							transform: 'translateX(-50%) scale(1.2)',
-							boxShadow: '0 3px 8px rgba(16, 185, 129, 0.9)',
+							transform: 'translateX(-50%) scale(1.15)', // 从1.2减少到1.15，避免过大
+							boxShadow: '0 4px 12px rgba(16, 185, 129, 0.9)',
 						},
 						'&:active': {
 							cursor: 'grabbing',
-							transform: 'translateX(-50%) scale(1.1)',
+							transform: 'translateX(-50%) scale(1.05)', // 从1.1减少到1.05
 						}
 					}}
 				/>
@@ -595,24 +590,24 @@ Reserve: ${bin.reserveX.toFixed(2)} USDC + ${bin.reserveY.toFixed(4)} WBNB`}
 					sx={{
 						position: 'absolute',
 						left: `${dotPositions.right}%`,
-						bottom: -8, // 放在底部坐标轴上
+						bottom: -10, // 稍微下移，给更大的按钮留空间
 						transform: 'translateX(-50%)',
-						width: 12,
-						height: 12,
+						width: 18, // 从12增加到18
+						height: 18, // 从12增加到18
 						borderRadius: '50%',
 						background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-						border: '2px solid rgba(255, 255, 255, 0.9)',
+						border: '3px solid rgba(255, 255, 255, 0.9)', // 从2px增加到3px
 						cursor: 'grab',
 						zIndex: 6,
-						boxShadow: '0 2px 6px rgba(99, 102, 241, 0.8)',
+						boxShadow: '0 3px 8px rgba(99, 102, 241, 0.8)', // 增强阴影
 						transition: 'all 0.2s ease',
 						'&:hover': {
-							transform: 'translateX(-50%) scale(1.2)',
-							boxShadow: '0 3px 8px rgba(99, 102, 241, 0.9)',
+							transform: 'translateX(-50%) scale(1.15)', // 从1.2减少到1.15，避免过大
+							boxShadow: '0 4px 12px rgba(99, 102, 241, 0.9)',
 						},
 						'&:active': {
 							cursor: 'grabbing',
-							transform: 'translateX(-50%) scale(1.1)',
+							transform: 'translateX(-50%) scale(1.05)', // 从1.1减少到1.05
 						}
 					}}
 				/>
@@ -663,32 +658,47 @@ Reserve: ${bin.reserveX.toFixed(2)} USDC + ${bin.reserveY.toFixed(4)} WBNB`}
 							position: 'relative',
 						}}
 					>
-						{Array.from({ length: 7 }, (_, i) => {
+						{Array.from({ length: 14 }, (_, i) => {
 							// 🎯 优先使用外部传入的minPrice/maxPrice，fallback到内部计算
 							const referencePrice = currentPrice || activeBinPrice
 							
-							// 使用传入的价格范围，如果有的话
-							const effectiveMinPrice = minPrice || calculatedMinPrice
-							const effectiveMaxPrice = maxPrice || calculatedMaxPrice
+							// 原始价格范围（未反转）
+							const rawMinPrice = minPrice || calculatedMinPrice
+							const rawMaxPrice = maxPrice || calculatedMaxPrice
+							
+							// 🎯 处理价格反转逻辑 - 如果反转，需要交换min/max并取倒数
+							let effectiveMinPrice, effectiveMaxPrice
+							if (isReversed) {
+								// 反转时：原max变成新min，原min变成新max
+								effectiveMinPrice = 1 / rawMaxPrice
+								effectiveMaxPrice = 1 / rawMinPrice
+							} else {
+								effectiveMinPrice = rawMinPrice
+								effectiveMaxPrice = rawMaxPrice
+							}
 							
 							console.log('🎯 Price scale calculation (70 bins):', {
 								propsMinPrice: minPrice,
 								propsMaxPrice: maxPrice,
-								calculatedMinPrice: calculatedMinPrice,
-								calculatedMaxPrice: calculatedMaxPrice,
+								rawMinPrice: rawMinPrice,
+								rawMaxPrice: rawMaxPrice,
+								isReversed: isReversed,
 								effectiveMinPrice: effectiveMinPrice,
 								effectiveMaxPrice: effectiveMaxPrice,
 								referencePrice: referencePrice,
-								stepPrice: effectiveMinPrice + (effectiveMaxPrice - effectiveMinPrice) * i / 6,
-								binStepProp: binStep
+								stepPrice: effectiveMinPrice + (effectiveMaxPrice - effectiveMinPrice) * i / 13,
+								binStepProp: binStep,
+								// 🚨 调试：检查price range是否合理
+								priceRangeIsValid: effectiveMinPrice < effectiveMaxPrice,
+								priceRangeDiff: effectiveMaxPrice - effectiveMinPrice
 							})
 							
-							// 在价格范围内均匀分布刻度
+							// 在价格范围内均匀分布刻度（现在已经是正确的min < max）
 							const priceRange = effectiveMaxPrice - effectiveMinPrice
-							const stepPrice = effectiveMinPrice + (priceRange * i / 6)
+							const stepPrice = effectiveMinPrice + (priceRange * i / 13)
 							
-							// 应用价格反转逻辑
-							const displayPrice = isReversed && stepPrice !== 0 ? 1 / stepPrice : stepPrice
+							// 显示价格就是stepPrice（已经处理过反转）
+							const displayPrice = stepPrice
 							const displayReferencePrice = isReversed && referencePrice !== 0 ? 1 / referencePrice : referencePrice
 							
 							// 计算相对于当前价格的涨幅百分比

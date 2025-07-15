@@ -129,56 +129,89 @@ const PriceRangeVisualizer = ({
 	
 	// 🎯 根据价格范围计算位置（用于同步手动编辑的价格）
 	const calculatePositionFromPriceRange = useCallback((min: number, max: number) => {
-		const binStepDecimal = binStep / 10000
+		console.log('🔍 calculatePositionFromPriceRange:', {
+			min: min.toFixed(6),
+			max: max.toFixed(6), 
+			anchorPrice: anchorPrice.toFixed(6),
+			binStep
+		})
 		
-		// 判断这是什么类型的范围
-		const isSymmetric = Math.abs(min - anchorPrice * Math.pow(1 + binStepDecimal, -Math.log(max/min) / Math.log(1 + binStepDecimal) / 2)) < 0.001
-		const isLeftSided = Math.abs(max - anchorPrice) < 0.001 // maxPrice ≈ anchorPrice
-		const isRightSided = Math.abs(min - anchorPrice) < 0.001 // minPrice ≈ anchorPrice
+		// 🚨 检测数据异常：如果 min 和 max 都远大于 anchor，这说明数据有问题
+		const minRatio = min / anchorPrice // 最小价格相对于anchor的比例
+		const maxRatio = max / anchorPrice // 最大价格相对于anchor的比例
 		
-		if (isSymmetric) {
-			// 对称范围：位置在中心50%
-			return '50%'
-		} else if (isLeftSided) {
-			// 左侧流动性：从价格范围反推位置
-			const binsCount = Math.round(Math.log(anchorPrice / min) / Math.log(1 + binStepDecimal))
-			const offsetPercent = (binsCount / 1000) * 50 // 反向计算偏移
-			const position = 50 - offsetPercent // 左侧偏移
-			return `${Math.max(1, Math.min(49, position)).toFixed(1)}%`
-		} else if (isRightSided) {
-			// 右侧流动性：从价格范围反推位置
-			const binsCount = Math.round(Math.log(max / anchorPrice) / Math.log(1 + binStepDecimal))
-			const offsetPercent = (binsCount / 1000) * 50 // 反向计算偏移
-			const position = 50 + offsetPercent // 右侧偏移
-			return `${Math.max(51, Math.min(99, position)).toFixed(1)}%`
-		} else {
-			// 其他情况，保持中心位置
-			return '50%'
+		console.log('🔍 Range type detection:', {
+			minRatio: minRatio.toFixed(4),
+			maxRatio: maxRatio.toFixed(4),
+			'Data analysis': minRatio > 5 && maxRatio > 5 ? 'ABNORMAL: Both min/max >> anchor' : 'Normal range'
+		})
+		
+		// 🚨 数据异常处理：如果数据明显错误，直接使用当前拖动位置
+		if (minRatio > 5 && maxRatio > 5) {
+			console.log('🚨 Abnormal external price data detected, maintaining current position')
+			return dragPosition || '50%'
 		}
-	}, [binStep, anchorPrice])
+		
+		// 🎯 正确的Liquidity Book流动性检测逻辑
+		const tolerance = 0.01 // 1% 容差，更精确
+		
+		// 左侧流动性：min ≈ anchor, max < anchor (USDT only)
+		const isLeftSided = Math.abs(minRatio - 1.0) < tolerance && maxRatio < (1.0 - tolerance)
+		// 右侧流动性：max ≈ anchor, min > anchor (Token X only)  
+		const isRightSided = Math.abs(maxRatio - 1.0) < tolerance && minRatio > (1.0 + tolerance)
+		// 对称流动性：min < anchor < max
+		const isSymmetric = minRatio < (1.0 - tolerance) && maxRatio > (1.0 + tolerance)
+		
+		console.log('🔍 Final range classification:', {
+			isLeftSided: isLeftSided ? '✅ USDT only (min≈anchor, max<anchor)' : false,
+			isRightSided: isRightSided ? '✅ Token X only (max≈anchor, min>anchor)' : false, 
+			isSymmetric: isSymmetric ? '✅ Both tokens (min<anchor<max)' : false,
+			tolerance
+		})
+		
+		if (isLeftSided) {
+			// 左侧流动性：指示棒应该在最左边
+			const result = '1%'
+			console.log('🔍 Left-sided: position at far left:', result)
+			return result
+		} else if (isRightSided) {
+			// 右侧流动性：指示棒应该在最右边
+			const result = '99%'
+			console.log('🔍 Right-sided: position at far right:', result)
+			return result
+		} else if (isSymmetric) {
+			// 对称流动性：指示棒在中心
+			const result = '50%'
+			console.log('🔍 Symmetric: position at center:', result)
+			return result
+		} else {
+			// 其他情况：保持当前位置
+			const result = dragPosition || '50%'
+			console.log('🔍 Other case: maintaining current position:', result)
+			return result
+		}
+	}, [binStep, anchorPrice, dragPosition])
 	
 	// 🎯 监听外部价格变化，同步可视化位置
 	useEffect(() => {
+		// 🚨 简单逻辑：只在不拖动时同步外部价格变化
 		if (minPrice !== undefined && maxPrice !== undefined && !isDragging && !isAnimating) {
 			const newPosition = calculatePositionFromPriceRange(minPrice, maxPrice)
-			console.log('🎯 Syncing visualizer position with external price changes:', {
+			console.log('🎯 Syncing with external price changes:', {
 				minPrice: minPrice.toFixed(6),
 				maxPrice: maxPrice.toFixed(6),
-				anchorPrice: anchorPrice.toFixed(6),
 				newPosition,
 				currentDragPosition: dragPosition,
-				hasUserDragged
+				willUpdate: dragPosition !== newPosition ? 'YES' : 'NO'
 			})
 			
-			// 只有在位置真的不同时才更新，避免无限循环
+			// 只有在位置真的不同时才更新
 			if (dragPosition !== newPosition) {
+				console.log('🎯 Setting new position:', newPosition)
 				setDragPosition(newPosition)
-				// 🎯 不要自动设置hasUserDragged，让用户保持可拖动状态
-				// 只有真正的用户拖动操作才应该设置这个标志
-				console.log('🎯 Updated visualizer position without blocking user drag capability')
 			}
 		}
-	}, [minPrice, maxPrice, isDragging, isAnimating, calculatePositionFromPriceRange, anchorPrice, dragPosition, hasUserDragged])
+	}, [minPrice, maxPrice, isDragging, isAnimating, calculatePositionFromPriceRange, anchorPrice])
 	
 	// 计算位置基于鼠标坐标的拖动处理
 	const calculatePositionFromMouse = useCallback((x: number, containerWidth: number) => {
@@ -188,15 +221,17 @@ const PriceRangeVisualizer = ({
 	
 	// 拖动开始
 	const handleDragStart = useCallback((e: React.MouseEvent) => {
+		console.log('🎯 Drag started')
+		
 		e.preventDefault()
-		// 如果正在动画，立即停止动画并允许拖动
-		if (isAnimating) {
-			setIsAnimating(false)
-			setAnimationTargetPosition(null)
-		}
+		e.stopPropagation()
+		
+		// 强制设置状态，无论当前状态如何
 		setIsDragging(true)
-		setHasUserDragged(true) // 标记用户已经手动拖动过
-	}, [isAnimating])
+		setHasUserDragged(true)
+		setIsAnimating(false) // 强制停止动画
+		setAnimationTargetPosition(null)
+	}, []) // 🎯 移除所有依赖，让函数更稳定
 	
 	// 计算基于拖动位置的价格范围
 	const calculatePriceRangeFromPosition = useCallback((position: string) => {
@@ -482,7 +517,7 @@ const PriceRangeVisualizer = ({
 		const currentPosition = dragPosition || getCurrentPriceIndicatorPosition()
 		const { numBins: dynamicNumBins } = calculatePriceRangeFromPosition(currentPosition)
 
-		// 让初始柱子数量更密集，最多70根，最少50根
+		// 🎯 恢复原来密集的柱子数量，让初始柱子数量更密集，最多70根，最少50根
 		const numBars = Math.min(70, Math.max(50, dynamicNumBins))
 
 		if (amt0 > 0 && amt1 === 0) {
@@ -738,10 +773,13 @@ const PriceRangeVisualizer = ({
 							? 'linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%)'
 							: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 240, 0.9) 100%)',
 						transform: 'translateX(-50%)',
-						zIndex: 4,
+						zIndex: 10, // 🎯 增加z-index确保在最顶层
 						borderRadius: '8px 8px 4px 4px',
 						cursor: isDragging ? 'grabbing' : 'grab',
 						border: isDragging ? '2px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.6)',
+						// 🎯 确保鼠标事件不被阻止
+						pointerEvents: 'auto',
+						userSelect: 'none',
 						// 添加动画过渡
 						transition: isAnimating 
 							? 'left 1s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -899,11 +937,11 @@ const PriceRangeVisualizer = ({
 				</Box>
 			</Box>
 
-			{/* Price scale - 显示基于anchor price的动态刻度 */}
+			{/* Price scale - 基于实际minPrice和maxPrice的动态刻度 */}
 			<Box sx={{
 				display: 'flex',
 				justifyContent: 'space-between',
-				fontSize: '11px', // 增大字体提高可读性
+				fontSize: '11px', // 恢复字体大小
 				color: 'rgba(255, 255, 255, 0.9)', // 增加对比度
 				mb: 4,
 				px: 1,
@@ -912,39 +950,27 @@ const PriceRangeVisualizer = ({
 				height: '40px',
 				overflow: 'visible',
 			}}>
-				{Array.from({ length: 7 }, (_, i) => { // 显示7个刻度
-					// 获取当前指示器位置
-					const currentPosition = dragPosition || getCurrentPriceIndicatorPosition()
-					const indicatorPositionValue = parseFloat(currentPosition.replace('%', ''))
+				{Array.from({ length: 14 }, (_, i) => { // 🎯 增加到14个刻度
+					// 获取当前实际的价格范围
+					const currentMinPrice = minPrice || anchorPrice * 0.9
+					const currentMaxPrice = maxPrice || anchorPrice * 1.1
 					
-					// 计算每个刻度在可视化器中的位置百分比 (0-100)
-					const scalePositionPercent = (i / 6) * 100
+					// 计算价格刻度 - 线性分布从 minPrice 到 maxPrice
+					const priceRatio = i / 13 // 0 到 1 (14个刻度，13个间隔)
+					const price = currentMinPrice + (currentMaxPrice - currentMinPrice) * priceRatio
 					
-					// 关键修复：以指示器位置为中心计算价格刻度
-					// 指示器位置始终显示 anchor price，其他位置基于偏移计算
-					const offsetFromIndicator = scalePositionPercent - indicatorPositionValue // -100% to +100%
+					// 🎯 简单逻辑：判断 anchor price 在哪个刻度位置
+					const isAtLeftEdge = anchorPrice <= currentMinPrice
+					const isAtRightEdge = anchorPrice >= currentMaxPrice
+					const anchorIndex = isAtLeftEdge ? 0 : isAtRightEdge ? 13 : Math.round((anchorPrice - currentMinPrice) / (currentMaxPrice - currentMinPrice) * 13)
 					
-					// 计算价格 - 基于 bin step 的精确计算
-					let price: number
-					
-					if (Math.abs(offsetFromIndicator) < 1) {
-						// 如果刻度接近指示器位置（1%容差），显示 anchor price
-						price = anchorPrice
-					} else {
-						// 基于 bin step 计算精确价格
-						// 将偏移量转换为 bin 数量
-						const binStepDecimal = binStep / 10000
-						const binsFromAnchor = (offsetFromIndicator / 100) * 50 // 简化：50个bin的跨度
-						
-						// 使用复合增长公式计算价格
-						price = anchorPrice * Math.pow(1 + binStepDecimal, binsFromAnchor)
-					}
+					const isNearAnchor = (i === anchorIndex)
 					
 					// 应用价格反转逻辑
 					const displayPrice = isReversed && price !== 0 ? 1 / price : price
 					
 					// 判断当前刻度是否是 anchor price 位置
-					const isAtAnchor = Math.abs(offsetFromIndicator) < 2 // 2% 容差
+					const isAtAnchor = isNearAnchor // 使用前面计算的 isNearAnchor
 					
 					// 智能格式化价格显示
 					const formatPrice = (price: number) => {

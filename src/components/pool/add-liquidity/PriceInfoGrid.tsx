@@ -96,30 +96,50 @@ const PriceInfoGrid = ({
 	}
 
 	const getMinPriceInfo = () => {
-		const { minPrice: dynMinPrice } = calculateDynamicRange()
+		const { minPrice: dynMinPrice, maxPrice: dynMaxPrice } = calculateDynamicRange()
 		
-		// 🎯 优先使用传入的minPrice，只有在真正为空时才用fallback
-		let displayMinPrice = minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)) 
-			? parseFloat(minPrice) 
-			: dynMinPrice
+		// 🎯 在反转模式下，我们需要使用 maxPrice 作为显示的 minPrice
+		let rawMinPrice, rawMaxPrice
+		if (isReversed) {
+			// 反转模式：交换min/max并取倒数
+			rawMinPrice = 1 / dynMaxPrice  // 原maxPrice变成新minPrice
+			rawMaxPrice = 1 / dynMinPrice  // 原minPrice变成新maxPrice
+		} else {
+			rawMinPrice = dynMinPrice
+			rawMaxPrice = dynMaxPrice
+		}
+		
+		// 🎯 优先使用传入的价格，但需要根据反转状态来决定使用哪个
+		let displayMinPrice
+		if (isReversed) {
+			// 反转模式下，显示的MinPrice实际来自原始的maxPrice
+			displayMinPrice = maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice))
+				? (1 / parseFloat(maxPrice))  // 原maxPrice取倒数变成新minPrice
+				: rawMinPrice
+		} else {
+			// 正常模式下，显示的MinPrice来自原始的minPrice
+			displayMinPrice = minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)) 
+				? parseFloat(minPrice) 
+				: rawMinPrice
+		}
 		
 		let referencePrice = activeBinPrice
-		
-		console.log('🚨 PriceInfoGrid Min Price Debug:', {
-			minPriceString: minPrice,
-			minPriceParsed: parseFloat(minPrice),
-			minPriceIsValid: minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)),
-			dynMinPrice: dynMinPrice,
-			displayMinPrice: displayMinPrice,
-			isUsingDynamic: !(minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice))),
-			activeBinPrice: activeBinPrice
-		})
-		
-		// 如果价格被反转，需要反转计算
 		if (isReversed) {
-			displayMinPrice = 1 / displayMinPrice
 			referencePrice = 1 / referencePrice
 		}
+		
+		console.log('🚨 PriceInfoGrid Min Price Debug:', {
+			isReversed: isReversed,
+			minPriceString: minPrice,
+			maxPriceString: maxPrice,
+			dynMinPrice: dynMinPrice,
+			dynMaxPrice: dynMaxPrice,
+			rawMinPrice: rawMinPrice,
+			rawMaxPrice: rawMaxPrice,
+			displayMinPrice: displayMinPrice,
+			activeBinPrice: activeBinPrice,
+			referencePrice: referencePrice
+		})
 		
 		const percentChange = ((displayMinPrice / referencePrice) - 1) * 100
 		
@@ -131,35 +151,57 @@ const PriceInfoGrid = ({
 			value: displayMinPrice.toFixed(6),
 			percentage: formattedPercent,
 			color,
-			isAuto: !(minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)))
+			isAuto: isReversed 
+				? !(maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice)))
+				: !(minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)))
 		}
 	}
 
 	const getMaxPriceInfo = () => {
-		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
+		const { minPrice: dynMinPrice, maxPrice: dynMaxPrice } = calculateDynamicRange()
 		
-		// 🎯 优先使用传入的maxPrice，只有在真正为空时才用fallback  
-		let displayMaxPrice = maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice))
-			? parseFloat(maxPrice)
-			: dynMaxPrice
+		// 🎯 在反转模式下，我们需要使用 minPrice 作为显示的 maxPrice
+		let rawMinPrice, rawMaxPrice
+		if (isReversed) {
+			// 反转模式：交换min/max并取倒数
+			rawMinPrice = 1 / dynMaxPrice  // 原maxPrice变成新minPrice
+			rawMaxPrice = 1 / dynMinPrice  // 原minPrice变成新maxPrice
+		} else {
+			rawMinPrice = dynMinPrice
+			rawMaxPrice = dynMaxPrice
+		}
+		
+		// 🎯 优先使用传入的价格，但需要根据反转状态来决定使用哪个
+		let displayMaxPrice
+		if (isReversed) {
+			// 反转模式下，显示的MaxPrice实际来自原始的minPrice
+			displayMaxPrice = minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice))
+				? (1 / parseFloat(minPrice))  // 原minPrice取倒数变成新maxPrice
+				: rawMaxPrice
+		} else {
+			// 正常模式下，显示的MaxPrice来自原始的maxPrice
+			displayMaxPrice = maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice))
+				? parseFloat(maxPrice)
+				: rawMaxPrice
+		}
 			
 		let referencePrice = activeBinPrice
-		
-		console.log('🚨 PriceInfoGrid Max Price Debug:', {
-			maxPriceString: maxPrice,
-			maxPriceParsed: parseFloat(maxPrice),
-			maxPriceIsValid: maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice)),
-			dynMaxPrice: dynMaxPrice,
-			displayMaxPrice: displayMaxPrice,
-			isUsingDynamic: !(maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice))),
-			activeBinPrice: activeBinPrice
-		})
-		
-		// 如果价格被反转，需要反转计算
 		if (isReversed) {
-			displayMaxPrice = 1 / displayMaxPrice
 			referencePrice = 1 / referencePrice
 		}
+		
+		console.log('🚨 PriceInfoGrid Max Price Debug:', {
+			isReversed: isReversed,
+			minPriceString: minPrice,
+			maxPriceString: maxPrice,
+			dynMinPrice: dynMinPrice,
+			dynMaxPrice: dynMaxPrice,
+			rawMinPrice: rawMinPrice,
+			rawMaxPrice: rawMaxPrice,
+			displayMaxPrice: displayMaxPrice,
+			activeBinPrice: activeBinPrice,
+			referencePrice: referencePrice
+		})
 		
 		const percentChange = ((displayMaxPrice / referencePrice) - 1) * 100
 		
@@ -171,7 +213,9 @@ const PriceInfoGrid = ({
 			value: displayMaxPrice.toFixed(6),
 			percentage: formattedPercent,
 			color,
-			isAuto: !(maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice)))
+			isAuto: isReversed 
+				? !(minPrice && minPrice !== '0' && !isNaN(parseFloat(minPrice)))
+				: !(maxPrice && maxPrice !== '0' && !isNaN(parseFloat(maxPrice)))
 		}
 	}
 
