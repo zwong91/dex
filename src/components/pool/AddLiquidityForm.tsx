@@ -415,11 +415,25 @@ const AddLiquidityForm = ({
 
 							{/* Liquidity Bins Chart */}
 							{selectedPool?.pairAddress && (
-								<LiquidityBinsChart
-									poolAddress={selectedPool.pairAddress}
-									chainId="bsc"
-									onBinRangeChange={handleBinRangeChange}
-								/>
+								<>
+									{console.log('🚨 Passing to LiquidityBinsChart:', {
+										minPriceString: minPrice,
+										maxPriceString: maxPrice,
+										minPriceParsed: parseFloat(minPrice),
+										maxPriceParsed: parseFloat(maxPrice),
+										activeBinPrice: activeBinPrice,
+										binStep: selectedPool.binStep
+									})}
+									<LiquidityBinsChart
+										poolAddress={selectedPool.pairAddress}
+										chainId="bsc"
+										onBinRangeChange={handleBinRangeChange}
+										minPrice={parseFloat(minPrice) || undefined}
+										maxPrice={parseFloat(maxPrice) || undefined}
+										currentPrice={activeBinPrice}
+										binStep={selectedPool.binStep}
+									/>
+								</>
 							)}
 
 							{/* Price Information Grid */}

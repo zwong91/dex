@@ -98,6 +98,14 @@ const PriceInfoGrid = ({
 		let displayMinPrice = parseFloat(minPrice) || dynMinPrice
 		let referencePrice = activeBinPrice
 		
+		console.log('🚨 PriceInfoGrid Min Price Debug:', {
+			minPriceString: minPrice,
+			minPriceParsed: parseFloat(minPrice),
+			dynMinPrice: dynMinPrice,
+			displayMinPrice: displayMinPrice,
+			isUsingDynamic: !parseFloat(minPrice)
+		})
+		
 		// 如果价格被反转，需要反转计算
 		if (isReversed) {
 			displayMinPrice = 1 / displayMinPrice
@@ -122,6 +130,14 @@ const PriceInfoGrid = ({
 		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
 		let displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
 		let referencePrice = activeBinPrice
+		
+		console.log('🚨 PriceInfoGrid Max Price Debug:', {
+			maxPriceString: maxPrice,
+			maxPriceParsed: parseFloat(maxPrice),
+			dynMaxPrice: dynMaxPrice,
+			displayMaxPrice: displayMaxPrice,
+			isUsingDynamic: !parseFloat(maxPrice)
+		})
 		
 		// 如果价格被反转，需要反转计算
 		if (isReversed) {
