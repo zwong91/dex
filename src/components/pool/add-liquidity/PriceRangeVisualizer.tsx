@@ -31,6 +31,9 @@ interface PriceRangeVisualizerProps {
 	binStep?: number // 添加 binStep prop，以基点为单位（例如25表示0.25%）
 	onPriceRangeChange?: (minPrice: number, maxPrice: number, numBins: number) => void // 添加价格范围变化回调
 	resetTrigger?: number // 添加重置触发器，当这个数字变化时重置拖动位置
+	// 🎯 添加外部价格范围props，用于同步手动编辑
+	minPrice?: number
+	maxPrice?: number
 }
 
 const PriceRangeVisualizer = ({
@@ -41,6 +44,9 @@ const PriceRangeVisualizer = ({
 	binStep = 1, // 默认值1基点（0.01%）
 	onPriceRangeChange, // 添加价格范围变化回调
 	resetTrigger, // 添加重置触发器
+	// 🎯 外部价格范围props
+	minPrice,
+	maxPrice,
 }: PriceRangeVisualizerProps) => {
 	// 拖动状态
 	const [isDragging, setIsDragging] = useState(false)
@@ -120,6 +126,59 @@ const PriceRangeVisualizer = ({
 		const tokenPair = isReversed ? "USDC/WBNB" : "WBNB/USDC"
 		return `${price.toFixed(4)} ${tokenPair}`
 	}
+	
+	// 🎯 根据价格范围计算位置（用于同步手动编辑的价格）
+	const calculatePositionFromPriceRange = useCallback((min: number, max: number) => {
+		const binStepDecimal = binStep / 10000
+		
+		// 判断这是什么类型的范围
+		const isSymmetric = Math.abs(min - anchorPrice * Math.pow(1 + binStepDecimal, -Math.log(max/min) / Math.log(1 + binStepDecimal) / 2)) < 0.001
+		const isLeftSided = Math.abs(max - anchorPrice) < 0.001 // maxPrice ≈ anchorPrice
+		const isRightSided = Math.abs(min - anchorPrice) < 0.001 // minPrice ≈ anchorPrice
+		
+		if (isSymmetric) {
+			// 对称范围：位置在中心50%
+			return '50%'
+		} else if (isLeftSided) {
+			// 左侧流动性：从价格范围反推位置
+			const binsCount = Math.round(Math.log(anchorPrice / min) / Math.log(1 + binStepDecimal))
+			const offsetPercent = (binsCount / 1000) * 50 // 反向计算偏移
+			const position = 50 - offsetPercent // 左侧偏移
+			return `${Math.max(1, Math.min(49, position)).toFixed(1)}%`
+		} else if (isRightSided) {
+			// 右侧流动性：从价格范围反推位置
+			const binsCount = Math.round(Math.log(max / anchorPrice) / Math.log(1 + binStepDecimal))
+			const offsetPercent = (binsCount / 1000) * 50 // 反向计算偏移
+			const position = 50 + offsetPercent // 右侧偏移
+			return `${Math.max(51, Math.min(99, position)).toFixed(1)}%`
+		} else {
+			// 其他情况，保持中心位置
+			return '50%'
+		}
+	}, [binStep, anchorPrice])
+	
+	// 🎯 监听外部价格变化，同步可视化位置
+	useEffect(() => {
+		if (minPrice !== undefined && maxPrice !== undefined && !isDragging && !isAnimating) {
+			const newPosition = calculatePositionFromPriceRange(minPrice, maxPrice)
+			console.log('🎯 Syncing visualizer position with external price changes:', {
+				minPrice: minPrice.toFixed(6),
+				maxPrice: maxPrice.toFixed(6),
+				anchorPrice: anchorPrice.toFixed(6),
+				newPosition,
+				currentDragPosition: dragPosition,
+				hasUserDragged
+			})
+			
+			// 只有在位置真的不同时才更新，避免无限循环
+			if (dragPosition !== newPosition) {
+				setDragPosition(newPosition)
+				// 🎯 不要自动设置hasUserDragged，让用户保持可拖动状态
+				// 只有真正的用户拖动操作才应该设置这个标志
+				console.log('🎯 Updated visualizer position without blocking user drag capability')
+			}
+		}
+	}, [minPrice, maxPrice, isDragging, isAnimating, calculatePositionFromPriceRange, anchorPrice, dragPosition, hasUserDragged])
 	
 	// 计算位置基于鼠标坐标的拖动处理
 	const calculatePositionFromMouse = useCallback((x: number, containerWidth: number) => {

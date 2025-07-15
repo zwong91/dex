@@ -69,7 +69,6 @@ const AddLiquidityForm = ({
 		getNumBins,
 		resetPriceRange,
 		getCurrentPrice,
-		getTokenPairDisplay,
 		userHasManuallyEdited,
 	} = usePriceRange(selectedPool)
 
