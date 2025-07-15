@@ -7,6 +7,7 @@ import {
 	PriceRangeVisualizer,
 	PriceInfoGrid,
 	AddLiquidityButton,
+	LiquidityBinsChart,
 	usePriceRange,
 	useAddLiquidity,
 	calculateAutoFillAmount,
@@ -78,6 +79,28 @@ const AddLiquidityForm = ({
 				strategy: liquidityStrategy
 			})
 		}
+	}
+
+	// Handle manual price changes from PriceInfoGrid
+	const handleMinPriceChange = (newMinPrice: string) => {
+		setMinPrice(newMinPrice)
+	}
+
+	const handleMaxPriceChange = (newMaxPrice: string) => {
+		setMaxPrice(newMaxPrice)
+	}
+
+	// Handle bin range selection from LiquidityBinsChart
+	const handleBinRangeChange = (minBinId: number, maxBinId: number) => {
+		if (selectedPool && process.env.NODE_ENV === 'development') {
+			console.log('🎯 Bin range selected:', {
+				minBinId,
+				maxBinId,
+				poolBinStep: selectedPool.binStep,
+			})
+		}
+		// TODO: Convert bin IDs to prices and update price range
+		// This would require additional calculation based on the pool's bin step
 	}
 
 	// Add liquidity hook
@@ -343,6 +366,15 @@ const AddLiquidityForm = ({
 								/>
 							</Box>
 
+							{/* Liquidity Bins Chart */}
+							{selectedPool?.pairAddress && (
+								<LiquidityBinsChart
+									poolAddress={selectedPool.pairAddress}
+									chainId="bsc"
+									onBinRangeChange={handleBinRangeChange}
+								/>
+							)}
+
 							{/* Price Information Grid */}
 							<PriceInfoGrid
 								minPrice={minPrice}
@@ -354,6 +386,8 @@ const AddLiquidityForm = ({
 								strategy={liquidityStrategy}
 								selectedPool={selectedPool}
 								calculateDynamicRange={getDynamicRange}
+								onMinPriceChange={handleMinPriceChange}
+								onMaxPriceChange={handleMaxPriceChange}
 							/>
 						</Box>
 					</Card>

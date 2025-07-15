@@ -533,7 +533,9 @@ const PriceRangeVisualizer = ({
 	}, [binStep, anchorPrice, demonstrateBinStepCalculation])
 
 	return (
-		<Box sx={{ mb: 3, position: 'relative', pt: 6 }}>		<Box
+		<Box sx={{ mb: 3, position: 'relative', pt: 6 }}>
+			{/* 主要的可视化容器 */}
+			<Box
 			ref={containerRef}
 			sx={{
 				position: 'relative',

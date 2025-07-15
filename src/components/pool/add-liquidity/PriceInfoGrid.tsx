@@ -1,4 +1,6 @@
-import { Box, Grid, Typography } from '@mui/material'
+import { Box, Grid, Typography, TextField, IconButton } from '@mui/material'
+import EditIcon from '@mui/icons-material/Edit'
+import { useState } from 'react'
 
 type LiquidityStrategy = 'spot' | 'curve' | 'bid-ask'
 
@@ -20,6 +22,8 @@ interface PriceInfoGridProps {
 		leftMultiplier: number
 		rightMultiplier: number
 	}
+	onMinPriceChange?: (value: string) => void
+	onMaxPriceChange?: (value: string) => void
 }
 
 const PriceInfoGrid = ({
@@ -32,7 +36,59 @@ const PriceInfoGrid = ({
 	strategy,
 	selectedPool,
 	calculateDynamicRange,
+	onMinPriceChange,
+	onMaxPriceChange,
 }: PriceInfoGridProps) => {
+	// 编辑状态
+	const [isEditingMin, setIsEditingMin] = useState(false)
+	const [isEditingMax, setIsEditingMax] = useState(false)
+	const [tempMinPrice, setTempMinPrice] = useState('')
+	const [tempMaxPrice, setTempMaxPrice] = useState('')
+
+	// 编辑处理函数
+	const handleEditMinPrice = () => {
+		setIsEditingMin(true)
+		const { minPrice: dynMinPrice } = calculateDynamicRange()
+		const displayMinPrice = parseFloat(minPrice) || dynMinPrice
+		setTempMinPrice(displayMinPrice.toFixed(6))
+	}
+
+	const handleEditMaxPrice = () => {
+		setIsEditingMax(true)
+		const { maxPrice: dynMaxPrice } = calculateDynamicRange()
+		const displayMaxPrice = parseFloat(maxPrice) || dynMaxPrice
+		setTempMaxPrice(displayMaxPrice.toFixed(6))
+	}
+
+	const handleConfirmMinPrice = () => {
+		const newMinPrice = parseFloat(tempMinPrice)
+		if (newMinPrice > 0 && onMinPriceChange) {
+			onMinPriceChange(tempMinPrice)
+		}
+		setIsEditingMin(false)
+	}
+
+	const handleConfirmMaxPrice = () => {
+		const newMaxPrice = parseFloat(tempMaxPrice)
+		if (newMaxPrice > 0 && onMaxPriceChange) {
+			onMaxPriceChange(tempMaxPrice)
+		}
+		setIsEditingMax(false)
+	}
+
+	const handleKeyPress = (e: React.KeyboardEvent, isMin: boolean) => {
+		if (e.key === 'Enter') {
+			if (isMin) {
+				handleConfirmMinPrice()
+			} else {
+				handleConfirmMaxPrice()
+			}
+		} else if (e.key === 'Escape') {
+			setIsEditingMin(false)
+			setIsEditingMax(false)
+		}
+	}
+
 	const getMinPriceInfo = () => {
 		const { minPrice: dynMinPrice } = calculateDynamicRange()
 		const displayMinPrice = parseFloat(minPrice) || dynMinPrice
@@ -152,9 +208,56 @@ const PriceInfoGrid = ({
 					<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" gutterBottom>
 						Min Price
 					</Typography>
-					<Typography variant="h6" fontWeight={600} color="#7c2d12">
-						{minPriceInfo.value}
-					</Typography>
+					{isEditingMin ? (
+						<TextField
+							value={tempMinPrice}
+							onChange={(e) => setTempMinPrice(e.target.value)}
+							onKeyPress={(e) => handleKeyPress(e, true)}
+							onBlur={handleConfirmMinPrice}
+							autoFocus
+							size="small"
+							sx={{
+								'& .MuiInputBase-root': {
+									fontSize: '18px',
+									fontWeight: 600,
+									color: '#7c2d12',
+									backgroundColor: 'rgba(255, 255, 255, 0.8)',
+									textAlign: 'center',
+								},
+								'& .MuiOutlinedInput-root': {
+									'& fieldset': {
+										borderColor: 'rgba(249, 115, 22, 0.3)',
+									},
+									'&:hover fieldset': {
+										borderColor: 'rgba(249, 115, 22, 0.5)',
+									},
+									'&.Mui-focused fieldset': {
+										borderColor: '#f59e0b',
+									},
+								},
+								width: '100%',
+								mb: 1,
+							}}
+						/>
+					) : (
+						<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+							<Typography variant="h6" fontWeight={600} color="#7c2d12">
+								{minPriceInfo.value}
+							</Typography>
+							<IconButton
+								size="small"
+								onClick={handleEditMinPrice}
+								sx={{
+									color: 'rgba(124, 45, 18, 0.5)',
+									'&:hover': { color: '#f59e0b' },
+									p: 0.25,
+									ml: 0.5
+								}}
+							>
+								<EditIcon sx={{ fontSize: '14px' }} />
+							</IconButton>
+						</Box>
+					)}
 					<Typography
 						variant="body2"
 						color={minPriceInfo.color}
@@ -180,9 +283,56 @@ const PriceInfoGrid = ({
 					<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" gutterBottom>
 						Max Price
 					</Typography>
-					<Typography variant="h6" fontWeight={600} color="#7c2d12">
-						{maxPriceInfo.value}
-					</Typography>
+					{isEditingMax ? (
+						<TextField
+							value={tempMaxPrice}
+							onChange={(e) => setTempMaxPrice(e.target.value)}
+							onKeyPress={(e) => handleKeyPress(e, false)}
+							onBlur={handleConfirmMaxPrice}
+							autoFocus
+							size="small"
+							sx={{
+								'& .MuiInputBase-root': {
+									fontSize: '18px',
+									fontWeight: 600,
+									color: '#7c2d12',
+									backgroundColor: 'rgba(255, 255, 255, 0.8)',
+									textAlign: 'center',
+								},
+								'& .MuiOutlinedInput-root': {
+									'& fieldset': {
+										borderColor: 'rgba(249, 115, 22, 0.3)',
+									},
+									'&:hover fieldset': {
+										borderColor: 'rgba(249, 115, 22, 0.5)',
+									},
+									'&.Mui-focused fieldset': {
+										borderColor: '#f59e0b',
+									},
+								},
+								width: '100%',
+								mb: 1,
+							}}
+						/>
+					) : (
+						<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+							<Typography variant="h6" fontWeight={600} color="#7c2d12">
+								{maxPriceInfo.value}
+							</Typography>
+							<IconButton
+								size="small"
+								onClick={handleEditMaxPrice}
+								sx={{
+									color: 'rgba(124, 45, 18, 0.5)',
+									'&:hover': { color: '#f59e0b' },
+									p: 0.25,
+									ml: 0.5
+								}}
+							>
+								<EditIcon sx={{ fontSize: '14px' }} />
+							</IconButton>
+						</Box>
+					)}
 					<Typography
 						variant="body2"
 						color={maxPriceInfo.color}

@@ -4,6 +4,7 @@ export { default as PriceRangeVisualizer } from './PriceRangeVisualizer'
 export { default as PriceRangeSlider } from './PriceRangeSlider'
 export { default as PriceInfoGrid } from './PriceInfoGrid'
 export { default as AddLiquidityButton } from './AddLiquidityButton'
+export { default as LiquidityBinsChart } from './LiquidityBinsChart'
 
 // Hooks
 export { usePriceRange } from './hooks/usePriceRange'
