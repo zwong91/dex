@@ -34,6 +34,15 @@ interface PriceRangeVisualizerProps {
 	// 🎯 添加外部价格范围props，用于同步手动编辑
 	minPrice?: number
 	maxPrice?: number
+	// 🎯 新增：来自LiquidityBinsChart的动态bin计算信息
+	dynamicBinCount?: number
+	binCalculation?: {
+		binStep: number
+		priceMultiplier: number
+		halfRange: number
+		totalPriceRangePercent: number
+		centerBinOffset: number
+	}
 }
 
 const PriceRangeVisualizer = ({
@@ -47,6 +56,9 @@ const PriceRangeVisualizer = ({
 	// 🎯 外部价格范围props
 	minPrice,
 	maxPrice,
+	// 🎯 动态bin同步props
+	dynamicBinCount,
+	binCalculation,
 }: PriceRangeVisualizerProps) => {
 	// 拖动状态
 	const [isDragging, setIsDragging] = useState(false)
@@ -70,17 +82,17 @@ const PriceRangeVisualizer = ({
 			if (amt0 > 0 && amt1 === 0) {
 				console.log('🎬 Triggering auto animation: indicator moving to left (first time)')
 				setIsAnimating(true)
-				setAnimationTargetPosition('1%') // 移动到最左侧1%位置，真正的边界
+				setAnimationTargetPosition('0%') // 移动到最左侧0%位置，真正的边界
 				
 				// 1秒后设置最终位置并结束动画
 				setTimeout(() => {
-					setDragPosition('1%')
+					setDragPosition('0%')
 					setIsAnimating(false)
 					setAnimationTargetPosition(null)
 					
 					// 触发价格范围变化回调
 					if (onPriceRangeChange) {
-						const { minPrice, maxPrice, numBins } = calculatePriceRangeFromPosition('1%')
+						const { minPrice, maxPrice, numBins } = calculatePriceRangeFromPosition('0%')
 						onPriceRangeChange(minPrice, maxPrice, numBins)
 					}
 				}, 1000)
@@ -89,17 +101,17 @@ const PriceRangeVisualizer = ({
 			else if (amt1 > 0 && amt0 === 0) {
 				console.log('🎬 Triggering auto animation: indicator moving to right (first time)')
 				setIsAnimating(true)
-				setAnimationTargetPosition('99%') // 移动到最右侧99%位置，真正的边界
+				setAnimationTargetPosition('100%') // 移动到最右侧99%位置，真正的边界
 				
 				// 1秒后设置最终位置并结束动画
 				setTimeout(() => {
-					setDragPosition('99%')
+					setDragPosition('100%')
 					setIsAnimating(false)
 					setAnimationTargetPosition(null)
 					
 					// 触发价格范围变化回调
 					if (onPriceRangeChange) {
-						const { minPrice, maxPrice, numBins } = calculatePriceRangeFromPosition('99%')
+						const { minPrice, maxPrice, numBins } = calculatePriceRangeFromPosition('100%')
 						onPriceRangeChange(minPrice, maxPrice, numBins)
 					}
 				}, 1000)
@@ -152,44 +164,27 @@ const PriceRangeVisualizer = ({
 			return dragPosition || '50%'
 		}
 		
-		// 🎯 正确的Liquidity Book流动性检测逻辑
-		const tolerance = 0.01 // 1% 容差，更精确
+		// 🎯 新逻辑：直接根据anchor price在价格范围中的位置计算指示棒位置
+		// 计算anchor price在价格范围中的相对位置
+		const anchorRatio = (anchorPrice - min) / (max - min)
+		const clampedRatio = Math.max(0, Math.min(1, anchorRatio)) // 限制在0-1之间
 		
-		// 左侧流动性：min ≈ anchor, max < anchor (USDT only)
-		const isLeftSided = Math.abs(minRatio - 1.0) < tolerance && maxRatio < (1.0 - tolerance)
-		// 右侧流动性：max ≈ anchor, min > anchor (Token X only)  
-		const isRightSided = Math.abs(maxRatio - 1.0) < tolerance && minRatio > (1.0 + tolerance)
-		// 对称流动性：min < anchor < max
-		const isSymmetric = minRatio < (1.0 - tolerance) && maxRatio > (1.0 + tolerance)
+		// 🎯 直接使用比例位置，允许0%-100%全范围移动
+		const flexPosition = clampedRatio * 100
+		const result = `${flexPosition}%`
 		
-		console.log('🔍 Final range classification:', {
-			isLeftSided: isLeftSided ? '✅ USDT only (min≈anchor, max<anchor)' : false,
-			isRightSided: isRightSided ? '✅ Token X only (max≈anchor, min>anchor)' : false, 
-			isSymmetric: isSymmetric ? '✅ Both tokens (min<anchor<max)' : false,
-			tolerance
+		console.log('🎯 计算指示棒位置基于编辑的价格范围（允许边界位置）:', {
+			anchorPrice: anchorPrice.toFixed(6),
+			minPrice: min.toFixed(6),
+			maxPrice: max.toFixed(6),
+			anchorRatio: anchorRatio.toFixed(4),
+			clampedRatio: clampedRatio.toFixed(4),
+			flexPosition: flexPosition.toFixed(2),
+			calculatedPosition: result,
+			canReachBoundary: '✅ 现在可以到达0%和100%边界'
 		})
 		
-		if (isLeftSided) {
-			// 左侧流动性：指示棒应该在最左边
-			const result = '1%'
-			console.log('🔍 Left-sided: position at far left:', result)
-			return result
-		} else if (isRightSided) {
-			// 右侧流动性：指示棒应该在最右边
-			const result = '99%'
-			console.log('🔍 Right-sided: position at far right:', result)
-			return result
-		} else if (isSymmetric) {
-			// 对称流动性：指示棒在中心
-			const result = '50%'
-			console.log('🔍 Symmetric: position at center:', result)
-			return result
-		} else {
-			// 其他情况：保持当前位置
-			const result = dragPosition || '50%'
-			console.log('🔍 Other case: maintaining current position:', result)
-			return result
-		}
+		return result
 	}, [binStep, anchorPrice, dragPosition])
 	
 	// 🎯 监听外部价格变化，同步可视化位置
@@ -244,23 +239,26 @@ const PriceRangeVisualizer = ({
 		// 计算实际的价格范围
 		let minPrice: number
 		let maxPrice: number
+		let actualNumBins: number
 		
 		if (Math.abs(offsetFromCenter) < 3) {
 			// 中心位置（±3%容差）：创建对称的合理范围
-			// 使用固定的bin数量来创建对称范围
-			const symmetricBins = 10 // 两边各10个bin，总共20个bin
+			// 🎯 修正：使用合理的bin数量，不要太大
+			const symmetricBins = 20 // 两边各20个bin，总共40个bin
+			actualNumBins = symmetricBins * 2
 			
 			minPrice = anchorPrice * Math.pow(1 + binStepDecimal, -symmetricBins)
 			maxPrice = anchorPrice * Math.pow(1 + binStepDecimal, symmetricBins)
 		} else if (offsetFromCenter < 0) {
-			// 左侧偏移（USDT only）：liquidty从 minPrice 到 anchorPrice
+			// 左侧偏移（USDT only）：liquidity从 minPrice 到 anchorPrice
 			// anchorPrice 是右边界（最高价格）
 			maxPrice = anchorPrice
 			
-			// 计算离中心的距离，转换为bin数量 - 大幅增加范围
+			// 🎯 修正：基于拖动距离计算合理的bin数量
 			const offsetPercent = Math.abs(offsetFromCenter) // 0 to 50
-			// 大幅增加bin数量范围：最多可达1000个bin，实现更大的价格变化
-			const binsCount = Math.round((offsetPercent / 50) * 1000) // 0 to 1000 bins
+			// 🎯 合理的bin数量范围：根据拖动距离线性映射到5-100个bin
+			const binsCount = Math.round(5 + (offsetPercent / 50) * 95) // 5 to 100 bins
+			actualNumBins = binsCount
 			
 			// 向左扩展：计算更低的价格
 			minPrice = anchorPrice * Math.pow(1 + binStepDecimal, -binsCount)
@@ -269,22 +267,19 @@ const PriceRangeVisualizer = ({
 			// anchorPrice 是左边界（最低价格）
 			minPrice = anchorPrice
 			
-			// 计算离中心的距离，转换为bin数量 - 大幅增加范围
+			// 🎯 修正：基于拖动距离计算合理的bin数量
 			const offsetPercent = Math.abs(offsetFromCenter) // 0 to 50
-			// 大幅增加bin数量范围：最多可达1000个bin，实现更大的价格变化
-			const binsCount = Math.round((offsetPercent / 50) * 1000) // 0 to 1000 bins
+			// 🎯 合理的bin数量范围：根据拖动距离线性映射到5-100个bin
+			const binsCount = Math.round(5 + (offsetPercent / 50) * 95) // 5 to 100 bins
+			actualNumBins = binsCount
 			
 			// 向右扩展：计算更高的价格
 			maxPrice = anchorPrice * Math.pow(1 + binStepDecimal, binsCount)
 		}
 		
-		// 关键：基于价格范围动态计算bin数量
-		// 使用对数公式：bins = log(maxPrice/minPrice) / log(1 + binStepDecimal)
-		const priceRatio = maxPrice / minPrice
-		const numBinsCalculated = Math.round(Math.log(priceRatio) / Math.log(1 + binStepDecimal))
-		
-		// 大幅增加bin数量限制，支持更大的价格范围变化
-		const actualNumBins = Math.max(5, Math.min(2000, numBinsCalculated))
+		// 🎯 不再重新计算bin数量，直接使用上面计算的actualNumBins
+		// 确保bin数量在合理范围内
+		const finalNumBins = Math.max(5, Math.min(200, actualNumBins))
 		
 		// Log for debugging - 验证你的数学计算
 		if (process.env.NODE_ENV === 'development') {
@@ -292,7 +287,7 @@ const PriceRangeVisualizer = ({
 			const minPriceChange = ((minPrice / anchorPrice - 1) * 100).toFixed(2)
 			const maxPriceChange = ((maxPrice / anchorPrice - 1) * 100).toFixed(2)
 			
-			console.log('🎯 Liquidity Book Range Calculation (FIXED):', {
+			console.log('🎯 Liquidity Book Range Calculation (CORRECTED):', {
 				positionValue: positionValue.toFixed(1) + '%',
 				offsetFromCenter: offsetFromCenter.toFixed(1) + '%',
 				binStep: binStep + ' basis points (' + (binStep / 100).toFixed(2) + '%)',
@@ -301,29 +296,28 @@ const PriceRangeVisualizer = ({
 				maxPrice: maxPrice.toFixed(6),
 				minPriceChange: minPriceChange + '%',
 				maxPriceChange: maxPriceChange + '%',
-				priceRatio: priceRatio.toFixed(4),
 				totalRangePercent: rangePercent + '%',
-				calculatedBins: numBinsCalculated,
-				actualNumBins,
+				directCalculatedBins: actualNumBins, // 🎯 显示直接计算的bin数量
+				finalNumBins, // 🎯 显示最终使用的bin数量
 				// 验证Liquidity Book协议
 				protocolCheck: offsetFromCenter < -3 ? 
 					`✅ LEFT SIDE: Range ${minPrice.toFixed(6)} → ${anchorPrice.toFixed(6)} (maxPrice = anchor ✓)` : 
 					offsetFromCenter > 3 ? 
 					`✅ RIGHT SIDE: Range ${anchorPrice.toFixed(6)} → ${maxPrice.toFixed(6)} (minPrice = anchor ✓)` : 
 					`✅ BOTH TOKENS: Symmetric range around anchor`,
-				// 验证计算：如果是20个bin的对称范围
-				verifyRange20Bins: binStep === 20 ? 
-					((Math.pow(1.002, 10) / Math.pow(1.002, -10) - 1) * 100).toFixed(1) + '% (expected ~4%)' : 
-					binStep === 100 ? 
-					((Math.pow(1.01, 10) / Math.pow(1.01, -10) - 1) * 100).toFixed(1) + '% (expected ~22%)' : 
-					'N/A'
+				// 🎯 验证bin数量计算逻辑
+				binCalculationMethod: offsetFromCenter < -3 ? 
+					`左侧：5 + (${Math.abs(offsetFromCenter).toFixed(1)}/50) * 95 = ${actualNumBins}` :
+					offsetFromCenter > 3 ? 
+					`右侧：5 + (${Math.abs(offsetFromCenter).toFixed(1)}/50) * 95 = ${actualNumBins}` :
+					`对称：20 * 2 = ${actualNumBins}`
 			})
 		}
 		
 		return { 
 			minPrice, 
 			maxPrice, 
-			numBins: actualNumBins 
+			numBins: finalNumBins 
 		}
 	}, [anchorPrice, binStep])
 
@@ -408,9 +402,37 @@ const PriceRangeVisualizer = ({
 
 	// 计算当前价格指示线的位置 - 如果有拖动位置则使用拖动位置，否则使用默认位置
 	const getCurrentPriceIndicatorPosition = () => {
-		// 如果有拖动位置，使用拖动位置
+		// 如果有拖动位置，直接使用拖动位置（允许0%-100%全范围）
 		if (dragPosition !== null) {
 			return dragPosition
+		}
+		
+		// 🎯 如果有外部价格范围，根据anchor price在范围中的位置计算指示线位置
+		if (minPrice !== undefined && maxPrice !== undefined) {
+			const currentMinPrice = minPrice
+			const currentMaxPrice = maxPrice
+			
+			// 计算anchor price在价格范围中的相对位置
+			const anchorRatio = (anchorPrice - currentMinPrice) / (currentMaxPrice - currentMinPrice)
+			const clampedRatio = Math.max(0, Math.min(1, anchorRatio)) // 限制在0-1之间
+			
+			// 🎯 新逻辑：直接使用比例位置，而不是强制对齐到14个刻度
+			// 这样可以让指示棒在0%-100%之间自由移动
+			const flexPosition = clampedRatio * 100
+			const position = `${flexPosition}%`
+			
+			console.log('🎯 指示线自由位置计算（不限制到刻度中心）:', {
+				anchorPrice: anchorPrice.toFixed(6),
+				minPrice: currentMinPrice.toFixed(6),
+				maxPrice: currentMaxPrice.toFixed(6),
+				anchorRatio: anchorRatio.toFixed(4),
+				clampedRatio: clampedRatio.toFixed(4),
+				flexPosition: flexPosition.toFixed(2),
+				calculatedPosition: position,
+				explanation: '指示棒现在可以到达0%和100%的真正边界位置'
+			})
+			
+			return position
 		}
 		
 		// 默认位置 - anchor price 始终在中心位置 50%
@@ -512,29 +534,124 @@ const PriceRangeVisualizer = ({
 		}
 
 		const barsToRender = []
-		const baseHeight = 200
+		// 🎯 修正：根据容器高度计算合理的基础高度
+		// 容器高度是480px，减去上下边距和可拖拽区域，有效高度约为400px
+		const containerHeight = 400 // 有效绘制区域高度
+		const maxBarHeight = containerHeight * 0.8 // 最高柱子占80%高度
+		const minBarHeight = 30 // 最小柱子高度
+		const baseHeight = maxBarHeight * 0.5 // 基础高度为最大高度的50%
 
 		const currentPosition = dragPosition || getCurrentPriceIndicatorPosition()
-		const { numBins: dynamicNumBins } = calculatePriceRangeFromPosition(currentPosition)
+		const { numBins: localCalculatedBins } = calculatePriceRangeFromPosition(currentPosition)
 
-		// 🎯 恢复原来密集的柱子数量，让初始柱子数量更密集，最多70根，最少50根
-		const numBars = Math.min(70, Math.max(50, dynamicNumBins))
+		// 🎯 优先使用来自LiquidityBinsChart拖动的动态bin数量，否则使用本地计算
+		const dynamicNumBins = dynamicBinCount || localCalculatedBins
+		
+		// 🎯 添加详细调试信息来诊断bin数量不匹配问题
+		console.log('🔍 Bin数量调试信息 - PriceRangeVisualizer收到的props:', {
+			外部dynamicBinCount: dynamicBinCount,
+			外部dynamicBinCount类型: typeof dynamicBinCount,
+			本地localCalculatedBins: localCalculatedBins,
+			最终dynamicNumBins: dynamicNumBins,
+			数据来源: dynamicBinCount ? 'LiquidityBinsChart' : '本地计算',
+			binCalculation存在: !!binCalculation,
+			当前拖动位置: dragPosition,
+			计算位置: currentPosition,
+			// 🎯 新增：详细的数据流追踪
+			props检查: {
+				传入的dynamicBinCount: dynamicBinCount,
+				传入的binCalculation: binCalculation,
+				binCalculation内容: binCalculation ? {
+					binStep: binCalculation.binStep,
+					halfRange: binCalculation.halfRange,
+					centerBinOffset: binCalculation.centerBinOffset
+				} : null
+			},
+			// 🎯 检查props是否为undefined的原因
+			props原始值: {
+				dynamicBinCount值: dynamicBinCount,
+				binCalculation值: binCalculation,
+				是否都为undefined: dynamicBinCount === undefined && binCalculation === undefined
+			}
+		})
+		
+		// 🎯 强制优先使用外部传入的数量，而不是本地计算
+		let finalDynamicNumBins = dynamicNumBins
+		if (dynamicBinCount && dynamicBinCount !== localCalculatedBins) {
+			console.log('🚨 检测到bin数量不一致，强制使用外部数量:', {
+				外部: dynamicBinCount,
+				本地: localCalculatedBins,
+				选择: '外部数量优先'
+			})
+			finalDynamicNumBins = dynamicBinCount
+		}
+		
+		// 🎯 如果有bin计算信息，在控制台显示同步状态
+		if (binCalculation && dynamicBinCount) {
+			console.log('🔄 PriceRangeVisualizer 同步状态:', {
+				来源: 'LiquidityBinsChart拖动',
+				动态bin数量: dynamicBinCount,
+				binStep: binCalculation.binStep + ' basis points',
+				价格倍数: binCalculation.priceMultiplier?.toFixed(4) || 'N/A',
+				半程范围: binCalculation.halfRange,
+				总价格范围: binCalculation.totalPriceRangePercent?.toFixed(1) + '%' || 'N/A',
+				中心偏移: binCalculation.centerBinOffset,
+				本地计算bin数量: localCalculatedBins,
+				最终显示柱子数: finalDynamicNumBins, // 🎯 使用修正后的数量
+				状态: '✅ 实时同步中'
+			})
+		}
+
+		// 🎯 修正：优先显示正确的bin数量，只在数量过大时才限制
+		// 容器宽度限制：每个柱子4px宽度 + 间距，总共不超过容器宽度
+		const containerWidth = 800 // 假设容器宽度800px
+		const barWidthWithSpacing = 6 // 每个柱子包括间距占用6px
+		const maxBarsForContainer = Math.floor(containerWidth / barWidthWithSpacing) // 约133个柱子
+		
+		// 🎯 优先使用准确的bin数量，只有在超出容器限制时才压缩
+		let numBars: number
+		if (finalDynamicNumBins <= maxBarsForContainer) {
+			// 在安全范围内：直接使用动态bin数量
+			numBars = Math.max(5, finalDynamicNumBins)
+		} else {
+			// 超出容器限制：限制到最大安全数量
+			numBars = maxBarsForContainer
+		}
+		
+		console.log('🎯 柱子数量控制（优先准确性）:', {
+			原始动态bin数量: dynamicNumBins,
+			修正后bin数量: finalDynamicNumBins,
+			容器最大柱子数: maxBarsForContainer,
+			最终显示柱子数: numBars,
+			显示策略: finalDynamicNumBins <= maxBarsForContainer ? '✅ 精确显示' : '⚠️ 压缩显示',
+			是否同步: finalDynamicNumBins === numBars ? '✅ 完全同步' : '⚠️ 已压缩',
+			数据流: `外部${dynamicBinCount} → 修正${finalDynamicNumBins} → 最终${numBars}`
+		})
 
 		if (amt0 > 0 && amt1 === 0) {
 			for (let i = 0; i < numBars; i++) {
+				// 🎯 修正：使用梯度下降算法计算柱子高度
 				let height = baseHeight
 				if (strategy === 'curve') {
-					height = 450 - (i * 6)
+					// 指数衰减：从最大高度逐渐降低到最小高度
+					const decayFactor = Math.exp(-i * 2 / numBars) // 指数衰减系数
+					height = minBarHeight + (maxBarHeight - minBarHeight) * decayFactor
 				} else if (strategy === 'bid-ask') {
-					height = 30 + (i * 6)
+					// 线性递增：从最小高度逐渐增加
+					const incrementFactor = i / Math.max(1, numBars - 1)
+					height = minBarHeight + (baseHeight - minBarHeight) * incrementFactor
+				} else {
+					// 默认：均匀分布
+					height = baseHeight + (Math.sin(i * Math.PI / numBars) * (maxBarHeight - baseHeight) * 0.3)
 				}
+				
 				const dissolveEffect = getBarDissolveEffect(i, numBars, false)
 				barsToRender.push(
 					<Box
 						key={i}
 						sx={{
 							width: 4,
-							height: Math.max(30, height),
+							height: Math.max(minBarHeight, Math.min(maxBarHeight, height)), // 确保高度在范围内
 							background: dissolveEffect.background || `linear-gradient(135deg,
 								rgba(123, 104, 238, 0.8) 0%,
 								rgba(100, 80, 200, 0.9) 50%,
@@ -549,19 +666,28 @@ const PriceRangeVisualizer = ({
 			}
 		} else if (amt1 > 0 && amt0 === 0) {
 			for (let i = 0; i < numBars; i++) {
+				// 🎯 修正：使用梯度下降算法计算柱子高度（从右到左）
 				let height = baseHeight
 				if (strategy === 'curve') {
-					height = 450 - (i * 6)
+					// 指数衰减：从最大高度逐渐降低到最小高度
+					const decayFactor = Math.exp(-i * 2 / numBars) // 指数衰减系数
+					height = minBarHeight + (maxBarHeight - minBarHeight) * decayFactor
 				} else if (strategy === 'bid-ask') {
-					height = 30 + (i * 6)
+					// 线性递增：从最小高度逐渐增加
+					const incrementFactor = i / Math.max(1, numBars - 1)
+					height = minBarHeight + (baseHeight - minBarHeight) * incrementFactor
+				} else {
+					// 默认：均匀分布
+					height = baseHeight + (Math.sin(i * Math.PI / numBars) * (maxBarHeight - baseHeight) * 0.3)
 				}
+				
 				const dissolveEffect = getBarDissolveEffect(i, numBars, true)
 				barsToRender.push(
 					<Box
 					key={i}
 						sx={{
 							width: 4,
-							height: Math.max(30, height),
+							height: Math.max(minBarHeight, Math.min(maxBarHeight, height)), // 确保高度在范围内
 							background: dissolveEffect.background || `linear-gradient(135deg,
 								rgba(0, 217, 255, 0.8) 0%,
 								rgba(0, 150, 200, 0.9) 50%,
@@ -576,13 +702,22 @@ const PriceRangeVisualizer = ({
 			}
 		} else if (amt0 > 0 && amt1 > 0) {
 			for (let i = -Math.floor(numBars / 2); i <= Math.floor(numBars / 2); i++) {
-				let height = baseHeight
+				// 🎯 修正：对称分布的高度计算
 				const distance = Math.abs(i)
+				let height = baseHeight
 				if (strategy === 'curve') {
-					height = 450 - (distance * 6)
+					// 钟型分布：中心最高，两边递减
+					const bellFactor = Math.exp(-(distance * distance) / (numBars * 0.1))
+					height = minBarHeight + (maxBarHeight - minBarHeight) * bellFactor
 				} else if (strategy === 'bid-ask') {
-					height = 30 + (distance * 6)
+					// 线性递增：距离中心越远，高度越高
+					const incrementFactor = distance / Math.max(1, Math.floor(numBars / 2))
+					height = minBarHeight + (baseHeight - minBarHeight) * incrementFactor
+				} else {
+					// 默认：均匀分布
+					height = baseHeight + (Math.sin(distance * Math.PI / numBars) * (maxBarHeight - baseHeight) * 0.3)
 				}
+				
 				const isCenter = i === 0
 				let barColor
 				if (isCenter) {
@@ -604,7 +739,7 @@ const PriceRangeVisualizer = ({
 						key={i}
 						sx={{
 							width: 4,
-							height: Math.max(30, height),
+							height: Math.max(minBarHeight, Math.min(maxBarHeight, height)), // 确保高度在范围内
 							background: dissolveEffect.background || barColor,
 							borderRadius: '3px 3px 0 0',
 							transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -959,10 +1094,20 @@ const PriceRangeVisualizer = ({
 					const priceRatio = i / 13 // 0 到 1 (14个刻度，13个间隔)
 					const price = currentMinPrice + (currentMaxPrice - currentMinPrice) * priceRatio
 					
-					// 🎯 简单逻辑：判断 anchor price 在哪个刻度位置
-					const isAtLeftEdge = anchorPrice <= currentMinPrice
-					const isAtRightEdge = anchorPrice >= currentMaxPrice
-					const anchorIndex = isAtLeftEdge ? 0 : isAtRightEdge ? 13 : Math.round((anchorPrice - currentMinPrice) / (currentMaxPrice - currentMinPrice) * 13)
+					// 🎯 优化：使用与指示线相同的计算逻辑
+					let anchorIndex = 7 // 默认中间位置
+					
+					// 如果有外部价格范围，使用相对位置计算
+					if (minPrice !== undefined && maxPrice !== undefined) {
+						const anchorRatio = (anchorPrice - currentMinPrice) / (currentMaxPrice - currentMinPrice)
+						const clampedRatio = Math.max(0, Math.min(1, anchorRatio))
+						anchorIndex = Math.round(clampedRatio * 13)
+					} else {
+						// 如果没有外部价格范围，判断是否在边缘
+						const isAtLeftEdge = anchorPrice <= currentMinPrice
+						const isAtRightEdge = anchorPrice >= currentMaxPrice
+						anchorIndex = isAtLeftEdge ? 0 : isAtRightEdge ? 13 : 7 // 默认中间
+					}
 					
 					const isNearAnchor = (i === anchorIndex)
 					

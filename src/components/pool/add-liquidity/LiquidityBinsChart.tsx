@@ -39,6 +39,14 @@ interface LiquidityBinsChartProps {
 		binCount: number
 		centerOffset: number
 		percentageRange: { min: number, max: number }
+		// 🎯 新增：详细的bin计算信息，用于PriceRangeVisualizer同步
+		binCalculation?: {
+			binStep: number
+			priceMultiplier: number
+			halfRange: number
+			totalPriceRangePercent: number
+			centerBinOffset: number
+		}
 	}) => void
 	minPrice?: number // 最小价格，用于动态调整刻度
 	maxPrice?: number // 最大价格，用于动态调整刻度  
@@ -327,6 +335,12 @@ const LiquidityBinsChart = ({
 				const minPercent = ((newMinPrice / referencePrice) - 1) * 100
 				const maxPercent = ((newMaxPrice / referencePrice) - 1) * 100
 				
+				// 🎯 计算价格倍数用于验证
+				const priceMultiplier = 1 + binStepDecimal
+				const lowestPrice = Math.pow(priceMultiplier, -halfRange)
+				const highestPrice = Math.pow(priceMultiplier, halfRange)
+				const totalPriceRange = (highestPrice / lowestPrice - 1) * 100
+				
 				console.log('🎯 拖动重新计算价格范围 (纯本地计算，无API请求):', {
 					selectionPercentage: `${newPositions.left.toFixed(1)}% - ${newPositions.right.toFixed(1)}%`,
 					selectionRangePercentage: selectionRangePercentage.toFixed(1) + '%',
@@ -342,6 +356,13 @@ const LiquidityBinsChart = ({
 					minPercent: minPercent.toFixed(1) + '%',
 					maxPercent: maxPercent.toFixed(1) + '%',
 					priceRangeSpread: (((newMaxPrice - newMinPrice) / referencePrice) * 100).toFixed(1) + '%',
+					// 🎯 新增：详细的Liquidity Book计算验证
+					binStep: effectiveBinStep + ' basis points',
+					priceMultiplier: priceMultiplier.toFixed(4),
+					halfRange: halfRange,
+					lowestPriceMultiplier: lowestPrice.toFixed(4),
+					highestPriceMultiplier: highestPrice.toFixed(4),
+					totalPriceRangePercent: totalPriceRange.toFixed(1) + '%',
 					isAsymmetric: Math.abs(centerOffset) > 1 ? '✅ 支持非对称选择' : '⚖️ 居中选择',
 					note: '⚡ 基于现有bins数据计算，无需重新请求API'
 				})
@@ -355,6 +376,14 @@ const LiquidityBinsChart = ({
 					percentageRange: { 
 						min: minPercent, 
 						max: maxPercent 
+					},
+					// 🎯 新增：传递详细的bin计算信息给PriceRangeVisualizer
+					binCalculation: {
+						binStep: effectiveBinStep,
+						priceMultiplier: priceMultiplier,
+						halfRange: halfRange,
+						totalPriceRangePercent: totalPriceRange,
+						centerBinOffset: binOffsetFromActive
 					}
 				})
 			}
@@ -626,8 +655,12 @@ const LiquidityBinsChart = ({
 						display: 'flex',
 						alignItems: 'flex-end',
 						justifyContent: 'space-between',
-						height: '100%',
-						position: 'relative',
+						height: '50%', // 进一步减少到50%，让柱子更下移
+						position: 'absolute', // 改为absolute定位
+						bottom: 0, // 改为0，让柱子底部直接贴着容器底部
+						left: 0,
+						right: 0,
+						paddingX: 1.5, // 添加左右padding，保持与容器一致
 					}}
 				>
 					{binsData.bins.map((bin, binIndex) => {

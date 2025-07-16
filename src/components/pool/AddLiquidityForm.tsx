@@ -1,7 +1,7 @@
 import { Box, Button, Card, Grid, Typography, IconButton } from '@mui/material'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { ethers } from 'ethers'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
 	TokenAmountInput,
 	StrategySelection,
@@ -54,6 +54,29 @@ const AddLiquidityForm = ({
 
 	// Strategy state
 	const [liquidityStrategy, setLiquidityStrategy] = useState<LiquidityStrategy>('spot')
+
+	// 🎯 新增：动态bin同步状态，用于LiquidityBinsChart与PriceRangeVisualizer的同步
+	const [dynamicBinInfo, setDynamicBinInfo] = useState<{
+		binCount: number
+		binCalculation: {
+			binStep: number
+			priceMultiplier: number
+			halfRange: number
+			totalPriceRangePercent: number
+			centerBinOffset: number
+		}
+	} | null>(null)
+
+	// 🎯 调试：监控dynamicBinInfo状态变化
+	useEffect(() => {
+		console.log('🚨 AddLiquidityForm - dynamicBinInfo状态变化:', {
+			dynamicBinInfo: dynamicBinInfo,
+			binCount: dynamicBinInfo?.binCount,
+			hasBindCalculation: !!dynamicBinInfo?.binCalculation,
+			binCalculation: dynamicBinInfo?.binCalculation,
+			时间戳: new Date().toLocaleTimeString()
+		})
+	}, [dynamicBinInfo])
 
 	// 使用全局价格切换状态
 	const { isReversed: isPriceReversed, togglePriceDirection } = usePriceToggle()
@@ -135,6 +158,14 @@ const AddLiquidityForm = ({
 		binCount: number
 		centerOffset: number
 		percentageRange: { min: number, max: number }
+		// 🎯 新增：接收详细的bin计算信息
+		binCalculation?: {
+			binStep: number
+			priceMultiplier: number
+			halfRange: number
+			totalPriceRangePercent: number
+			centerBinOffset: number
+		}
 	}) => {
 		if (selectedPool && process.env.NODE_ENV === 'development') {
 			console.log('🎯 Bin range selected:', {
@@ -152,8 +183,18 @@ const AddLiquidityForm = ({
 				centerOffset: priceRange.centerOffset.toFixed(2),
 				minPrice: priceRange.minPrice.toFixed(6),
 				maxPrice: priceRange.maxPrice.toFixed(6),
-				percentageRange: `${priceRange.percentageRange.min.toFixed(1)}% to ${priceRange.percentageRange.max.toFixed(1)}%`
+				percentageRange: `${priceRange.percentageRange.min.toFixed(1)}% to ${priceRange.percentageRange.max.toFixed(1)}%`,
+				// 🎯 显示bin计算详情
+				binCalculation: priceRange.binCalculation
 			})
+			
+			// 🎯 更新动态bin同步信息，用于PriceRangeVisualizer
+			if (priceRange.binCalculation) {
+				setDynamicBinInfo({
+					binCount: priceRange.binCount,
+					binCalculation: priceRange.binCalculation
+				})
+			}
 			
 			// 更新价格输入框
 			setMinPrice(priceRange.minPrice.toString())
@@ -247,7 +288,16 @@ const AddLiquidityForm = ({
 
 	// Create getNumBins function for components
 	const getNumBinsForComponents = () => {
-		return getNumBins(amount0, amount1)
+		// 🎯 优先使用来自LiquidityBinsChart拖动的动态bin数量
+		if (dynamicBinInfo?.binCount) {
+			console.log('🎯 getNumBinsForComponents: 使用LiquidityBinsChart动态bin数量:', dynamicBinInfo.binCount)
+			return dynamicBinInfo.binCount.toString()
+		}
+		
+		// 如果没有动态bin信息，使用本地计算
+		const localBinCount = getNumBins(amount0, amount1)
+		console.log('🎯 getNumBinsForComponents: 使用本地计算bin数量:', localBinCount)
+		return localBinCount
 	}
 
 	return (
@@ -443,6 +493,9 @@ const AddLiquidityForm = ({
 									resetTrigger={resetTrigger}
 									minPrice={parseFloat(minPrice) || undefined}
 									maxPrice={parseFloat(maxPrice) || undefined}
+									// 🎯 传递动态bin同步信息
+									dynamicBinCount={dynamicBinInfo?.binCount}
+									binCalculation={dynamicBinInfo?.binCalculation}
 								/>
 							</Box>
 
