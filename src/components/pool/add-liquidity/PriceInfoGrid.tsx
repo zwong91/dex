@@ -1,6 +1,4 @@
-import { Box, Grid, Typography, TextField, IconButton } from '@mui/material'
-import EditIcon from '@mui/icons-material/Edit'
-import { useState } from 'react'
+import { Box, Grid, Typography, TextField } from '@mui/material'
 import { usePriceToggle } from './contexts/PriceToggleContext'
 
 type LiquidityStrategy = 'spot' | 'curve' | 'bid-ask'
@@ -42,58 +40,6 @@ const PriceInfoGrid = ({
 }: PriceInfoGridProps) => {
 	// 使用全局价格切换状态
 	const { isReversed } = usePriceToggle()
-	
-	// 编辑状态
-	const [isEditingMin, setIsEditingMin] = useState(false)
-	const [isEditingMax, setIsEditingMax] = useState(false)
-	const [tempMinPrice, setTempMinPrice] = useState('')
-	const [tempMaxPrice, setTempMaxPrice] = useState('')
-
-	// 编辑处理函数
-	const handleEditMinPrice = () => {
-		setIsEditingMin(true)
-		// 🎯 优先使用当前显示的值，而不是重新计算
-		const minPriceInfo = getMinPriceInfo()
-		setTempMinPrice(minPriceInfo.value)
-		console.log('🎯 Edit Min Price - using displayed value:', minPriceInfo.value)
-	}
-
-	const handleEditMaxPrice = () => {
-		setIsEditingMax(true)
-		// 🎯 优先使用当前显示的值，而不是重新计算
-		const maxPriceInfo = getMaxPriceInfo()
-		setTempMaxPrice(maxPriceInfo.value)
-		console.log('🎯 Edit Max Price - using displayed value:', maxPriceInfo.value)
-	}
-
-	const handleConfirmMinPrice = () => {
-		const newMinPrice = parseFloat(tempMinPrice)
-		if (newMinPrice > 0 && onMinPriceChange) {
-			onMinPriceChange(tempMinPrice)
-		}
-		setIsEditingMin(false)
-	}
-
-	const handleConfirmMaxPrice = () => {
-		const newMaxPrice = parseFloat(tempMaxPrice)
-		if (newMaxPrice > 0 && onMaxPriceChange) {
-			onMaxPriceChange(tempMaxPrice)
-		}
-		setIsEditingMax(false)
-	}
-
-	const handleKeyPress = (e: React.KeyboardEvent, isMin: boolean) => {
-		if (e.key === 'Enter') {
-			if (isMin) {
-				handleConfirmMinPrice()
-			} else {
-				handleConfirmMaxPrice()
-			}
-		} else if (e.key === 'Escape') {
-			setIsEditingMin(false)
-			setIsEditingMax(false)
-		}
-	}
 
 	const getMinPriceInfo = () => {
 		const { minPrice: dynMinPrice, maxPrice: dynMaxPrice } = calculateDynamicRange()
@@ -291,7 +237,7 @@ const PriceInfoGrid = ({
 	const strategyTip = getStrategyTip()
 
 	return (
-		<>
+		<Box sx={{ mt: 6, mb: 4 }}>
 			<Grid container spacing={2} sx={{ mb: 2 }}>
 			<Grid size={4}>
 				<Box sx={{ 
@@ -304,56 +250,43 @@ const PriceInfoGrid = ({
 					<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" gutterBottom>
 						Min Price
 					</Typography>
-					{isEditingMin ? (
-						<TextField
-							value={tempMinPrice}
-							onChange={(e) => setTempMinPrice(e.target.value)}
-							onKeyPress={(e) => handleKeyPress(e, true)}
-							onBlur={handleConfirmMinPrice}
-							autoFocus
-							size="small"
-							sx={{
-								'& .MuiInputBase-root': {
-									fontSize: '18px',
-									fontWeight: 600,
-									color: '#7c2d12',
-									backgroundColor: 'rgba(255, 255, 255, 0.8)',
-									textAlign: 'center',
+					<TextField
+						value={minPriceInfo.value}
+						onChange={(e) => {
+							if (onMinPriceChange) {
+								onMinPriceChange(e.target.value)
+							}
+						}}
+						size="small"
+						sx={{
+							'& .MuiInputBase-root': {
+								fontSize: '18px',
+								fontWeight: 600,
+								color: '#7c2d12',
+								backgroundColor: 'rgba(255, 255, 255, 0.9)',
+								textAlign: 'center',
+							},
+							'& .MuiInputBase-input': {
+								textAlign: 'center',
+								padding: '8px 12px',
+							},
+							'& .MuiOutlinedInput-root': {
+								'& fieldset': {
+									borderColor: 'rgba(249, 115, 22, 0.3)',
 								},
-								'& .MuiOutlinedInput-root': {
-									'& fieldset': {
-										borderColor: 'rgba(249, 115, 22, 0.3)',
-									},
-									'&:hover fieldset': {
-										borderColor: 'rgba(249, 115, 22, 0.5)',
-									},
-									'&.Mui-focused fieldset': {
-										borderColor: '#f59e0b',
-									},
+								'&:hover fieldset': {
+									borderColor: 'rgba(249, 115, 22, 0.5)',
 								},
-								width: '100%',
-								mb: 1,
-							}}
-						/>
-					) : (
-						<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-							<Typography variant="h6" fontWeight={600} color="#7c2d12">
-								{minPriceInfo.value}
-							</Typography>
-							<IconButton
-								size="small"
-								onClick={handleEditMinPrice}
-								sx={{
-									color: 'rgba(124, 45, 18, 0.5)',
-									'&:hover': { color: '#f59e0b' },
-									p: 0.25,
-									ml: 0.5
-								}}
-							>
-								<EditIcon sx={{ fontSize: '14px' }} />
-							</IconButton>
-						</Box>
-					)}
+								'&.Mui-focused fieldset': {
+									borderColor: '#f59e0b',
+									borderWidth: '2px',
+								},
+							},
+							width: '100%',
+							mb: 1,
+						}}
+						placeholder="Enter min price"
+					/>
 					<Typography
 						variant="body2"
 						color={minPriceInfo.color}
@@ -379,56 +312,43 @@ const PriceInfoGrid = ({
 					<Typography variant="body2" color="rgba(120, 113, 108, 0.8)" gutterBottom>
 						Max Price
 					</Typography>
-					{isEditingMax ? (
-						<TextField
-							value={tempMaxPrice}
-							onChange={(e) => setTempMaxPrice(e.target.value)}
-							onKeyPress={(e) => handleKeyPress(e, false)}
-							onBlur={handleConfirmMaxPrice}
-							autoFocus
-							size="small"
-							sx={{
-								'& .MuiInputBase-root': {
-									fontSize: '18px',
-									fontWeight: 600,
-									color: '#7c2d12',
-									backgroundColor: 'rgba(255, 255, 255, 0.8)',
-									textAlign: 'center',
+					<TextField
+						value={maxPriceInfo.value}
+						onChange={(e) => {
+							if (onMaxPriceChange) {
+								onMaxPriceChange(e.target.value)
+							}
+						}}
+						size="small"
+						sx={{
+							'& .MuiInputBase-root': {
+								fontSize: '18px',
+								fontWeight: 600,
+								color: '#7c2d12',
+								backgroundColor: 'rgba(255, 255, 255, 0.9)',
+								textAlign: 'center',
+							},
+							'& .MuiInputBase-input': {
+								textAlign: 'center',
+								padding: '8px 12px',
+							},
+							'& .MuiOutlinedInput-root': {
+								'& fieldset': {
+									borderColor: 'rgba(249, 115, 22, 0.3)',
 								},
-								'& .MuiOutlinedInput-root': {
-									'& fieldset': {
-										borderColor: 'rgba(249, 115, 22, 0.3)',
-									},
-									'&:hover fieldset': {
-										borderColor: 'rgba(249, 115, 22, 0.5)',
-									},
-									'&.Mui-focused fieldset': {
-										borderColor: '#f59e0b',
-									},
+								'&:hover fieldset': {
+									borderColor: 'rgba(249, 115, 22, 0.5)',
 								},
-								width: '100%',
-								mb: 1,
-							}}
-						/>
-					) : (
-						<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-							<Typography variant="h6" fontWeight={600} color="#7c2d12">
-								{maxPriceInfo.value}
-							</Typography>
-							<IconButton
-								size="small"
-								onClick={handleEditMaxPrice}
-								sx={{
-									color: 'rgba(124, 45, 18, 0.5)',
-									'&:hover': { color: '#f59e0b' },
-									p: 0.25,
-									ml: 0.5
-								}}
-							>
-								<EditIcon sx={{ fontSize: '14px' }} />
-							</IconButton>
-						</Box>
-					)}
+								'&.Mui-focused fieldset': {
+									borderColor: '#f59e0b',
+									borderWidth: '2px',
+								},
+							},
+							width: '100%',
+							mb: 1,
+						}}
+						placeholder="Enter max price"
+					/>
 					<Typography
 						variant="body2"
 						color={maxPriceInfo.color}
@@ -482,7 +402,7 @@ const PriceInfoGrid = ({
 				</Typography>
 			</Box>
 		)}
-		</>
+		</Box>
 	)
 }
 

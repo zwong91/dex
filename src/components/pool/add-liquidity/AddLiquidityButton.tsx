@@ -194,7 +194,7 @@ const AddLiquidityButton = ({
 					? '🔗 Connect Wallet'
 					: isPending
 						? 'Adding Liquidity...'
-						: '💎 Provide Liquidity'}
+						: 'Add Liquidity'}
 			</Button>
 
 			{/* Slippage Helper */}
