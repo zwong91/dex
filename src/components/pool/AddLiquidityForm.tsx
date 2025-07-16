@@ -88,6 +88,7 @@ const AddLiquidityForm = ({
 		maxPrice,
 		setMinPrice,
 		setMaxPrice,
+		setPricesFromDrag, // 🎯 新增：专用于拖动的价格设置
 		calculateDynamicRange,
 		getNumBins,
 		resetPriceRange,
@@ -196,12 +197,8 @@ const AddLiquidityForm = ({
 				})
 			}
 			
-			// 更新价格输入框
-			setMinPrice(priceRange.minPrice.toString())
-			setMaxPrice(priceRange.maxPrice.toString())
-			
-			// 🚨 可选：触发价格范围变化事件，让其他组件同步
-			handlePriceRangeChange(priceRange.minPrice, priceRange.maxPrice, priceRange.binCount)
+			// 🎯 更新价格输入框 - 使用专门的拖动函数，不会触发手动编辑标志
+			setPricesFromDrag(priceRange.minPrice.toString(), priceRange.maxPrice.toString())
 		}
 	}
 
@@ -278,7 +275,21 @@ const AddLiquidityForm = ({
 	// Handle add liquidity submission
 	const handleAddLiquiditySubmit = () => {
 		console.log('🖱️ Add Liquidity button clicked!')
-		handleAddLiquidity(amount0, amount1, liquidityStrategy)
+		
+		// 🎯 传递当前的价格范围参数
+		const minPriceNum = parseFloat(minPrice) || undefined
+		const maxPriceNum = parseFloat(maxPrice) || undefined
+		const binCountNum = dynamicBinInfo?.binCount || parseInt(getNumBinsForComponents()) || undefined
+		
+		console.log('🎯 传递给handleAddLiquidity的价格参数:', {
+			minPrice: minPriceNum,
+			maxPrice: maxPriceNum,
+			binCount: binCountNum,
+			originalStrings: { minPrice, maxPrice },
+			dynamicBinInfo: dynamicBinInfo
+		})
+		
+		handleAddLiquidity(amount0, amount1, liquidityStrategy, minPriceNum, maxPriceNum, binCountNum)
 	}
 
 	// Create dynamic range calculation function for components

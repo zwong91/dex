@@ -71,6 +71,29 @@ const AddLiquidityButton = ({
 
 	// 处理添加流动性点击
 	const handleClick = () => {
+		// 🎯 记录当前的价格范围和分布信息
+		console.log('🚀 Adding Liquidity with Distribution:', {
+			minPrice: minPrice,
+			maxPrice: maxPrice,
+			amount0: amount0,
+			amount1: amount1,
+			strategy: strategy,
+			binStep: binStep,
+			activeBinPrice: activeBinPrice,
+			tokenDistribution: {
+				token0Percentage: amount0 && amount1 ? 
+					((parseFloat(amount0) / (parseFloat(amount0) + parseFloat(amount1))) * 100).toFixed(1) + '%' :
+					amount0 ? '100%' : '0%',
+				token1Percentage: amount0 && amount1 ? 
+					((parseFloat(amount1) / (parseFloat(amount0) + parseFloat(amount1))) * 100).toFixed(1) + '%' :
+					amount1 ? '100%' : '0%',
+			},
+			priceRange: {
+				minPriceChange: activeBinPrice ? (((parseFloat(minPrice) / activeBinPrice) - 1) * 100).toFixed(2) + '%' : 'N/A',
+				maxPriceChange: activeBinPrice ? (((parseFloat(maxPrice) / activeBinPrice) - 1) * 100).toFixed(2) + '%' : 'N/A',
+			}
+		})
+
 		if (validationResults.length > 0) {
 			setShowValidation(true)
 		}

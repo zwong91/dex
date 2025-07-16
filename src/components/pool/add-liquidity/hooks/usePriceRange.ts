@@ -300,12 +300,25 @@ export const usePriceRange = (selectedPool: PoolData | null) => {
 		return `${selectedPool.token1}/${selectedPool.token0}`
 	}
 
+	// 🎯 专门用于拖动操作的价格设置函数，不会触发手动编辑标志
+	const setPricesFromDrag = (newMinPrice: string, newMaxPrice: string) => {
+		setMinPrice(newMinPrice)
+		setMaxPrice(newMaxPrice)
+		// 注意：这里不设置 userHasManuallyEdited = true
+		console.log('🎯 Prices updated from drag operation:', {
+			newMinPrice,
+			newMaxPrice,
+			userHasManuallyEdited: false // 拖动不算手动编辑
+		})
+	}
+
 	return {
 		activeBinPrice,
 		minPrice,
 		maxPrice,
 		setMinPrice: setMinPriceManually,
 		setMaxPrice: setMaxPriceManually,
+		setPricesFromDrag, // 🎯 新增：专用于拖动的价格设置
 		calculateDynamicRange,
 		getNumBins,
 		resetPriceRange,

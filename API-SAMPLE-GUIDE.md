@@ -26,6 +26,7 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/pools/bsc/0xe785e0899e7ac
 ---
 
 **说明：**
+
 - 所有请求都需要在 header 里加上 `x-api-key: test-key`。
 - 可根据实际需要添加查询参数（如分页、排序、过滤等）。
 - `bsc` 可替换为 `ethereum` 等其他链名。
@@ -85,11 +86,13 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/pools/bsc/0x904ede072667c
 ```
 
 **参数说明：**
+
 - `activeId`（可选）：指定中心 bin ID，如果不提供则使用池子当前的 active ID
 - `range`（可选，默认50）：获取指定 ID 前后多少个 bins，范围 0-200（range=0 表示只获取当前 active bin）
 - `limit`（可选，默认100）：最大返回 bins 数量，范围 1-1000
 
 **返回数据包含：**
+
 - 池子基本信息（名称、active ID、bin step、代币信息）
 - bins 数组，每个 bin 包含：
   - `binId`：bin 的 ID

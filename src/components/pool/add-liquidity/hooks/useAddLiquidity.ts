@@ -2,6 +2,7 @@ import { ethers } from 'ethers'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAccount, useChainId } from 'wagmi'
+import { getUniformDistributionFromBinRange } from '@lb-xyz/sdk-v2'
 import { useDexOperations, useTokenBalanceByAddress, createViemClient } from '../../../../dex'
 import { getTokensForChain } from '../../../../dex/networkTokens'
 import { LiquidityStrategy } from '../StrategySelection'
@@ -57,7 +58,11 @@ export const useAddLiquidity = (
 	const handleAddLiquidity = async (
 		amount0: string,
 		amount1: string,
-		strategy: LiquidityStrategy
+		strategy: LiquidityStrategy,
+		// 🎯 新增：接收前端计算的价格范围参数
+		minPrice?: number,
+		maxPrice?: number,
+		binCount?: number
 	) => {
 		console.log('🚀 handleAddLiquidity called')
 
@@ -215,6 +220,179 @@ export const useAddLiquidity = (
 			const isSingleSided = amt0 === 0 || amt1 === 0
 			const mappedSingleSidedStrategy = getSingleSidedStrategy(strategy)
 
+			// 🎯 计算 deltaIds, distributionX, distributionY 基于价格范围
+			let deltaIds: number[] | undefined
+			let distributionX: bigint[] | undefined
+			let distributionY: bigint[] | undefined
+
+			if (minPrice && maxPrice && binCount) {
+				console.log('🎯 使用前端价格范围计算分布:', {
+					minPrice,
+					maxPrice,
+					binCount,
+					currentActiveBinId,
+					binStep: selectedPool.binStep,
+					isSingleSided,
+					tokenAmounts: { amt0, amt1 }
+				})
+
+				// 使用LB SDK的 getUniformDistributionFromBinRange 来计算bin IDs
+				try {
+					// 🎯 使用 LB SDK 的 getUniformDistributionFromBinRange - 简单直接
+					console.log('🎯 使用 LB SDK getUniformDistributionFromBinRange:', {
+						minPrice,
+						maxPrice,
+						binCount,
+						currentActiveBinId,
+						binStep: selectedPool.binStep
+					})
+					
+					// LB协议的价格到binId转换公式
+					const binStepDecimal = selectedPool.binStep / 10000
+					
+					// 计算minPrice和maxPrice对应的binId
+					const BASE_BIN_ID = 8388608 // 2^23, binId when price = 1
+					let minBinId = Math.round(Math.log(minPrice) / Math.log(1 + binStepDecimal) + BASE_BIN_ID)
+					let maxBinId = Math.round(Math.log(maxPrice) / Math.log(1 + binStepDecimal) + BASE_BIN_ID)
+					
+					// 🎯 针对单边流动性调整bin范围
+					if (isSingleSided) {
+						if (amt0 > 0 && amt1 === 0) {
+							// Token0 单边流动性 - 只使用当前bin及以上的bins (deltaIds >= 0)
+							minBinId = currentActiveBinId  // 从当前bin开始
+							maxBinId = Math.max(maxBinId, currentActiveBinId + 20) // 至少向右扩展20个bins
+						} else if (amt1 > 0 && amt0 === 0) {
+							// Token1 单边流动性 - 只使用当前bin及以下的bins (deltaIds <= 0)
+							minBinId = Math.min(minBinId, currentActiveBinId - 20) // 至少向左扩展20个bins
+							maxBinId = currentActiveBinId  // 到当前bin结束
+						}
+					}
+					
+					console.log('🔍 价格范围对应的binId:', {
+						minPrice,
+						maxPrice,
+						minBinId,
+						maxBinId,
+						binRange: maxBinId - minBinId + 1
+					})
+					
+					// 🎯 直接使用 LB SDK 的 getUniformDistributionFromBinRange
+					const binRange: [number, number] = [minBinId, maxBinId]
+					
+					const result = getUniformDistributionFromBinRange(
+						currentActiveBinId,
+						binRange
+					)
+					
+					deltaIds = result.deltaIds
+					distributionX = result.distributionX
+					distributionY = result.distributionY
+					
+					console.log('🎯 LB SDK 生成的分布参数:', {
+						deltaIds,
+						distributionX: distributionX?.map(d => d.toString()),
+						distributionY: distributionY?.map(d => d.toString()),
+						distributionXSum: distributionX?.reduce((sum, val) => sum + val, BigInt(0)).toString(),
+						distributionYSum: distributionY?.reduce((sum, val) => sum + val, BigInt(0)).toString(),
+						binRange,
+						tokenAmounts: { amt0, amt1 }
+					})
+
+					// 🚨 关键验证：确保分布数组长度和deltaIds匹配
+					if (distributionX && distributionY && deltaIds) {
+						const deltaIdsLength = deltaIds.length
+						const distXLength = distributionX.length
+						const distYLength = distributionY.length
+						
+						if (deltaIdsLength !== distXLength || deltaIdsLength !== distYLength) {
+							console.error('❌ 数组长度不匹配:', {
+								deltaIdsLength,
+								distXLength,
+								distYLength
+							})
+							throw new Error('Distribution arrays length mismatch with deltaIds')
+						}
+						
+						// 验证总和 - LB SDK 使用更高精度的基数 (10^18 instead of 10^4)
+						const sumX = distributionX.reduce((sum, val) => sum + val, BigInt(0))
+						const sumY = distributionY.reduce((sum, val) => sum + val, BigInt(0))
+						
+						// LB SDK 使用 10^18 作为基数，而不是 10000
+						const expectedTotal = BigInt('1000000000000000000') // 10^18
+						const tolerance = BigInt('100000000000000000') // 10% tolerance for precision (SDK rounding)
+						
+						const isWithinTolerance = (value: bigint, expected: bigint) => {
+							const diff = value > expected ? value - expected : expected - value
+							return diff <= tolerance
+						}
+						
+						if (isSingleSided) {
+							// 单边流动性：检查哪个token有金额，对应的分布应该接近10^18
+							if (amt0 > 0 && amt1 === 0) {
+								// Token0 (X) 单边流动性 - distributionX应该接近10^18
+								if (!isWithinTolerance(sumX, expectedTotal)) {
+									console.error('❌ 单边X流动性分布错误:', { sumX: sumX.toString(), sumY: sumY.toString(), expected: expectedTotal.toString() })
+									throw new Error('Single-sided X liquidity distribution error')
+								}
+							} else if (amt1 > 0 && amt0 === 0) {
+								// Token1 (Y) 单边流动性 - distributionY应该接近10^18
+								if (!isWithinTolerance(sumY, expectedTotal)) {
+									console.error('❌ 单边Y流动性分布错误:', { sumX: sumX.toString(), sumY: sumY.toString(), expected: expectedTotal.toString() })
+									throw new Error('Single-sided Y liquidity distribution error')
+								}
+							}
+						} else {
+							// 双边流动性：两个都应该接近10^18
+							if (!isWithinTolerance(sumX, expectedTotal) || !isWithinTolerance(sumY, expectedTotal)) {
+								console.error('❌ 双边流动性分布错误:', { sumX: sumX.toString(), sumY: sumY.toString(), expected: expectedTotal.toString() })
+								throw new Error('Dual-sided liquidity distribution error')
+							}
+						}
+					}
+
+					console.log('🎯 计算完成的分布参数 (验证通过):', {
+						deltaIds,
+						distributionX: distributionX?.map(d => d.toString()),
+						distributionY: distributionY?.map(d => d.toString()),
+						distributionXSum: distributionX?.reduce((sum, val) => sum + val, BigInt(0)).toString(),
+						distributionYSum: distributionY?.reduce((sum, val) => sum + val, BigInt(0)).toString(),
+						isSingleSided,
+						tokenAmounts: { amt0, amt1 },
+						// 🔍 额外调试信息
+						activeBinPosition: deltaIds?.indexOf(0), // 当前价格在数组中的位置
+						binRange: [minBinId, maxBinId],
+						activeBinId: currentActiveBinId
+					})
+
+				} catch (priceCalcError) {
+					console.error('❌ 价格范围计算失败:', priceCalcError)
+					// 回退到undefined，让useDexOperations使用默认逻辑
+					deltaIds = undefined
+					distributionX = undefined
+					distributionY = undefined
+				}
+			}
+
+			// 🚨 最终参数验证和日志
+			console.log('🎯 即将调用addLiquidity，最终参数:', {
+				pairAddress,
+				tokenXAddress,
+				tokenYAddress,
+				amt0,
+				amt1,
+				currentActiveBinId,
+				binStep: selectedPool.binStep,
+				deltaIds,
+				distributionX: distributionX?.map(d => d.toString()),
+				distributionY: distributionY?.map(d => d.toString()),
+				isSingleSided,
+				strategy: isSingleSided ? mappedSingleSidedStrategy : undefined,
+				slippageTolerance
+			})
+
+			// 🎯 临时测试：先用undefined让后端生成默认分布，对比差异
+			console.log('🔍 测试：使用fallback参数 (设置为undefined)')
+
 			await addLiquidity(
 				pairAddress,
 				tokenXAddress,
@@ -223,9 +401,9 @@ export const useAddLiquidity = (
 				amt1,
 				currentActiveBinId,
 				selectedPool.binStep,
-				undefined, // deltaIds
-				undefined, // distributionX
-				undefined, // distributionY
+				deltaIds, // 🎯 使用计算的deltaIds
+				distributionX, // 🎯 使用计算的distributionX
+				distributionY, // 🎯 使用计算的distributionY
 				isSingleSided,
 				isSingleSided ? mappedSingleSidedStrategy : undefined,
 				slippageTolerance

@@ -203,7 +203,20 @@ export const useDexOperations = () => {
 			let finalDistributionX: bigint[]
 			let finalDistributionY: bigint[]
 
-			if (isSingleSided) {
+			// 🎯 优先使用前端传入的参数，只有没有时才使用默认逻辑
+			if (deltaIds && distributionX && distributionY) {
+				// 前端已经计算好了，直接使用
+				finalDeltaIds = deltaIds
+				finalDistributionX = distributionX
+				finalDistributionY = distributionY
+				
+				console.log("🎯 使用前端传入的分布参数:", {
+					deltaIds: finalDeltaIds,
+					distributionXSum: finalDistributionX.reduce((sum, val) => sum + val, BigInt(0)).toString(),
+					distributionYSum: finalDistributionY.reduce((sum, val) => sum + val, BigInt(0)).toString(),
+					source: 'frontend-calculated'
+				})
+			} else if (isSingleSided) {
 				// Single-sided liquidity mode - use simple bin range around active bin
 				const binCount = 20 // Default to 20 bins for single-sided liquidity
 				
@@ -235,32 +248,42 @@ export const useDexOperations = () => {
 					finalDistributionX = new Array(finalDistributionY.length).fill(BigInt(0))
 				}
 
-				console.log("🔍 Single-sided liquidity distribution (using LB SDK):", {
+				console.log("🔍 Single-sided liquidity distribution (using LB SDK fallback):", {
 					activeBin,
 					binRange,
 					deltaIds: finalDeltaIds,
 					isProvidingTokenX,
 					distributionXSum: finalDistributionX.reduce((sum, val) => sum + val, BigInt(0)).toString(),
-					distributionYSum: finalDistributionY.reduce((sum, val) => sum + val, BigInt(0)).toString()
+					distributionYSum: finalDistributionY.reduce((sum, val) => sum + val, BigInt(0)).toString(),
+					source: 'sdk-fallback',
+					// 🔍 完整分布数据对比
+					distributionXValues: finalDistributionX.map(d => d.toString()),
+					distributionYValues: finalDistributionY.map(d => d.toString()),
+					deltaIdsValues: finalDeltaIds
 				})
 			} else {
-				// Dual-sided liquidity mode
-				const binRange: [number, number] = deltaIds ? 
-					[activeBin + Math.min(...deltaIds), activeBin + Math.max(...deltaIds)] :
-					[activeBin - 10, activeBin + 10] // Default 20 bins
+				// Dual-sided liquidity mode - 也优先使用传入的参数
+				if (!deltaIds || !distributionX || !distributionY) {
+					const binRange: [number, number] = [activeBin - 10, activeBin + 10] // Default 20 bins
 
-				const { deltaIds: calculatedDeltaIds, distributionX: calculatedDistributionX, distributionY: calculatedDistributionY } = 
-					getUniformDistributionFromBinRange(activeBin, binRange)
+					const { deltaIds: calculatedDeltaIds, distributionX: calculatedDistributionX, distributionY: calculatedDistributionY } = 
+						getUniformDistributionFromBinRange(activeBin, binRange)
 
-				finalDeltaIds = deltaIds || calculatedDeltaIds
-				finalDistributionX = distributionX || calculatedDistributionX
-				finalDistributionY = distributionY || calculatedDistributionY
+					finalDeltaIds = calculatedDeltaIds
+					finalDistributionX = calculatedDistributionX
+					finalDistributionY = calculatedDistributionY
+				} else {
+					// 使用前端传入的参数
+					finalDeltaIds = deltaIds
+					finalDistributionX = distributionX
+					finalDistributionY = distributionY
+				}
 
-				console.log("🔍 Dual-sided liquidity distribution (using LB SDK):", {
+				console.log("🔍 Dual-sided liquidity distribution:", {
 					activeBin,
-					binRange,
 					deltaIds: finalDeltaIds,
-					distributionCount: finalDistributionX.length
+					distributionCount: finalDistributionX.length,
+					source: (deltaIds && distributionX && distributionY) ? 'frontend-passed' : 'sdk-calculated'
 				})
 			}
 

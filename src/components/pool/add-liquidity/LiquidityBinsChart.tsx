@@ -1,6 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
+import { useChainId } from 'wagmi'
 import { usePriceToggle } from './contexts/PriceToggleContext'
+import { getApiEndpoint } from '../../../dex/utils/apiEndpoint'
 
 interface BinData {
 	binId: number
@@ -32,7 +34,7 @@ interface PoolBinsData {
 
 interface LiquidityBinsChartProps {
 	poolAddress: string
-	chainId: string
+	chainId: string // 保留作为字符串，用于API URL
 	onBinRangeChange?: (minBinId: number, maxBinId: number, priceRange?: {
 		minPrice: number
 		maxPrice: number
@@ -56,15 +58,17 @@ interface LiquidityBinsChartProps {
 
 const LiquidityBinsChart = ({
 	poolAddress,
-	chainId,
+	chainId: chainIdString, // 重命名为更清楚
 	onBinRangeChange,
 	minPrice,
 	maxPrice,
 	currentPrice,
 	binStep = 25, // 默认25基点
 }: LiquidityBinsChartProps) => {
+	// 🎯 使用真正的 wagmi chainId 来选择正确的 API endpoint
+	const wagmiChainId = useChainId()
 	// 早期检查必需参数
-	if (!poolAddress || !chainId) {
+	if (!poolAddress || !chainIdString) {
 		return (
 			<Box
 				sx={{
@@ -102,7 +106,7 @@ const LiquidityBinsChart = ({
 
 	// 获取bins数据
 	const fetchBinsData = useCallback(async () => {
-		if (!poolAddress || !chainId) return
+		if (!poolAddress || !chainIdString) return
 
 		setLoading(true)
 		setError(null)
@@ -142,8 +146,19 @@ const LiquidityBinsChart = ({
 				})
 			}
 
+			// 🎯 使用真正的 wagmi chainId 来选择正确的 API endpoint
+			const apiEndpoint = getApiEndpoint(wagmiChainId)
+			
+			console.log('🔗 API Endpoint Selection:', {
+				wagmiChainId,
+				chainIdString,
+				selectedEndpoint: apiEndpoint,
+				isTestnet: wagmiChainId === 97,
+				isMainnet: wagmiChainId === 56
+			})
+			
 			const response = await fetch(
-				`https://api.dex.jongun2038.win/v1/api/dex/pools/${chainId}/${poolAddress}/bins?range=${dynamicRange}&limit=${dynamicLimit}`,
+				`${apiEndpoint}/v1/api/dex/pools/${chainIdString}/${poolAddress}/bins?range=${dynamicRange}&limit=${dynamicLimit}`,
 				{
 					headers: {
 						'x-api-key': 'test-key',
@@ -164,10 +179,31 @@ const LiquidityBinsChart = ({
 
 			const apiData = result.data
 			
+			// 🎯 验证关键数据结构
+			if (!apiData.tokenX || !apiData.tokenY) {
+				console.error('❌ API Response missing token data:', { tokenX: apiData.tokenX, tokenY: apiData.tokenY })
+				throw new Error('API response missing token information')
+			}
+			
+			if (!apiData.tokenX.symbol || !apiData.tokenY.symbol) {
+				console.error('❌ API Response missing token symbols:', { 
+					tokenXSymbol: apiData.tokenX?.symbol, 
+					tokenYSymbol: apiData.tokenY?.symbol 
+				})
+				throw new Error('API response missing token symbols')
+			}
+
+			console.log('✅ API Data validation passed:', {
+				poolName: apiData.poolName,
+				tokenX: { symbol: apiData.tokenX.symbol, decimals: apiData.tokenX.decimals },
+				tokenY: { symbol: apiData.tokenY.symbol, decimals: apiData.tokenY.decimals },
+				binsCount: apiData.bins?.length || 0
+			})
+			
 			// 转换为我们的数据格式
 			const transformedData: PoolBinsData = {
 				poolInfo: {
-					name: apiData.poolName,
+					name: apiData.poolName || 'Unknown Pool',
 					activeId: apiData.currentActiveId,
 					binStep: parseInt(apiData.binStep),
 					tokenX: {
@@ -210,12 +246,22 @@ const LiquidityBinsChart = ({
 				}))
 			})
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to fetch bins data')
-			console.error('Error fetching bins data:', err)
+			const errorMessage = err instanceof Error ? err.message : 'Failed to fetch bins data'
+			setError(errorMessage)
+			
+			console.error('❌ Error fetching bins data:', {
+				error: err,
+				errorMessage,
+				poolAddress,
+				chainId: chainIdString,
+				wagmiChainId,
+				binStep,
+				apiEndpoint: `${getApiEndpoint(wagmiChainId)}/v1/api/dex/pools/${chainIdString}/${poolAddress}/bins`
+			})
 		} finally {
 			setLoading(false)
 		}
-	}, [poolAddress, chainId, binStep]) // 🎯 移除minPrice, maxPrice, currentPrice - 只在池子或binStep变化时重新请求
+	}, [poolAddress, chainIdString, wagmiChainId, binStep]) // 🎯 移除minPrice, maxPrice, currentPrice - 只在池子或binStep变化时重新请求
 
 	// 初始加载数据
 	useEffect(() => {
@@ -913,22 +959,6 @@ Reserve: ${bin.reserveX.toFixed(2)} USDC + ${bin.reserveY.toFixed(4)} WBNB`}
 								effectiveMinPrice = rawMinPrice
 								effectiveMaxPrice = rawMaxPrice
 							}
-							
-							console.log('🎯 Price scale calculation (70 bins):', {
-								propsMinPrice: minPrice,
-								propsMaxPrice: maxPrice,
-								rawMinPrice: rawMinPrice,
-								rawMaxPrice: rawMaxPrice,
-								isReversed: isReversed,
-								effectiveMinPrice: effectiveMinPrice,
-								effectiveMaxPrice: effectiveMaxPrice,
-								referencePrice: referencePrice,
-								stepPrice: effectiveMinPrice + (effectiveMaxPrice - effectiveMinPrice) * i / 13,
-								binStepProp: binStep,
-								// 🚨 调试：检查price range是否合理
-								priceRangeIsValid: effectiveMinPrice < effectiveMaxPrice,
-								priceRangeDiff: effectiveMaxPrice - effectiveMinPrice
-							})
 							
 							// 在价格范围内均匀分布刻度（现在已经是正确的min < max）
 							const priceRange = effectiveMaxPrice - effectiveMinPrice
