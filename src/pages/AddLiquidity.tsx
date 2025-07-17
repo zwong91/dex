@@ -58,7 +58,7 @@ const AddLiquidityPage: React.FC = () => {
   // 统一转换API数据为页面PoolData结构
   const { pools: apiPools, loading: isLoading } = useApiPoolData({
     chain: chainName,
-    pageSize: 50,
+    pageSize: 10,
     orderBy: 'volume',
     filterBy: '1d',
     status: 'main',

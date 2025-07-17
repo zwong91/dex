@@ -96,7 +96,7 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
   // 使用 useMemo 稳定化 options，避免不必要的重新请求
   const stableOptions = useMemo(() => ({
     chain: options.chain || 'bsc',
-    pageSize: options.pageSize || 5, // 减少默认数量
+    pageSize: options.pageSize || 10, // 默认数量
     pageNum: options.pageNum || 1,
     orderBy: options.orderBy || 'volume',
     filterBy: options.filterBy || '1d',

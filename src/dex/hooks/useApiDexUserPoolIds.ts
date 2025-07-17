@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
-export function useApiDexUserPoolIds(address: string, chain: string, pageSize = 20, pageNum = 1) {
+export function useApiDexUserPoolIds(address: string, chain: string, pageSize = 10, pageNum = 1) {
   const [data, setData] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
