@@ -150,8 +150,63 @@ const response = await fetch('/v1/api/dex/pools/bsc')
 const isCached = response.headers.get('X-Cache') === 'HIT'
 const cacheKey = response.headers.get('X-Cache-Key')
 
-console.log(\`Response cached: \${isCached}, key: \${cacheKey}\`)
+console.log(`Response cached: ${isCached}, key: ${cacheKey}`)
 ```
+
+### Using curl to Check Cache Headers
+
+```bash
+# 查看响应头信息（包含缓存状态）
+curl -I -H "Authorization: Bearer YOUR_API_KEY" \
+  https://your-worker.workers.dev/v1/api/dex/pools/bsc
+
+# 输出示例：
+# HTTP/2 200
+# x-cache: HIT
+# x-cache-key: dex-api:/v1/api/dex/pools/bsc
+# x-cache-ttl: 300
+# cache-control: public, max-age=300, s-maxage=300
+# content-type: application/json
+
+# 查看完整响应（头信息 + 内容）
+curl -v -H "Authorization: Bearer YOUR_API_KEY" \
+  https://your-worker.workers.dev/v1/api/dex/pools/bsc
+
+# 只显示特定的缓存头信息
+curl -s -D - -H "Authorization: Bearer YOUR_API_KEY" \
+  https://your-worker.workers.dev/v1/api/dex/pools/bsc | grep -i "x-cache"
+
+# 输出示例：
+# x-cache: HIT
+# x-cache-key: dex-api:/v1/api/dex/pools/bsc
+# x-cache-ttl: 300
+
+# 测试缓存失效 - 强制刷新（✅ 已实现并测试通过）
+
+# 使用 X-Force-Refresh 头绕过缓存
+curl -H "Authorization: Bearer test-key" \
+  -H "X-Force-Refresh: true" \
+  http://localhost:8787/v1/api/dex/pools/bsc
+
+# 使用标准 Cache-Control 头绕过缓存  
+curl -H "Authorization: Bearer test-key" \
+  -H "Cache-Control: no-cache" \
+  http://localhost:8787/v1/api/dex/pools/bsc
+
+# 测试结果说明：
+# - 正常请求返回 X-Cache-Status: HIT (缓存命中)
+# - 强制刷新返回 X-Cache-Status: BYPASS (绕过缓存)
+# - 两种强制刷新方式都支持：X-Force-Refresh 和 Cache-Control: no-cache
+```
+
+### Cache Header Meanings
+
+| Header | Description | Example |
+|--------|-------------|---------|
+| `X-Cache` | Cache hit status | `HIT` (from cache) or `MISS` (from origin) |
+| `X-Cache-Key` | Cache key used | `dex-api:/v1/api/dex/pools/bsc` |
+| `X-Cache-TTL` | Time to live in seconds | `300` (5 minutes) |
+| `Cache-Control` | Client-side caching directive | `public, max-age=300` |
 
 ### Cache-Aware Client
 

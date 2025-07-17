@@ -135,6 +135,18 @@ export function createKVCacheMiddleware(
 			return await next()
 		}
 		
+		// Check if force refresh is requested
+		const forceRefresh = c.req.header('X-Force-Refresh') === 'true' || 
+		                   c.req.header('Cache-Control')?.includes('no-cache')
+		
+		if (forceRefresh) {
+			console.log('🔄 Force refresh requested, skipping cache')
+			c.header('X-Cache-Status', 'BYPASS')
+			c.header('X-Cache-Reason', 'Force refresh requested')
+			await next()
+			return
+		}
+		
 		// For USER strategy, validate access permissions
 		if (strategy === 'USER') {
 			const hasAccess = validateUserAccess(c, c.req.path)
@@ -167,7 +179,7 @@ export function createKVCacheMiddleware(
 				console.log(`✅ Cache HIT: ${cacheKey}`)
 				
 				// Add cache headers
-				c.header('X-Cache', 'HIT')
+				c.header('X-Cache-Status', 'HIT')
 				c.header('X-Cache-Key', cacheKey)
 				c.header('X-Cache-TTL', config.ttl.toString())
 				
@@ -196,7 +208,7 @@ export function createKVCacheMiddleware(
 						console.log(`💾 Cached response: ${cacheKey} (TTL: ${config.ttl}s)`)
 						
 						// Add cache headers to original response
-						c.header('X-Cache', 'MISS')
+						c.header('X-Cache-Status', 'MISS')
 						c.header('X-Cache-Key', cacheKey)
 						c.header('X-Cache-TTL', config.ttl.toString())
 					}
