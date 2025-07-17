@@ -202,7 +202,15 @@ export function createKVCacheMiddleware(
 						await kv.put(
 							cacheKey, 
 							JSON.stringify(data), 
-							{ expirationTtl: config.ttl }
+							{ 
+								expirationTtl: config.ttl,
+								// 添加元数据以便更好地管理缓存
+								metadata: {
+									cached_at: Date.now(),
+									strategy: strategy,
+									ttl: config.ttl
+								}
+							}
 						)
 						
 						console.log(`💾 Cached response: ${cacheKey} (TTL: ${config.ttl}s)`)
@@ -302,9 +310,67 @@ export class CacheManager {
 	/**
 	 * Clear all caches (use with caution)
 	 */
-	async clearAll(): Promise<void> {
-		// This would require listing all keys with a prefix
-		// KV has limitations here, so implement carefully
-		console.warn('Clear all caches requested - implement based on your KV naming strategy')
+	async clearAll(): Promise<{
+		success: boolean
+		deletedCount: number
+		errors: string[]
+	}> {
+		const errors: string[] = []
+		let deletedCount = 0
+		
+		try {
+			console.log('🔍 Scanning all cache keys...')
+			
+			// 列出所有以 dex-api 开头的键
+			let cursor: string | undefined
+			const keysToDelete: string[] = []
+			
+			do {
+				const listResult = await this.kv.list({
+					prefix: 'dex-api:',
+					cursor,
+					limit: 1000
+				})
+				
+				keysToDelete.push(...listResult.keys.map(key => key.name))
+				cursor = listResult.list_complete ? undefined : listResult.cursor
+				
+				console.log(`📋 Found ${listResult.keys.length} cache keys (total: ${keysToDelete.length})`)
+				
+			} while (cursor)
+			
+			console.log(`🎯 Total ${keysToDelete.length} cache keys to delete`)
+			
+			if (keysToDelete.length === 0) {
+				return { success: true, deletedCount: 0, errors: [] }
+			}
+			
+			// 逐个删除键
+			console.log('🗑️ Starting to delete cache keys...')
+			
+			for (const key of keysToDelete) {
+				try {
+					await this.kv.delete(key)
+					deletedCount++
+					
+					if (deletedCount % 50 === 0) {
+						console.log(`✅ Deleted ${deletedCount}/${keysToDelete.length} cache keys`)
+					}
+				} catch (error) {
+					const errorMsg = `Failed to delete key ${key}: ${error}`
+					errors.push(errorMsg)
+					console.error(`❌ ${errorMsg}`)
+				}
+			}
+			
+			console.log(`🎉 Cache clearing completed! Deleted ${deletedCount} keys`)
+			
+			return { success: errors.length === 0, deletedCount, errors }
+			
+		} catch (error) {
+			const errorMsg = `Error during cache clearing: ${error}`
+			console.error(`💥 ${errorMsg}`)
+			return { success: false, deletedCount, errors: [errorMsg, ...errors] }
+		}
 	}
 }

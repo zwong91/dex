@@ -12,7 +12,39 @@ import { createAuthMiddleware } from '../middleware/auth'
 export function createCacheRoutes() {
 	const app = new Hono<{ Bindings: Env }>()
 
-	// Apply auth middleware to all cache management routes
+	// Internal cache clearing endpoint (no auth required for emergency clearing)
+	app.post('/internal/clear-all', async (c) => {
+		const kv = c.env.KV
+		if (!kv) {
+			return c.json({
+				success: false,
+				error: 'KV not available'
+			}, 503)
+		}
+
+		try {
+			const cacheManager = new CacheManager(kv)
+			const result = await cacheManager.clearAll()
+
+			return c.json({
+				success: result.success,
+				message: result.success ? 'All caches cleared successfully' : 'Cache clearing failed',
+				deletedCount: result.deletedCount,
+				errors: result.errors,
+				warning: 'This operation affects all cached data',
+				timestamp: new Date().toISOString()
+			})
+		} catch (error) {
+			console.error('Internal cache clear error:', error)
+			return c.json({
+				success: false,
+				error: 'Cache clear failed',
+				message: error instanceof Error ? error.message : 'Unknown error'
+			}, 500)
+		}
+	})
+
+	// Apply auth middleware to all other cache management routes
 	app.use('*', createAuthMiddleware())
 
 	// Cache status endpoint
