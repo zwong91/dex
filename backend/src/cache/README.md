@@ -72,6 +72,7 @@ wrangler kv:namespace create "DEX_CACHE" --preview
 ### Cache Headers
 
 All cached responses include these headers:
+
 - `X-Cache`: HIT or MISS
 - `X-Cache-Key`: The cache key used
 - `X-Cache-TTL`: TTL in seconds
@@ -118,7 +119,6 @@ Critical endpoints are automatically warmed every 5 minutes via cron jobs:
 
 ```
 */5 * * * * - Cache warming (every 5 minutes)
-*/1 * * * * - Health checks (every minute)
 0 * * * *   - Metrics collection (hourly)
 0 2 * * 0   - Log cleanup (weekly)
 ```

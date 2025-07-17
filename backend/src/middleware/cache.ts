@@ -55,13 +55,62 @@ export function generateCacheKey(
 		key += `:${query}`
 	}
 	
-	// Include user auth in key for user-specific data
-	if (includeAuth) {
+	// For user-specific routes, the user address is already in the path
+	// Only include auth user for non-user-specific routes that need user context
+	if (includeAuth && !path.includes('/user/')) {
 		const userAddress = c.get('userAddress') || 'anonymous'
-		key += `:user:${userAddress}`
+		key += `:auth:${userAddress}`
 	}
 	
 	return key.toLowerCase()
+}
+
+/**
+ * Extract user address from URL path for validation
+ */
+export function extractUserFromPath(path: string): string | null {
+	// Match patterns like /user/:address/* or /user-*/:address/*
+	// Ethereum addresses are 40 hex characters (without 0x prefix in regex)
+	const userPatterns = [
+		/\/user\/bin-ids\/(0x[0-9a-fA-F]{40})/, // /user/bin-ids/0x123.../
+		/\/user\/pool-ids\/(0x[0-9a-fA-F]{40})/, // /user/pool-ids/0x123.../
+		/\/user\/fees-earned\/[^/]+\/(0x[0-9a-fA-F]{40})/, // /user/fees-earned/bsc/0x123.../
+		/\/user-lifetime-stats\/[^/]+\/users\/(0x[0-9a-fA-F]{40})/, // /user-lifetime-stats/bsc/users/0x123.../
+		/\/user\/(0x[0-9a-fA-F]{40})\/history/, // /user/0x123.../history/
+		/\/user\/(0x[0-9a-fA-F]{40})\/farms/, // /user/0x123.../farms
+		/\/user\/(0x[0-9a-fA-F]{40})\/rewards/, // /user/0x123.../rewards
+		/\/user\/(0x[0-9a-fA-F]{40})\/claimable-rewards/ // /user/0x123.../claimable-rewards
+	]
+	
+	for (const pattern of userPatterns) {
+		const match = path.match(pattern)
+		if (match && match[1]) {
+			return match[1].toLowerCase()
+		}
+	}
+	
+	return null
+}
+
+/**
+ * Validate if the authenticated user can access the requested user data
+ */
+export function validateUserAccess(c: Context, path: string): boolean {
+	const authUserAddress = c.get('userAddress')?.toLowerCase()
+	const pathUserAddress = extractUserFromPath(path)?.toLowerCase()
+	
+	// If no user in path, allow access
+	if (!pathUserAddress) {
+		return true
+	}
+	
+	// If no authenticated user, deny access to user-specific data
+	if (!authUserAddress) {
+		return false
+	}
+	
+	// Allow access if authenticated user matches path user
+	return authUserAddress === pathUserAddress
 }
 
 /**
@@ -84,6 +133,19 @@ export function createKVCacheMiddleware(
 		// Skip caching for non-GET requests
 		if (c.req.method !== 'GET') {
 			return await next()
+		}
+		
+		// For USER strategy, validate access permissions
+		if (strategy === 'USER') {
+			const hasAccess = validateUserAccess(c, c.req.path)
+			if (!hasAccess) {
+				return c.json({
+					success: false,
+					error: 'Access denied',
+					message: 'You can only access your own user data',
+					timestamp: new Date().toISOString()
+				}, 403)
+			}
 		}
 		
 		const config = {
@@ -196,14 +258,32 @@ export class CacheManager {
 	 * Invalidate all user-specific caches
 	 */
 	async invalidateUser(userAddress: string): Promise<void> {
-		// In a real implementation, you'd want to maintain a list of user cache keys
-		// For now, we'll use a simple approach
-		const patterns = [
-			`dex-api:/v1/api/dex/user:user:${userAddress.toLowerCase()}`,
+		// Normalize user address
+		const normalizedAddress = userAddress.toLowerCase().startsWith('0x') 
+			? userAddress.toLowerCase() 
+			: `0x${userAddress.toLowerCase()}`
+		
+		// Generate all possible user cache keys
+		const userPatterns = [
+			`dex-api:/v1/api/dex/user/bin-ids/${normalizedAddress}`,
+			`dex-api:/v1/api/dex/user/pool-ids/${normalizedAddress}`,
+			`dex-api:/v1/api/dex/user/fees-earned`,
+			`dex-api:/v1/api/dex/user/${normalizedAddress}/history`,
+			`dex-api:/v1/api/dex/user-lifetime-stats`,
+			`dex-api:/v1/api/dex/user/${normalizedAddress}/rewards`,
+			`dex-api:/v1/api/dex/user/${normalizedAddress}/claimable-rewards`,
+			`dex-api:/v1/api/dex/user/${normalizedAddress}/farms`
 		]
 		
-		for (const pattern of patterns) {
-			await this.kv.delete(pattern)
+		// KV doesn't support pattern matching, so we delete known patterns
+		// In a production system, you might want to maintain a registry of user cache keys
+		for (const pattern of userPatterns) {
+			try {
+				await this.kv.delete(pattern)
+				console.log(`🗑️ Invalidated user cache: ${pattern}`)
+			} catch (error) {
+				console.warn(`Failed to invalidate user cache ${pattern}:`, error)
+			}
 		}
 	}
 	
