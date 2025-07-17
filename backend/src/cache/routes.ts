@@ -35,9 +35,9 @@ export function createCacheRoutes() {
 					{ name: 'STATIC', ttl: 86400, description: 'Static data (24h)' },
 					{ name: 'POOLS', ttl: 300, description: 'Pool data (5m)' },
 					{ name: 'PRICE', ttl: 60, description: 'Price data (1m)' },
-					{ name: 'USER', ttl: 30, description: 'User data (30s)' },
+					{ name: 'USER', ttl: 60, description: 'User data (60s)' },
 					{ name: 'ANALYTICS', ttl: 3600, description: 'Analytics (1h)' },
-					{ name: 'HEALTH', ttl: 10, description: 'Health checks (10s)' },
+					{ name: 'HEALTH', ttl: 60, description: 'Health checks (60s)' },
 					{ name: 'METADATA', ttl: 600, description: 'Metadata (10m)' }
 				]
 			},

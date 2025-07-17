@@ -59,7 +59,7 @@ export class CacheWarmer {
 				await this.env.KV.put(
 					cacheKey, 
 					JSON.stringify(healthData), 
-					{ expirationTtl: 10 } // HEALTH strategy TTL
+					{ expirationTtl: 60 } // HEALTH strategy TTL (min 60s for KV)
 				)
 			}
 			

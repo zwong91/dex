@@ -25,13 +25,13 @@ export const CACHE_STRATEGIES = {
 	PRICE: { ttl: 60 }, // 1 minute
 	
 	// User-specific data that changes often
-	USER: { ttl: 30 }, // 30 seconds
+	USER: { ttl: 60 }, // 60 seconds (KV minimum)
 	
 	// Analytics data that changes daily
 	ANALYTICS: { ttl: 3600 }, // 1 hour
 	
 	// Health checks that change rapidly
-	HEALTH: { ttl: 10 }, // 10 seconds
+	HEALTH: { ttl: 60 }, // 60 seconds (KV minimum)
 	
 	// Subgraph metadata
 	METADATA: { ttl: 600 }, // 10 minutes

@@ -32,13 +32,13 @@ export const CACHE_CONFIG = {
 		PRICE: 60, // 1 minute
 		
 		// User-specific data
-		USER_DATA: 30, // 30 seconds
+		USER_DATA: 60, // 60 seconds (KV minimum)
 		
 		// Analytics data
 		ANALYTICS: 60 * 60, // 1 hour
 		
 		// Health check data
-		HEALTH: 10, // 10 seconds
+		HEALTH: 60, // 60 seconds (KV minimum)
 		
 		// Subgraph metadata
 		METADATA: 10 * 60, // 10 minutes
@@ -50,7 +50,7 @@ export const CACHE_CONFIG = {
 		FARMS: 2 * 60, // 2 minutes
 		
 		// Rewards data (changes frequently due to block rewards)
-		REWARDS: 30, // 30 seconds
+		REWARDS: 60, // 60 seconds (KV minimum)
 	},
 
 	/**
@@ -61,9 +61,9 @@ export const CACHE_CONFIG = {
 			STATIC: 'public, max-age=86400, s-maxage=86400', // 24h
 			POOLS: 'public, max-age=300, s-maxage=300', // 5m
 			PRICE: 'public, max-age=60, s-maxage=60', // 1m
-			USER: 'private, max-age=30, s-maxage=30', // 30s
+			USER: 'private, max-age=60, s-maxage=60', // 60s (KV minimum)
 			ANALYTICS: 'public, max-age=3600, s-maxage=3600', // 1h
-			HEALTH: 'public, max-age=10, s-maxage=10', // 10s
+			HEALTH: 'public, max-age=60, s-maxage=60', // 60s (KV minimum)
 		}
 	},
 

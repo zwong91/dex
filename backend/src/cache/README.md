@@ -1,4 +1,4 @@
-# Cloudflare KV Caching Implementation
+# Cloudflare KV Cachin| **HEALTH** | 60 seconds | Health checks - real-time monitoring (KV minimum) | Implementation
 
 This implementation adds comprehensive caching capabilities to your DEX backend API using Cloudflare Workers KV, optimizing performance with high read volumes and low latency.
 
@@ -18,9 +18,9 @@ This implementation adds comprehensive caching capabilities to your DEX backend 
 | **STATIC** | 24 hours | Tokens, vault strategies - rarely changes |
 | **POOLS** | 5 minutes | Pool data - changes moderately |
 | **PRICE** | 1 minute | Price data - changes frequently |
-| **USER** | 30 seconds | User-specific data - personalized |
+| **USER** | 60 seconds | User-specific data - personalized (KV minimum) |
 | **ANALYTICS** | 1 hour | Analytics data - updated hourly |
-| **HEALTH** | 10 seconds | Health checks - real-time monitoring |
+| **HEALTH** | 60 seconds | Health checks - real-time monitoring (KV minimum) |
 | **METADATA** | 10 minutes | Subgraph metadata - stable |
 
 ## 🔧 Configuration
