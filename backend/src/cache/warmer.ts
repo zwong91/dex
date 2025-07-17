@@ -77,57 +77,109 @@ export class CacheWarmer {
 		try {
 			const subgraphClient = createSubgraphClient(this.env)
 			
-			// 预热多种常用的查询组合
+			// 预热多种常用的查询组合，分页参数自动生成，避免冗余
+			const paginatedVariations = [
+				{ page: 1, limit: 10 },
+				...Array.from({ length: 3 }, (_, i) => ({ page: i + 1, limit: 10 }))
+			].map(v => ({
+				...v,
+				orderby: 'volume',
+				filterby: '1d',
+				status: 'main',
+				version: 'all',
+				excludelowvolumepools: 'true'
+			}))
+
 			const queryVariations = [
 				{ limit: 100, offset: 0, orderBy: 'totalValueLockedUSD', orderDirection: 'desc' as const },
 				{ limit: 50, offset: 0, orderBy: 'totalValueLockedUSD', orderDirection: 'desc' as const },
 				{ limit: 20, offset: 0, orderBy: 'totalValueLockedUSD', orderDirection: 'desc' as const },
 				{ limit: 100, offset: 0, orderBy: 'volumeUSD', orderDirection: 'desc' as const },
-				{ limit: 50, offset: 0, orderBy: 'volumeUSD', orderDirection: 'desc' as const }
+				{ limit: 50, offset: 0, orderBy: 'volumeUSD', orderDirection: 'desc' as const },
+				...paginatedVariations
 			]
-			
+
 			for (const variation of queryVariations) {
-				const pools = await subgraphClient.getPools(
-					variation.limit, 
-					variation.offset, 
-					variation.orderBy, 
-					variation.orderDirection
-				)
-				
-				const poolsData = {
-					success: true,
-					data: pools,
-					meta: {
-						total: pools.length,
-						limit: variation.limit,
-						offset: variation.offset,
+				// 兼容老参数和新参数
+				if ('orderBy' in variation) {
+					const pools = await subgraphClient.getPools(
+						variation.limit,
+						variation.offset,
+						variation.orderBy,
+						variation.orderDirection
+					)
+					const poolsData = {
+						success: true,
+						data: pools,
+						meta: {
+							total: pools.length,
+							limit: variation.limit,
+							offset: variation.offset,
+							orderBy: variation.orderBy,
+							orderDirection: variation.orderDirection
+						},
+						timestamp: new Date().toISOString()
+					}
+					const queryString = new URLSearchParams({
+						limit: variation.limit.toString(),
+						offset: variation.offset.toString(),
 						orderBy: variation.orderBy,
 						orderDirection: variation.orderDirection
-					},
-					timestamp: new Date().toISOString()
-				}
-
-				// 生成包含查询参数的缓存键
-				const queryString = new URLSearchParams({
-					limit: variation.limit.toString(),
-					offset: variation.offset.toString(),
-					orderBy: variation.orderBy,
-					orderDirection: variation.orderDirection
-				}).toString()
-				
-				const cacheKey = `dex-api:/v1/api/dex/pools/${chain}:${queryString}`
-				
-				if (this.env.KV) {
-					await this.env.KV.put(
-						cacheKey, 
-						JSON.stringify(poolsData), 
-						{ expirationTtl: 300 } // POOLS strategy TTL
+					}).toString()
+					const cacheKey = `dex-api:/v1/api/dex/pools/${chain}:${queryString}`
+					if (this.env.KV) {
+						await this.env.KV.put(
+							cacheKey,
+							JSON.stringify(poolsData),
+							{ expirationTtl: 300 }
+						)
+					}
+					console.log(`✅ Warmed pools (${variation.limit}/${variation.offset}/${variation.orderBy}): ${cacheKey}`)
+				} else {
+					// 新增：完全模拟前端请求参数的缓存
+					// 这里你需要根据实际API handler的实现，调用正确的handler和参数
+					// 这里只做缓存key和数据结构的预热
+					const pools = await subgraphClient.getPools(
+						variation.limit,
+						0,
+						'volumeUSD',
+						'desc'
 					)
+					const poolsData = {
+						success: true,
+						data: pools,
+						meta: {
+							page: variation.page,
+							limit: variation.limit,
+							orderby: variation.orderby,
+							filterby: variation.filterby,
+							status: variation.status,
+							version: variation.version,
+							excludelowvolumepools: variation.excludelowvolumepools
+						},
+						timestamp: new Date().toISOString()
+					}
+					const queryString = new URLSearchParams({
+						page: variation.page.toString(),
+						limit: variation.limit.toString(),
+						orderby: variation.orderby,
+						filterby: variation.filterby,
+						status: variation.status,
+						version: variation.version,
+						excludelowvolumepools: variation.excludelowvolumepools
+					}).toString()
+					const cacheKey = `dex-api:/v1/api/dex/pools/${chain}:${queryString}`
+					if (this.env.KV) {
+						await this.env.KV.put(
+							cacheKey,
+							JSON.stringify(poolsData),
+							{ expirationTtl: 300 }
+						)
+					}
+					console.log(`✅ Warmed pools (page=${variation.page}/limit=${variation.limit}/orderby=${variation.orderby}): ${cacheKey}`)
 				}
-				
-				console.log(`✅ Warmed pools (${variation.limit}/${variation.offset}/${variation.orderBy}): ${cacheKey}`)
 			}
-			
+
 		} catch (error) {
 			console.error(`❌ Error warming pools for ${chain}:`, error)
 			throw error

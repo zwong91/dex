@@ -221,7 +221,7 @@ const PoolPage = () => {
   const chainName = chainMap[chainId] || 'binance';
   const { pools: realPoolData, loading: poolsLoading, refetch } = useApiPoolData({
     chain: chainName,
-    pageSize: 5, // 减少到5个，提高加载速度
+    pageSize: 10, // default 10
     orderBy: 'volume',
     filterBy: '1d',
     status: 'main',
