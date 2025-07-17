@@ -107,20 +107,66 @@ curl -X POST https://your-worker.workers.dev/v1/api/cache/invalidate/user \
 
 ## ⚡ Cache Warming
 
-Critical endpoints are automatically warmed every 5 minutes via cron jobs:
+### 🔥 Internal Implementation
 
-- `/v1/api/dex/health`
-- `/v1/api/dex/subgraph/meta`
-- `/v1/api/dex/pools/bsc`
-- `/v1/api/dex/tokens/bsc`
-- `/v1/api/dex/analytics/bsc`
+缓存预热系统**直接调用内部处理函数**，避免 HTTP 请求循环：
 
-### Cron Schedule
+```typescript
+// 新的预热方式：直接调用内部函数
+await subgraphClient.getPools(100, 0, 'totalValueLockedUSD', 'desc')
+await subgraphClient.getTokens(100, 0) 
+await subgraphClient.getMeta()
 
+// ❌ 旧方式：HTTP 请求 (会导致循环)
+// await fetch('/v1/api/dex/pools/bsc')
 ```
+
+### 📄 Smart Pagination Caching
+
+预热系统现在智能处理分页查询，预热多种常用组合：
+
+```typescript
+// 预热的查询组合
+const poolVariations = [
+  { limit: 100, offset: 0, orderBy: 'totalValueLockedUSD' },
+  { limit: 50,  offset: 0, orderBy: 'totalValueLockedUSD' },
+  { limit: 20,  offset: 0, orderBy: 'totalValueLockedUSD' },
+  { limit: 100, offset: 0, orderBy: 'volumeUSD' },
+  { limit: 50,  offset: 0, orderBy: 'volumeUSD' }
+]
+
+// 每个组合都有独立的缓存键
+// dex-api:/v1/api/dex/pools/bsc:limit=100&offset=0&orderBy=totalValueLockedUSD...
+// dex-api:/v1/api/dex/pools/bsc:limit=50&offset=0&orderBy=totalValueLockedUSD...
+```
+
+### 📋 Auto-warmed Endpoints
+
+Critical endpoints warmed every 5 minutes:
+
+- ✅ `/v1/api/dex/health` (10s TTL)
+- ✅ `/v1/api/dex/pools/bsc` (300s TTL)  
+- ✅ `/v1/api/dex/tokens/bsc` (300s TTL)
+- ✅ `/v1/api/dex/subgraph-meta` (600s TTL)
+
+### 📅 Cron Schedule
+
+```cron
 */5 * * * * - Cache warming (every 5 minutes)
-0 * * * *   - Metrics collection (hourly)
+0 * * * *   - Metrics collection (hourly)  
 0 2 * * 0   - Log cleanup (weekly)
+```
+
+### 🧪 Testing
+
+```bash
+# Test cache warming effects
+node test-cache-warming.js
+
+# Check if endpoints are cached
+curl -H "Authorization: Bearer test-key" \
+  http://localhost:8787/v1/api/dex/pools/bsc
+# Should return: X-Cache-Status: HIT
 ```
 
 ## 🔍 Monitoring
