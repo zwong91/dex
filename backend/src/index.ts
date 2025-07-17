@@ -8,6 +8,8 @@ import { D1Agent } from './mcp/routes';
 import { createAIRoutes } from './ai/routes';
 import { createStorageRoutes } from './storage/routes';
 import { createDBRoutes } from './database/routes';
+import { createCacheRoutes } from './cache/routes';
+import { runCacheWarming } from './cache/warmer';
 
 import { createContainerRoutes } from './containers';
 export interface Env {
@@ -15,6 +17,7 @@ export interface Env {
 	AI?: Ai;
 	D1_DATABASE?: D1Database;
 	R2?: R2Bucket;
+	KV?: KVNamespace;
 	KEY: string;
 	NODE_ENV?: string;
 	// GraphQL configuration  
@@ -55,9 +58,13 @@ app.get('/health', (c) => {
 	return c.json({
 		status: 'ok',
 		timestamp: new Date().toISOString(),
-		services: ['ai', 'd1', 'r2', 'dex-graphql'],
+		services: ['ai', 'd1', 'r2', 'kv', 'dex-graphql'],
 		architecture: 'pure-graphql',
-		framework: 'hono'
+		framework: 'hono',
+		cache: {
+			kvAvailable: !!c.env.KV,
+			strategies: ['STATIC', 'POOLS', 'PRICE', 'USER', 'ANALYTICS', 'HEALTH', 'METADATA']
+		}
 	});
 });
 
@@ -77,7 +84,8 @@ app.get("/sse", async (c) => {
     return D1Agent.serveSSE("/sse").fetch(request, c.env, c.executionCtx);
   } catch (error) {
     console.error('SSE GET error:', error);
-    return c.json({ error: 'SSE connection failed', message: error.message }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: 'SSE connection failed', message: errorMessage }, 500);
   }
 });
 
@@ -87,7 +95,8 @@ app.post("/sse", async (c) => {
     return D1Agent.serveSSE("/sse").fetch(c.req.raw, c.env, c.executionCtx);
   } catch (error) {
     console.error('SSE POST error:', error);
-    return c.json({ error: 'SSE connection failed', message: error.message }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: 'SSE connection failed', message: errorMessage }, 500);
   }
 });
 
@@ -98,7 +107,8 @@ app.post("/sse/message", async (c) => {
     return D1Agent.serveSSE("/sse").fetch(c.req.raw, c.env, c.executionCtx);
   } catch (error) {
     console.error('SSE message error:', error);
-    return c.json({ error: 'SSE message failed', message: error.message }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: 'SSE message failed', message: errorMessage }, 500);
   }
 });
 
@@ -109,7 +119,8 @@ app.post("/mcp", async (c) => {
     return D1Agent.serve("/mcp").fetch(c.req.raw, c.env, c.executionCtx);
   } catch (error) {
     console.error('MCP error:', error);
-    return c.json({ error: 'MCP request failed', message: error.message }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: 'MCP request failed', message: errorMessage }, 500);
   }
 });
 
@@ -129,6 +140,7 @@ app.get("/debug", async (c) => {
 app.route('/v1/api/ai', createAIRoutes());
 app.route('/v1/api/d1', createDBRoutes());
 app.route('/v1/api/r2', createStorageRoutes());
+app.route('/v1/api/cache', createCacheRoutes());
 
 
 app.route('/v1/api/container', createContainerRoutes());
@@ -171,8 +183,9 @@ export default {
 		try {
 			// Lightweight tasks for pure GraphQL architecture
 			switch (controller.cron) {
-				case "*/5 * * * *": // health-check - Check subgraph health every 5 minutes
-					console.log("🏥 Running subgraph health check...");
+				case "*/5 * * * *": // cache-warming - Warm critical caches every 5 minutes
+					console.log("🔥 Running cache warming...");
+					await runCacheWarming(env);
 					break;
 
 				case "0 * * * *": // metrics-collection - Collect metrics hourly

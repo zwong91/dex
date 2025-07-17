@@ -9,16 +9,18 @@
 # 3. Scheduled cron jobs for data synchronization
 # 4. Permission-based access control with subscription tiers
 # 5. Comprehensive rate limiting and usage tracking
+# 6. Cloudflare KV caching system for high-performance API responses
 #
 # Setup Instructions:
 # 1. Copy this file to wrangler.toml
 # 2. Replace YOUR_*_HERE placeholders with actual values
 # 3. Create D1 databases: wrangler d1 create d1-dex-database
-# 4. Run migrations: npm run migrate:local
-# 5. Initialize data: npm run db:init
-# 6. Set secrets: wrangler secret put KEY && wrangler secret put SUBGRAPH_AUTH_TOKEN
-# 7. Deploy subgraph to The Graph network
-# 8. Update SUBGRAPH_URL in vars section
+# 4. Create KV namespaces: npm run setup-kv
+# 5. Run migrations: npm run migrate:local
+# 6. Initialize data: npm run db:init
+# 7. Set secrets: wrangler secret put KEY && wrangler secret put SUBGRAPH_AUTH_TOKEN
+# 8. Deploy subgraph to The Graph network
+# 9. Update SUBGRAPH_URL in vars section
 # ==================================================
 
 name = "dex-backend-serverless"
@@ -32,7 +34,7 @@ account_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # ✅ Scheduled jobs for data synchronization - Multiple cron triggers
 [triggers]
 crons = [
-  "*/5 * * * *",    # Every 5 minute - Frequent pool sync for blockchain scanning
+  "*/5 * * * *",    # Every 5 minutes - Cache warming
   "0 * * * *",      # Every hour - Hourly data updates  
   "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
 ]
@@ -78,6 +80,14 @@ binding = "R2"
 bucket_name = "dex-storage"
 # preview_bucket_name = "dex-storage-preview"  # Optional
 
+# ✅ KV Namespaces for caching
+# Run: npm run setup-kv to create KV namespaces
+# Then replace YOUR_KV_NAMESPACE_ID_HERE and YOUR_KV_PREVIEW_ID_HERE with actual IDs
+[[kv_namespaces]]
+binding = "KV"
+id = "YOUR_KV_NAMESPACE_ID_HERE"
+preview_id = "YOUR_KV_PREVIEW_ID_HERE"
+
 [durable_objects]
 bindings = [
   { name = "MCP_OBJECT", class_name = "D1Agent" }
@@ -122,6 +132,11 @@ migrations_dir = "drizzle"
 binding = "R2"
 bucket_name = "dex-storage"
 
+# KV namespace for development (uses preview ID)
+[[env.development.kv_namespaces]]
+binding = "KV"
+id = "YOUR_KV_PREVIEW_ID_HERE"
+
 [env.development.durable_objects]
 bindings = [
   { name = "MCP_OBJECT", class_name = "D1Agent" }
@@ -143,3 +158,8 @@ binding = "AI"
 [[env.production.r2_buckets]]
 binding = "R2"
 bucket_name = "dex-storage"
+
+# KV namespace for production
+[[env.production.kv_namespaces]]
+binding = "KV"
+id = "YOUR_KV_NAMESPACE_ID_HERE"
