@@ -36,14 +36,70 @@ export const useAddLiquidity = (
 	const [slippageTolerance] = useState(1)
 
 	const { addLiquidity } = useDexOperations()
+	
+	// 🎯 动态获取token地址
+	const getTokenAddress = (symbol: string): string | undefined => {
+		const tokens = getTokensForChain(currentChainId)
+		const token = tokens.find(t => t.symbol === symbol)
+		console.log(`� Finding token address for ${symbol}:`, {
+			found: !!token,
+			address: token?.address,
+			allTokens: tokens.map(t => ({ symbol: t.symbol, address: t.address }))
+		})
+		return token?.address
+	}
+	
+	// 🎯 确定最终的token地址
+	const finalTokenXAddress = selectedPool?.tokenXAddress || getTokenAddress(selectedPool?.token0 || '')
+	const finalTokenYAddress = selectedPool?.tokenYAddress || getTokenAddress(selectedPool?.token1 || '')
+	
+	// �🚨 Debug: Log token addresses and pool data
+	console.log('🔍 useAddLiquidity Debug:', {
+		selectedPool: selectedPool,
+		originalTokenXAddress: selectedPool?.tokenXAddress,
+		originalTokenYAddress: selectedPool?.tokenYAddress,
+		finalTokenXAddress: finalTokenXAddress,
+		finalTokenYAddress: finalTokenYAddress,
+		userWalletAddress: userWalletAddress,
+		poolToken0: selectedPool?.token0,
+		poolToken1: selectedPool?.token1,
+		currentChainId: currentChainId
+	})
+	
 	const tokenXBalance = useTokenBalanceByAddress(
 		userWalletAddress,
-		selectedPool?.tokenXAddress as `0x${string}`,
+		finalTokenXAddress as `0x${string}`,
 	)
 	const tokenYBalance = useTokenBalanceByAddress(
 		userWalletAddress,
-		selectedPool?.tokenYAddress as `0x${string}`,
+		finalTokenYAddress as `0x${string}`,
 	)
+	
+	// 🚨 Debug: Log balances with correct decimals
+	const getTokenDecimals = (symbol: string): number => {
+		const tokens = getTokensForChain(currentChainId)
+		const token = tokens.find(t => t.symbol === symbol)
+		
+		if (token?.decimals) {
+			console.log(`🔍 Found decimals for ${symbol}:`, token.decimals)
+			return token.decimals
+		}
+		
+		// Fallback 
+		const fallbackDecimals = ['USDT', 'USDC'].includes(symbol.toUpperCase()) ? 6 : 18
+		console.log(`🔍 Using fallback ${fallbackDecimals} decimals for ${symbol}`)
+		return fallbackDecimals
+	}
+	
+	console.log('💰 Token Balances Debug:', {
+		tokenXBalance: tokenXBalance,
+		tokenYBalance: tokenYBalance,
+		tokenXDecimals: getTokenDecimals(selectedPool?.token0 || ''),
+		tokenYDecimals: getTokenDecimals(selectedPool?.token1 || ''),
+		tokenXFormatted: tokenXBalance ? ethers.formatUnits(tokenXBalance, getTokenDecimals(selectedPool?.token0 || '')) : 'undefined',
+		tokenYFormatted: tokenYBalance ? ethers.formatUnits(tokenYBalance, getTokenDecimals(selectedPool?.token1 || '')) : 'undefined',
+		finalAddresses: { finalTokenXAddress, finalTokenYAddress }
+	})
 
 	// Map strategy to single-sided strategy
 	const getSingleSidedStrategy = (strategy: LiquidityStrategy): 'conservative' | 'balanced' | 'aggressive' => {
@@ -92,24 +148,26 @@ export const useAddLiquidity = (
 				return
 			}
 
-			// Get token addresses
-			let tokenXAddress = selectedPool.tokenXAddress
-			let tokenYAddress = selectedPool.tokenYAddress
-
-			if (!tokenXAddress || !tokenYAddress) {
-				console.warn('⚠️ Token addresses not found in pool data, trying to get from tokens config...')
-				const tokens = getTokensForChain(currentChainId)
-				
-				if (!tokenXAddress) {
-					const tokenX = tokens.find(t => t.symbol === selectedPool.token0)
-					tokenXAddress = tokenX?.address
+			// 🎯 使用已经计算好的最终token地址
+			let tokenXAddress = finalTokenXAddress
+			let tokenYAddress = finalTokenYAddress
+			
+			console.log('🎯 使用最终token地址:', {
+				tokenXAddress,
+				tokenYAddress,
+				来源: {
+					fromPool: {
+						tokenXAddress: selectedPool.tokenXAddress,
+						tokenYAddress: selectedPool.tokenYAddress
+					},
+					fromNetworkConfig: {
+						token0Symbol: selectedPool.token0,
+						token1Symbol: selectedPool.token1,
+						token0Address: getTokenAddress(selectedPool.token0),
+						token1Address: getTokenAddress(selectedPool.token1)
+					}
 				}
-				
-				if (!tokenYAddress) {
-					const tokenY = tokens.find(t => t.symbol === selectedPool.token1)
-					tokenYAddress = tokenY?.address
-				}
-			}
+			})
 
 			if (!tokenXAddress || !tokenYAddress) {
 				console.error('❌ Token addresses not found in pool data')

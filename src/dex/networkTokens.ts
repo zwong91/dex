@@ -7,19 +7,29 @@ export const NETWORK_TOKEN_CONFIGS = {
       symbol: 'BNB',
       name: 'BNB',
       address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd',
+      decimals: 18,
       icon: generateTokenIcon('BNB')
     },
     {
       symbol: 'USDC',
       name: 'USD Coin',
       address: '0x64544969ed7EBf5f083679233325356EbE738930',
+      decimals: 18,
       icon: generateTokenIcon('USDC')
     },
     {
       symbol: 'USDT',
       name: 'Tether',
       address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
+      decimals: 18,
       icon: generateTokenIcon('USDT')
+    },
+    {
+      symbol: 'WBNB',
+      name: 'Wrapped BNB',
+      address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd', // Same as BNB on testnet
+      decimals: 18,
+      icon: generateTokenIcon('WBNB')
     },
   ],
   56: [ // BSC Mainnet
@@ -27,18 +37,28 @@ export const NETWORK_TOKEN_CONFIGS = {
       symbol: 'BNB',
       name: 'BNB',
       address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+      decimals: 18,
       icon: generateTokenIcon('BNB')
+    },
+    {
+      symbol: 'WBNB',
+      name: 'Wrapped BNB',
+      address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // Same as BNB on mainnet
+      decimals: 18,
+      icon: generateTokenIcon('WBNB')
     },
     {
       symbol: 'USDC',
       name: 'USD Coin',
       address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+      decimals: 18,
       icon: generateTokenIcon('USDC')
     },
     {
       symbol: 'USDT',
       name: 'Tether',
       address: '0x55d398326f99059fF775485246999027B3197955',
+      decimals: 18,
       icon: generateTokenIcon('USDT')
     },
   ],
@@ -47,18 +67,21 @@ export const NETWORK_TOKEN_CONFIGS = {
       symbol: 'WETH',
       name: 'Wrapped Ether',
       address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+      decimals: 18,
       icon: generateTokenIcon('WETH')
     },
     {
       symbol: 'USDC',
       name: 'USD Coin',
       address: '0xA0b86a33E6441E3073E86c9Ed3B3Ad5e32E6f50A',
+      decimals: 6,
       icon: generateTokenIcon('USDC')
     },
     {
       symbol: 'USDT',
       name: 'Tether',
       address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+      decimals: 6,
       icon: generateTokenIcon('USDT')
     },
   ],
@@ -68,6 +91,7 @@ export type TokenConfig = {
   symbol: string;
   name: string;
   address: string;
+  decimals: number;
   icon: string;
 };
 

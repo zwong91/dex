@@ -2,6 +2,7 @@ import { Box, Button, Card, Grid, Typography, IconButton } from '@mui/material'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { ethers } from 'ethers'
 import { useState, useEffect } from 'react'
+import { getTokenBySymbol } from '../../dex/networkTokens'
 import {
 	TokenAmountInput,
 	StrategySelection,
@@ -213,6 +214,35 @@ const AddLiquidityForm = ({
 		handleAddLiquidity,
 	} = useAddLiquidity(selectedPool, onSuccess)
 
+	// 🎯 Helper function to get correct decimal places for token
+	const getTokenDecimals = (symbol: string): number => {
+		if (!selectedPool) return 18
+		
+		// Use imported function instead of require
+		const tokenConfig = getTokenBySymbol(symbol, _chainId)
+		
+		if (tokenConfig?.decimals) {
+			console.log(`🔍 Found decimals for ${symbol}:`, tokenConfig.decimals)
+			return tokenConfig.decimals
+		}
+		
+		// Fallback to hardcoded values if not found in config
+		if (['USDT', 'USDC'].includes(symbol.toUpperCase())) {
+			console.log(`🔍 Using fallback 6 decimals for ${symbol}`)
+			return 18
+		}
+		
+		console.log(`🔍 Using default 18 decimals for ${symbol}`)
+		return 18
+	}
+
+	// 🎯 Helper function to format balance with correct decimals
+	const formatTokenBalance = (balance: bigint | undefined, symbol: string): string => {
+		if (!balance) return '0'
+		const decimals = getTokenDecimals(symbol)
+		return ethers.formatUnits(balance, decimals)
+	}
+
 	// Auto-fill calculation for amount0 (Token X)
 	const handleAmount0Change = (value: string) => {
 		console.log('🔢 Amount0 changed:', value)
@@ -247,14 +277,14 @@ const AddLiquidityForm = ({
 
 	// Handle percentage buttons for token0
 	const handleAmount0Button = (percentage: number) => {
-		const balanceStr = tokenXBalance ? ethers.formatUnits(tokenXBalance, 18) : '0'
+		const balanceStr = formatTokenBalance(tokenXBalance, selectedPool?.token0 || '')
 		const amount = calculatePercentageAmount(balanceStr, percentage)
 		handleAmount0Change(amount)
 	}
 
 	// Handle percentage buttons for token1
 	const handleAmount1Button = (percentage: number) => {
-		const balanceStr = tokenYBalance ? ethers.formatUnits(tokenYBalance, 18) : '0'
+		const balanceStr = formatTokenBalance(tokenYBalance, selectedPool?.token1 || '')
 		const amount = calculatePercentageAmount(balanceStr, percentage)
 		handleAmount1Change(amount)
 	}
@@ -372,7 +402,7 @@ const AddLiquidityForm = ({
 									}}
 									amount={amount0}
 									onAmountChange={handleAmount0Change}
-									balance={tokenXBalance ? ethers.formatUnits(tokenXBalance, 18) : '0'}
+									balance={formatTokenBalance(tokenXBalance, selectedPool.token0)}
 									onPercentageClick={handleAmount0Button}
 								/>
 							</Grid>
@@ -384,7 +414,7 @@ const AddLiquidityForm = ({
 									}}
 									amount={amount1}
 									onAmountChange={handleAmount1Change}
-									balance={tokenYBalance ? ethers.formatUnits(tokenYBalance, 18) : '0'}
+									balance={formatTokenBalance(tokenYBalance, selectedPool.token1)}
 									onPercentageClick={handleAmount1Button}
 								/>
 							</Grid>
