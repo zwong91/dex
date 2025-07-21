@@ -3,6 +3,7 @@ import {
   TrendingUp as TrendingUpIcon,
   ArrowBack as ArrowBackIcon,
   ChevronRight as ChevronRightIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import {
   Avatar,
@@ -14,6 +15,7 @@ import {
   CircularProgress,
   Container,
   Grid,
+  TextField,
   Typography
 } from '@mui/material';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -205,6 +207,7 @@ PoolCard.displayName = 'PoolCard';
 
 const PoolPage = () => {
   const [showAddNewPool, setShowAddNewPool] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Add Liquidity states
   const [selectedPool, setSelectedPool] = useState<PoolData | null>(null);
@@ -292,10 +295,23 @@ const PoolPage = () => {
 
   // Memoized pool data conversion for better performance
   const poolDataList = useMemo(() => {
-    return realPoolData
+    const pools = realPoolData
       .map(pool => apiPoolToPoolData(pool))
       .filter(pool => pool !== null); // 过滤掉无效的池子
-  }, [realPoolData]);
+    
+    // Apply search filter
+    if (!searchQuery.trim()) {
+      return pools;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return pools.filter(pool => 
+      pool.token0.toLowerCase().includes(query) ||
+      pool.token1.toLowerCase().includes(query) ||
+      `${pool.token0}/${pool.token1}`.toLowerCase().includes(query) ||
+      `${pool.token1}/${pool.token0}`.toLowerCase().includes(query)
+    );
+  }, [realPoolData, searchQuery]);
 
   return (
     <>
@@ -471,6 +487,36 @@ const PoolPage = () => {
               </Box>
             </Box>
 
+            {/* Search Box */}
+            <Box sx={{ mb: 3, maxWidth: 400 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Search tokens..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    backgroundColor: 'background.paper',
+                    '&:hover': {
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#f97316',
+                      },
+                    },
+                    '&.Mui-focused': {
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#f97316',
+                      },
+                    },
+                  },
+                }}
+              />
+            </Box>
+
             {/* Pool List */}
             {poolsLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -479,27 +525,55 @@ const PoolPage = () => {
             ) : poolDataList.length === 0 ? (
               <Card>
                 <CardContent sx={{ textAlign: 'center', py: 8 }}>
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    No pools found
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Create the first liquidity pool on this network.
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={handleCreatePool}
-                    sx={{ 
-                      borderRadius: 2,
-                      backgroundColor: '#f97316 !important',
-                      color: 'white !important',
-                      '&:hover': {
-                        backgroundColor: '#ea580c !important'
-                      }
-                    }}
-                  >
-                    Create Pool
-                  </Button>
+                  {searchQuery.trim() ? (
+                    <>
+                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                        No pools found for "{searchQuery}"
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Try adjusting your search terms or clear the search to see all pools.
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        onClick={() => setSearchQuery('')}
+                        sx={{ 
+                          borderRadius: 2,
+                          borderColor: '#f97316',
+                          color: '#f97316',
+                          '&:hover': {
+                            backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                            borderColor: '#ea580c',
+                          }
+                        }}
+                      >
+                        Clear Search
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                        No pools found
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Create the first liquidity pool on this network.
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleCreatePool}
+                        sx={{ 
+                          borderRadius: 2,
+                          backgroundColor: '#f97316 !important',
+                          color: 'white !important',
+                          '&:hover': {
+                            backgroundColor: '#ea580c !important'
+                          }
+                        }}
+                      >
+                        Create Pool
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             ) : (
