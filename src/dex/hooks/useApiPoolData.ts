@@ -122,8 +122,9 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
   // 构建 API 查询参数
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
-    params.append('page', String(stableOptions.pageNum));
-    params.append('limit', String(stableOptions.pageSize));
+    // 🚨 修复：使用正确的参数名称 
+    params.append('pageNum', String(stableOptions.pageNum)); // 后端期望 pageNum
+    params.append('pageSize', String(stableOptions.pageSize)); // 后端期望 pageSize
     params.append('orderBy', stableOptions.orderBy);
     params.append('filterBy', stableOptions.filterBy);
     params.append('status', stableOptions.status);
@@ -248,18 +249,27 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
       }
 
       // 直接在这里处理字段映射和格式化，避免前端转换
-      const processedPools = poolsData.map((pool: any) => ({
-        ...pool,
-        // 统一字段名映射
-        volumeUsd: pool.volume24hUsd || 0,
-        feesUsd: pool.fees24hUsd || 0,
-        lbBaseFeePct: pool.apr || 0,
-        // 格式化显示字段
-        tvlFormatted: `$${Number(pool.liquidityUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-        aprFormatted: pool.apr ? `${pool.apr.toFixed(2)}%` : '0.00%',
-        volume24hFormatted: pool.volume24hUsd ? `$${Number(pool.volume24hUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0',
-        fees24hFormatted: pool.fees24hUsd ? `$${Number(pool.fees24hUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0',
-      }));
+      const processedPools = poolsData.map((pool: any) => {
+        console.log('🔍 DEBUG: Processing raw pool data:', {
+          poolId: pool.id,
+          pairAddress: pool.pairAddress,
+          hasValidPairAddress: !!pool.pairAddress,
+          poolKeys: Object.keys(pool)
+        });
+        
+        return {
+          ...pool,
+          // 统一字段名映射
+          volumeUsd: pool.volume24hUsd || 0,
+          feesUsd: pool.fees24hUsd || 0,
+          lbBaseFeePct: pool.apr || 0,
+          // 格式化显示字段
+          tvlFormatted: `$${Number(pool.liquidityUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+          aprFormatted: pool.apr ? `${pool.apr.toFixed(2)}%` : '0.00%',
+          volume24hFormatted: pool.volume24hUsd ? `$${Number(pool.volume24hUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0',
+          fees24hFormatted: pool.fees24hUsd ? `$${Number(pool.fees24hUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0',
+        };
+      });
       
       // 存入双层缓存
       const cacheData = {
@@ -306,10 +316,11 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
 
   // 支持手动刷新（清除缓存）
   const refetch = useCallback(() => {
-    cache.delete(cacheKey);
-    fastCache.delete(cacheKey);
+    console.log('🧹 Clearing all caches...');
+    cache.clear(); // 清除所有缓存
+    fastCache.clear(); // 清除所有快速缓存
     fetchPools();
-  }, [cacheKey, fetchPools]);
+  }, [fetchPools]); // 移除cacheKey依赖，强制重新获取
 
   // 清理过期缓存
   useEffect(() => {

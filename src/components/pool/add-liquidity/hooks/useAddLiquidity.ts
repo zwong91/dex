@@ -183,6 +183,14 @@ export const useAddLiquidity = (
 
 			const pairAddress = selectedPool.pairAddress || selectedPool.id
 
+			console.log('🔍 DEBUG: Checking pairAddress:', {
+				selectedPoolPairAddress: selectedPool.pairAddress,
+				selectedPoolId: selectedPool.id,
+				finalPairAddress: pairAddress,
+				selectedPoolKeys: Object.keys(selectedPool || {}),
+				fullSelectedPool: selectedPool
+			})
+
 			if (!pairAddress) {
 				console.error('❌ Pair address is undefined')
 				toast.error('Pool pair address not found')

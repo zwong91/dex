@@ -45,22 +45,38 @@ interface PoolData {
 }
 
 // 简化的转换函数 - 直接使用 API 预格式化的数据
-const apiPoolToPoolData = (pool: ApiPool): PoolData => ({
-  id: pool.pairAddress,
-  token0: pool.tokenX?.symbol || '',
-  token1: pool.tokenY?.symbol || '',
-  icon0: generateTokenIcon(pool.tokenX?.symbol || 'TOKEN', 36),
-  icon1: generateTokenIcon(pool.tokenY?.symbol || 'TOKEN', 36),
-  tvl: pool.tvlFormatted,
-  apr: pool.aprFormatted,
-  volume24h: pool.volume24hFormatted,
-  fees24h: pool.fees24hFormatted,
-  userLiquidity: undefined, // Not available in ApiPool
-  pairAddress: pool.pairAddress,
-  binStep: pool.lbBinStep,
-  tokenXAddress: pool.tokenX?.address,
-  tokenYAddress: pool.tokenY?.address,
-});
+const apiPoolToPoolData = (pool: ApiPool): PoolData => {
+  console.log('🔍 DEBUG: apiPoolToPoolData transformation:', {
+    inputPool: pool,
+    pairAddress: pool.pairAddress,
+    tokenX: pool.tokenX,
+    tokenY: pool.tokenY,
+    poolKeys: Object.keys(pool)
+  });
+  
+  if (!pool.pairAddress) {
+    console.error('❌ Pool missing pairAddress:', pool);
+    // 暂时跳过没有有效地址的池子
+    return null as any;
+  }
+  
+  return {
+    id: pool.pairAddress,
+    token0: pool.tokenX?.symbol || '',
+    token1: pool.tokenY?.symbol || '',
+    icon0: generateTokenIcon(pool.tokenX?.symbol || 'TOKEN', 36),
+    icon1: generateTokenIcon(pool.tokenY?.symbol || 'TOKEN', 36),
+    tvl: pool.tvlFormatted,
+    apr: pool.aprFormatted,
+    volume24h: pool.volume24hFormatted,
+    fees24h: pool.fees24hFormatted,
+    userLiquidity: undefined, // Not available in ApiPool
+    pairAddress: pool.pairAddress,
+    binStep: pool.lbBinStep,
+    tokenXAddress: pool.tokenX?.address,
+    tokenYAddress: pool.tokenY?.address,
+  };
+};
 
 // Memoized pool card component for better performance
 const PoolCard = React.memo<{ pool: PoolData; onAddLiquidity: (pool: PoolData) => void }>(
@@ -276,7 +292,9 @@ const PoolPage = () => {
 
   // Memoized pool data conversion for better performance
   const poolDataList = useMemo(() => {
-    return realPoolData.map(pool => apiPoolToPoolData(pool));
+    return realPoolData
+      .map(pool => apiPoolToPoolData(pool))
+      .filter(pool => pool !== null); // 过滤掉无效的池子
   }, [realPoolData]);
 
   return (
@@ -416,21 +434,41 @@ const PoolPage = () => {
               <Typography variant="h4" fontWeight={600}>
                 Pools {poolDataList.length > 0 && `(${poolDataList.length})`}
               </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleCreatePool}
-                sx={{ 
-                  borderRadius: 2,
-                  backgroundColor: '#f97316 !important',
-                  color: 'white !important',
-                  '&:hover': {
-                    backgroundColor: '#ea580c !important'
-                  }
-                }}
-              >
-                Create Pool
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    console.log('🔄 Force refresh triggered');
+                    refetch();
+                  }}
+                  sx={{ 
+                    borderRadius: 2,
+                    borderColor: '#f97316',
+                    color: '#f97316',
+                    '&:hover': {
+                      backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                      borderColor: '#ea580c',
+                    }
+                  }}
+                >
+                  Refresh
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleCreatePool}
+                  sx={{ 
+                    borderRadius: 2,
+                    backgroundColor: '#f97316 !important',
+                    color: 'white !important',
+                    '&:hover': {
+                      backgroundColor: '#ea580c !important'
+                    }
+                  }}
+                >
+                  Create Pool
+                </Button>
+              </Box>
             </Box>
 
             {/* Pool List */}
