@@ -1,7 +1,7 @@
 {
     "network": "bsc",
     "lbfactory_address": "0x55268e26DA30fEAc50B26511ba70C5Cac2Af43B8",
-    "oracle_dex_lens_address": "0x817cF81C5FA4a5AF9F87010B7a9A20a60b485850",
+    "oracle_dex_lens_address": "0x8F4598bDfE142d2C8930a6A6c1B3F92e3975AeB1",
     "oracle_dex_lens_usd_decimals": 18,
     "wrapped_native_token_address": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
     "start_block": 52800000

@@ -1,7 +1,7 @@
 {
     "network": "chapel",
     "lbfactory_address": "0x7D73A6eFB91C89502331b2137c2803408838218b",
-    "oracle_dex_lens_address": "0x8C7dc8184F5D78Aa40430b2d37f78fDC3e9A9b78",
+    "oracle_dex_lens_address": "0xb512457fcB3020dC4a62480925B68dc83E776340",
     "oracle_dex_lens_usd_decimals": 18,
     "wrapped_native_token_address": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
     "start_block": 44000000
