@@ -24,26 +24,15 @@
   "git.repositoryScanMaxDepth": 4,
   "git.timeline.showUncommitted": true,
 
-  // Copilot 详细配置
-  "github.copilot.chat.codeGeneration.instructions": [
-    { "file": ".prettierrc.yaml" },
-    { "file": "copilot/copilot-instructions.md" },
-    { "file": "copilot/style-guide.md" },
-    { "text": "Dont apologize. Dont apologize. Dont apologize." }
-  ],
+  // 启用新的 Copilot instruction files 功能
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
   "github.copilot.chat.commitMessageGeneration.instructions": [
-    { "file": "copilot/copilot-commit-message-instructions.md" },
-    { "file": "copilot/gitmojis.yaml" }
+    { "file": ".github/instructions/commit-message.instructions.md" },
+    { "file": ".github/instructions/gitmojis.yaml" }
   ],
   "github.copilot.chat.reviewSelection.instructions": [
-    { "file": "copilot/copilot-instructions.md" },
-    { "file": "copilot/style-guide.md" }
-  ],
-  "github.copilot.chat.testGeneration.instructions": [
-    { "file": ".prettierrc.yaml" },
-    { "file": "package.json" },
-    { "file": "tsconfig.eslint.json" },
-    { "file": "tsconfig.json" }
+    { "file": ".github/copilot-instructions.md" },
+    { "file": ".github/instructions/typescript-style.instructions.md" }
   ],
   "github.copilot.enable": {
     "*": true,

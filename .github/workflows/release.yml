@@ -1,0 +1,168 @@
+name: 🏷️ Release Version
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+
+jobs:
+  # 🏗️ Build for Release
+  build:
+    name: 🏗️ Build Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Run linting
+        run: npm run lint
+
+      - name: 🏗️ Build application
+        run: npm run build
+        env:
+          VITE_NETWORK_ENV: production
+          NODE_ENV: production
+
+      - name: 📦 Create release archive
+        run: |
+          cd dist
+          tar -czf ../entysquare-${{ github.ref_name }}.tar.gz *
+          cd ..
+          zip -r entysquare-${{ github.ref_name }}.zip dist/
+
+      - name: 📤 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build-${{ github.ref_name }}
+          path: |
+            entysquare-${{ github.ref_name }}.tar.gz
+            entysquare-${{ github.ref_name }}.zip
+          retention-days: 30
+
+  # 🚀 Create GitHub Release
+  release:
+    name: 🚀 Create Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📥 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-build-${{ github.ref_name }}
+
+      - name: 📝 Generate changelog
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            echo "changelog<<EOF" >> $GITHUB_OUTPUT
+            cat CHANGELOG.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "changelog=Release ${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🏷️ Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: EntySquare DEX ${{ github.ref_name }}
+          body: |
+            ## 🚀 EntySquare DEX Release ${{ github.ref_name }}
+            
+            ### What's New
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ### 📦 Assets
+            - `entysquare-${{ github.ref_name }}.tar.gz` - Production build (tar.gz)
+            - `entysquare-${{ github.ref_name }}.zip` - Production build (zip)
+            
+            ### 🔗 Quick Deploy
+            ```bash
+            # Download and extract
+            curl -L -o entysquare.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/entysquare-${{ github.ref_name }}.tar.gz
+            tar -xzf entysquare.tar.gz
+            
+            # Deploy to your hosting service
+            # Vercel: vercel --prod
+            # Netlify: netlify deploy --prod --dir=.
+            ```
+            
+            ### ⚠️ Important Notes
+            - This is a DeFi application - use at your own risk
+            - Test thoroughly on testnet before mainnet usage
+            - Always verify smart contract interactions
+            
+            Built with ❤️ for the DeFi community
+          files: |
+            entysquare-${{ github.ref_name }}.tar.gz
+            entysquare-${{ github.ref_name }}.zip
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 🚀 Deploy Release to Production
+  deploy-production:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, release]
+    environment: production
+    if: ${{ !contains(github.ref_name, 'alpha') && !contains(github.ref_name, 'beta') && !contains(github.ref_name, 'rc') }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📥 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-build-${{ github.ref_name }}
+
+      - name: 📦 Extract build
+        run: tar -xzf entysquare-${{ github.ref_name }}.tar.gz
+
+      - name: 🚀 Deploy to Cloudflare Pages (Primary)
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ secrets.CLOUDFLARE_PROJECT_NAME }}
+          directory: ./
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: '3'
+
+      - name: 🌍 Deploy to Vercel (Fallback 1)
+        if: failure() # Fallback if Cloudflare fails
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-args: '--prod'
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: 📱 Notify Deployment Success
+        run: |
+          echo "🎉 EntySquare DEX ${{ github.ref_name }} has been deployed to production!"
+          echo "🌐 Primary: Cloudflare Pages"
+          echo "🔗 Production URL: https://entysquare.pages.dev"

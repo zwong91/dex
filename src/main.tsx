@@ -11,6 +11,7 @@ import {
 } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./index.css";
+import TransactionStatusWidget from "./components/TransactionStatusWidget";
 
 import PoolPage from "./pages/Pool";
 import PortfolioPage from "./pages/Portfolio";
@@ -62,6 +63,7 @@ createRoot(document.getElementById("root")!).render(
           <RainbowKitProvider locale="en">
             <Toaster richColors position="top-center" />
             <RouterProvider router={router} />
+            <TransactionStatusWidget />
           </RainbowKitProvider>
         </QueryClientProvider>
       </WagmiProvider>

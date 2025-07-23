@@ -23,13 +23,7 @@ export function safeDiv(amount0: BigDecimal, amount1: BigDecimal): BigDecimal {
   if (amount1.equals(BIG_DECIMAL_ZERO)) {
     return BIG_DECIMAL_ZERO;
   }
-  
-  // Check for potential overflow scenarios
-  const maxSafeValue = BigDecimal.fromString("1e20"); // 100 quintillion
-  if (amount0.gt(maxSafeValue) || amount1.lt(BigDecimal.fromString("1e-10"))) {
-    return BIG_DECIMAL_ZERO;
-  }
-  
+
   return amount0.div(amount1);
 }
 
@@ -45,12 +39,13 @@ export function isAccountApproved(
   return false;
 }
 
-export function isSwapForY(
-  amountsInBytes32: Bytes,
-): bool {
+export function isSwapForY(amountsInBytes32: Bytes): bool {
   const amountsIn = decodeAmounts(amountsInBytes32);
+  const amountXIn = amountsIn[0];
   const amountYIn = amountsIn[1];
-  return amountYIn.equals(BIG_INT_ZERO);
+  
+  // X->Y: X流入且Y不流入, Y->X: Y流入且X不流入
+  return amountXIn.gt(BIG_INT_ZERO) && amountYIn.equals(BIG_INT_ZERO);
 }
 
 // reference link https://developers.lfj.gg/guides/byte-32-decoding

@@ -4,6 +4,8 @@ import { useCallback } from "react"
 import { useAccount, useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { createViemClient } from "../viemClient"
+import { getTokenBySymbol } from "../networkTokens"
+import { useTransactionStore } from "../../stores/transactionStore"
 
 // ERC20 ABI for allowance and approve functions
 const ERC20_ABI = [
@@ -23,11 +25,46 @@ const ERC20_ABI = [
 	}
 ] as const
 
+// Helper function to check if a token is Native BNB (not WBNB)
+const isNativeToken = (tokenAddress: string, chainId: number): boolean => {
+	// Check for special 'NATIVE' identifier
+	if (tokenAddress === 'NATIVE') {
+		return true
+	}
+	
+	// Check if this matches our BNB config with NATIVE address
+	const bnbToken = getTokenBySymbol('BNB', chainId)
+	if (bnbToken && bnbToken.address === 'NATIVE' && tokenAddress === 'NATIVE') {
+		return true
+	}
+	
+	return false
+}
+
+// Helper function to get WBNB address for current chain
+const getWBNBAddress = async (routerAddress: string, chainId: number): Promise<string> => {
+	try {
+		const publicClient = createViemClient(chainId)
+		const wbnbAddress = await publicClient.readContract({
+			address: routerAddress as `0x${string}`,
+			abi: jsonAbis.LBRouterV22ABI,
+			functionName: 'getWNATIVE',
+		}) as string
+		return wbnbAddress
+	} catch (error) {
+		console.warn('Failed to get WBNB address from router, using fallback:', error)
+		// Fallback to network config
+		const wbnbToken = getTokenBySymbol('WBNB', chainId)
+		return wbnbToken?.address || '0x'
+	}
+}
+
 // Hook for LB DEX operations (add/remove liquidity, claim fees)
 export const useDexOperations = () => {
 	const { writeContractAsync } = useWriteContract()
 	const { address: userAddress } = useAccount()
 	const chainId = useChainId()
+	const { addTransaction, updateTransaction } = useTransactionStore()
 
 	// Real LB Router operations for adding liquidity to specific pair and bins
 	// Supports both dual-sided and single-sided liquidity provision
@@ -81,6 +118,31 @@ export const useDexOperations = () => {
 
 			if (!lbRouterAddress) {
 				throw new Error("LB Router not supported on this chain")
+			}
+
+			// Check if we're dealing with Native BNB (not WBNB)
+			// Frontend should pass:
+			// - 'NATIVE' for true native BNB (uses addLiquidityNATIVE)
+			// - Real WBNB contract address for wrapped BNB (normal ERC20)
+			const isTokenXNative = isNativeToken(tokenXAddress, chainId)
+			const isTokenYNative = isNativeToken(tokenYAddress, chainId)
+			const useNativeFunction = isTokenXNative || isTokenYNative
+			
+			console.log("🔍 Native token detection:", {
+				tokenXAddress,
+				tokenYAddress,
+				isTokenXNative,
+				isTokenYNative,
+				useNativeFunction,
+				chainId,
+				note: 'Native BNB uses "NATIVE" identifier, WBNB uses real contract address'
+			})
+
+			// Get WBNB address for the router if using native function
+			let wbnbAddress: string | undefined
+			if (useNativeFunction) {
+				wbnbAddress = await getWBNBAddress(lbRouterAddress, chainId)
+				console.log("🔍 WBNB address:", wbnbAddress)
 			}
 
 			// Get SDK Token objects
@@ -323,14 +385,16 @@ export const useDexOperations = () => {
 			}
 			
 			// Smart approval - only approve tokens that are actually needed
-			const needTokenXApproval = BigInt(amountX) > 0
-			const needTokenYApproval = BigInt(amountY) > 0
+			const needTokenXApproval = BigInt(amountX) > 0 && !isTokenXNative // Don't approve native token
+			const needTokenYApproval = BigInt(amountY) > 0 && !isTokenYNative // Don't approve native token
 			
 			console.log("💡 Smart approval detection:", {
 				needTokenXApproval,
 				needTokenYApproval,
 				amountX,
 				amountY,
+				isTokenXNative,
+				isTokenYNative,
 				mode: isSingleSided ? 'single-sided' : 'dual-sided'
 			})
 
@@ -436,16 +500,81 @@ export const useDexOperations = () => {
 					'Dual-sided liquidity'
 				
 				console.log(`🚀 Executing ${actionDescription} transaction...`)
-				const result = await writeContractAsync({
-					abi: jsonAbis.LBRouterV22ABI,
-					address: lbRouterAddress as `0x${string}`,
-					functionName: "addLiquidity",
-					args: [addLiquidityInput],
-					chainId: chainId,
+				
+				// Create transaction status entry
+				const transactionId = addTransaction({
+					type: 'addLiquidity',
+					status: 'pending',
+					title: 'Adding Liquidity',
+					description: `${tokenA?.symbol}/${tokenB?.symbol} - ${actionDescription}`,
+					chainId: chainId
 				})
+				
+				let result: string
+				
+				try {
+					if (useNativeFunction) {
+						// Use Native function for BNB pairs
+						console.log("🔥 Using addLiquidityNATIVE function")
+						
+						if (!wbnbAddress) {
+							throw new Error("WBNB address not found for Native function")
+						}
+						
+						// For Native function, we need to replace the native token address with WBNB
+						const nativeAddLiquidityInput = {
+							...addLiquidityInput,
+							tokenX: isTokenXNative ? wbnbAddress : addLiquidityInput.tokenX,
+							tokenY: isTokenYNative ? wbnbAddress : addLiquidityInput.tokenY,
+						}
+						
+						// Calculate the native amount (BNB value to send)
+						const nativeAmount = isTokenXNative ? BigInt(amountX) : BigInt(amountY)
+						
+						console.log("🔍 Native addLiquidity params:", {
+							...nativeAddLiquidityInput,
+							nativeAmount: nativeAmount.toString(),
+							originalTokenX: addLiquidityInput.tokenX,
+							originalTokenY: addLiquidityInput.tokenY
+						})
+						
+						result = await writeContractAsync({
+							abi: jsonAbis.LBRouterV22ABI,
+							address: lbRouterAddress as `0x${string}`,
+							functionName: "addLiquidityNATIVE",
+							args: [nativeAddLiquidityInput],
+							value: nativeAmount,
+							chainId: chainId,
+						})
+					} else {
+						// Use standard ERC20 function
+						console.log("🔍 Using standard addLiquidity function")
+						
+						result = await writeContractAsync({
+							abi: jsonAbis.LBRouterV22ABI,
+							address: lbRouterAddress as `0x${string}`,
+							functionName: "addLiquidity",
+							args: [addLiquidityInput],
+							chainId: chainId,
+						})
+					}
 
-				console.log(`✅ ${actionDescription} transaction sent:`, result)
-				return result
+					// Update transaction with hash
+					updateTransaction(transactionId, {
+						hash: result,
+						description: `${tokenA?.symbol}/${tokenB?.symbol} - ${actionDescription} (Hash: ${result.slice(0, 10)}...)`
+					})
+
+					console.log(`✅ ${actionDescription} transaction sent:`, result)
+					return result
+				} catch (txError) {
+					// Update transaction status to failed
+					updateTransaction(transactionId, {
+						status: 'failed',
+						errorMessage: (txError as Error).message
+					})
+					throw txError
+				}
 			} catch (addLiquidityError: unknown) {
 				if ((addLiquidityError as Error).message?.includes('User denied transaction') || 
 					(addLiquidityError as Error).message?.includes('not been authorized by the user') ||
@@ -509,6 +638,31 @@ export const useDexOperations = () => {
 
 			if (!lbRouterAddress) {
 				throw new Error("LB Router not supported on this chain")
+			}
+
+			// Check if we're dealing with Native BNB (not WBNB)
+			// Frontend should pass:
+			// - 'NATIVE' for true native BNB (uses removeLiquidityNATIVE)
+			// - Real WBNB contract address for wrapped BNB (normal ERC20)
+			const isTokenXNative = isNativeToken(tokenXAddress, chainId)
+			const isTokenYNative = isNativeToken(tokenYAddress, chainId)
+			const useNativeFunction = isTokenXNative || isTokenYNative
+			
+			console.log("🔍 Native token detection (removeLiquidity):", {
+				tokenXAddress,
+				tokenYAddress,
+				isTokenXNative,
+				isTokenYNative,
+				useNativeFunction,
+				chainId,
+				note: 'Native BNB uses "NATIVE" identifier, WBNB uses real contract address'
+			})
+
+			// Get WBNB address for the router if using native function
+			let wbnbAddress: string | undefined
+			if (useNativeFunction) {
+				wbnbAddress = await getWBNBAddress(lbRouterAddress, chainId)
+				console.log("🔍 WBNB address for removeLiquidity:", wbnbAddress)
 			}
 
 			// 获取SDK Token对象
@@ -705,33 +859,100 @@ export const useDexOperations = () => {
 
 			console.log("✅ Token ordering automatically handled for removeLiquidity")
 
-			const result = await writeContractAsync({
-				abi: jsonAbis.LBRouterV22ABI,
-				address: lbRouterAddress as `0x${string}`,
-				functionName: "removeLiquidity",
-				args: [
-					removeLiquidityInput.tokenX,
-					removeLiquidityInput.tokenY,
-					removeLiquidityInput.binStep,
-					removeLiquidityInput.amountXMin,
-					removeLiquidityInput.amountYMin,
-					removeLiquidityInput.ids,
-					removeLiquidityInput.amounts,
-					removeLiquidityInput.to,
-					removeLiquidityInput.deadline
-				],
-				chainId: chainId,
+			// Create transaction status entry
+			const transactionId = addTransaction({
+				type: 'removeLiquidity',
+				status: 'pending',
+				title: 'Removing Liquidity',
+				description: `${tokenA?.symbol}/${tokenB?.symbol} - ${binIds.length} bin(s)`,
+				chainId: chainId
 			})
 
-			console.log(`✅ 流动性移除交易已发送: ${result}`)
-			return result
+			let result: string
+			
+			try {
+				if (useNativeFunction) {
+					// Use Native function for BNB pairs
+					console.log("🔥 Using removeLiquidityNATIVE function")
+					
+					if (!wbnbAddress) {
+						throw new Error("WBNB address not found for Native function")
+					}
+					
+					// For removeLiquidityNATIVE, we need to determine which token is NOT native
+					const otherTokenAddress = isTokenXNative ? actualTokenY : actualTokenX
+					
+					console.log("🔍 Native removeLiquidity params:", {
+						otherToken: otherTokenAddress,
+						binStep: Number(binStep),
+						amountTokenMin: 0,
+						amountNATIVEMin: 0,
+						ids: binIds.map(id => Number(id)),
+						amounts: amounts,
+						to: userAddress,
+						deadline: Number(deadline)
+					})
+					
+					result = await writeContractAsync({
+						abi: jsonAbis.LBRouterV22ABI,
+						address: lbRouterAddress as `0x${string}`,
+						functionName: "removeLiquidityNATIVE",
+						args: [
+							otherTokenAddress as `0x${string}`,
+							Number(binStep),
+							0, // amountTokenMin
+							0, // amountNATIVEMin
+							binIds.map(id => Number(id)),
+							amounts,
+							userAddress as `0x${string}`,
+							Number(deadline)
+						],
+						chainId: chainId,
+					})
+				} else {
+					// Use standard ERC20 function
+					console.log("🔍 Using standard removeLiquidity function")
+					
+					result = await writeContractAsync({
+						abi: jsonAbis.LBRouterV22ABI,
+						address: lbRouterAddress as `0x${string}`,
+						functionName: "removeLiquidity",
+						args: [
+							removeLiquidityInput.tokenX,
+							removeLiquidityInput.tokenY,
+							removeLiquidityInput.binStep,
+							removeLiquidityInput.amountXMin,
+							removeLiquidityInput.amountYMin,
+							removeLiquidityInput.ids,
+							removeLiquidityInput.amounts,
+							removeLiquidityInput.to,
+							removeLiquidityInput.deadline
+						],
+						chainId: chainId,
+					})
+				}
+
+				// Update transaction with hash
+				updateTransaction(transactionId, {
+					hash: result,
+					description: `${tokenA?.symbol}/${tokenB?.symbol} - Removing from ${binIds.length} bin(s) (Hash: ${result.slice(0, 10)}...)`
+				})
+
+				console.log(`✅ 流动性移除交易已发送: ${result}`)
+				return result
+			} catch (txError) {
+				// Update transaction status to failed
+				updateTransaction(transactionId, {
+					status: 'failed',
+					errorMessage: (txError as Error).message
+				})
+				throw txError
+			}
 		} catch (error) {
 			console.error("❌ Remove LB liquidity error:", error)
 			throw error
 		}
 	}
-
-
 
 	// Check if an LB pool already exists
 	const checkPoolExists = useCallback(async (
@@ -794,11 +1015,40 @@ export const useDexOperations = () => {
 		baseFee?: string // Optional base fee parameter
 	) => {
 		try {
-			// First check if pool already exists
-			const poolCheck = await checkPoolExists(tokenXAddress, tokenYAddress, binStepBasisPoints)
+			// Handle Native BNB conversion for pool creation
+			// If user selects Native BNB, we need to use WBNB address for the pool
+			let poolTokenXAddress = tokenXAddress
+			let poolTokenYAddress = tokenYAddress
+			
+			console.log("🔍 Original token addresses:", {
+				tokenXAddress,
+				tokenYAddress
+			})
+			
+			// Convert Native BNB to WBNB for pool creation
+			if (isNativeToken(tokenXAddress, chainId)) {
+				const wbnbToken = getTokenBySymbol('WBNB', chainId)
+				if (!wbnbToken) {
+					throw new Error("WBNB token not found in configuration")
+				}
+				poolTokenXAddress = wbnbToken.address
+				console.log("🔄 Converting Native BNB (tokenX) to WBNB:", poolTokenXAddress)
+			}
+			
+			if (isNativeToken(tokenYAddress, chainId)) {
+				const wbnbToken = getTokenBySymbol('WBNB', chainId)
+				if (!wbnbToken) {
+					throw new Error("WBNB token not found in configuration")
+				}
+				poolTokenYAddress = wbnbToken.address
+				console.log("🔄 Converting Native BNB (tokenY) to WBNB:", poolTokenYAddress)
+			}
+
+			// First check if pool already exists (using WBNB addresses)
+			const poolCheck = await checkPoolExists(poolTokenXAddress, poolTokenYAddress, binStepBasisPoints)
 			if (poolCheck.exists) {
-				const tokenX = getSDKTokenByAddress(tokenXAddress, chainId)
-				const tokenY = getSDKTokenByAddress(tokenYAddress, chainId)
+				const tokenX = getSDKTokenByAddress(poolTokenXAddress, chainId)
+				const tokenY = getSDKTokenByAddress(poolTokenYAddress, chainId)
 				throw new Error(`Pool already exists for ${tokenX?.symbol || 'Token'}/${tokenY?.symbol || 'Token'} with ${binStepBasisPoints} basis points bin step. Pair address: ${poolCheck.pairAddress}`)
 			}
 
@@ -810,9 +1060,9 @@ export const useDexOperations = () => {
 				throw new Error("LB Factory not supported on this chain")
 			}
 
-			// Get tokens to calculate proper price ID
-			const tokenX = getSDKTokenByAddress(tokenXAddress, chainId)
-			const tokenY = getSDKTokenByAddress(tokenYAddress, chainId)
+			// Get tokens to calculate proper price ID (using WBNB addresses)
+			const tokenX = getSDKTokenByAddress(poolTokenXAddress, chainId)
+			const tokenY = getSDKTokenByAddress(poolTokenYAddress, chainId)
 
 			if (!tokenX || !tokenY) {
 				throw new Error("Tokens not found in SDK configuration")
@@ -824,32 +1074,38 @@ export const useDexOperations = () => {
 			let finalTokenYAddress: string
 			let adjustedPrice = parseFloat(activePrice)
 
-			// Sort tokens by address as required by LB protocol
-			if (tokenXAddress.toLowerCase() < tokenYAddress.toLowerCase()) {
+			// Sort tokens by address as required by LB protocol (using WBNB addresses)
+			if (poolTokenXAddress.toLowerCase() < poolTokenYAddress.toLowerCase()) {
 				// tokenX stays as user's first choice, tokenY as second choice
-				finalTokenXAddress = tokenXAddress
-				finalTokenYAddress = tokenYAddress
+				finalTokenXAddress = poolTokenXAddress
+				finalTokenYAddress = poolTokenYAddress
 				// Price stays as user entered (user's first token per user's second token)
 				adjustedPrice = parseFloat(activePrice)
 			} else {
 				// Need to swap for protocol: tokenY becomes tokenX, tokenX becomes tokenY
-				finalTokenXAddress = tokenYAddress  // User's second choice becomes tokenX
-				finalTokenYAddress = tokenXAddress  // User's first choice becomes tokenY
+				finalTokenXAddress = poolTokenYAddress  // User's second choice becomes tokenX
+				finalTokenYAddress = poolTokenXAddress  // User's first choice becomes tokenY
 				// Invert price because now we need: how many of user's second token per user's first token
 				adjustedPrice = 1 / parseFloat(activePrice)
 			}
 			
 			console.log("🔄 Protocol token ordering:", {
-				userFirstToken: { address: tokenXAddress, symbol: tokenX?.symbol },
-				userSecondToken: { address: tokenYAddress, symbol: tokenY?.symbol },
-				protocolTokenX: { address: finalTokenXAddress, symbol: finalTokenXAddress === tokenXAddress ? tokenX?.symbol : tokenY?.symbol },
-				protocolTokenY: { address: finalTokenYAddress, symbol: finalTokenYAddress === tokenYAddress ? tokenY?.symbol : tokenX?.symbol },
+				userOriginalTokens: {
+					tokenX: { address: tokenXAddress, isNative: isNativeToken(tokenXAddress, chainId) },
+					tokenY: { address: tokenYAddress, isNative: isNativeToken(tokenYAddress, chainId) }
+				},
+				poolTokens: {
+					tokenX: { address: poolTokenXAddress, symbol: tokenX?.symbol },
+					tokenY: { address: poolTokenYAddress, symbol: tokenY?.symbol }
+				},
+				protocolTokens: {
+					tokenX: { address: finalTokenXAddress, symbol: finalTokenXAddress === poolTokenXAddress ? tokenX?.symbol : tokenY?.symbol },
+					tokenY: { address: finalTokenYAddress, symbol: finalTokenYAddress === poolTokenYAddress ? tokenY?.symbol : tokenX?.symbol }
+				},
 				userEnteredPrice: activePrice,
 				protocolAdjustedPrice: adjustedPrice.toString(),
-				priceDescription: finalTokenXAddress === tokenXAddress 
-					? `${tokenX?.symbol} per ${tokenY?.symbol}` 
-					: `${tokenY?.symbol} per ${tokenX?.symbol}`,
-				swapped: finalTokenXAddress !== tokenXAddress
+				swapped: finalTokenXAddress !== poolTokenXAddress,
+				nativeToWBNB: isNativeToken(tokenXAddress, chainId) || isNativeToken(tokenYAddress, chainId)
 			})
 
 			// Calculate proper active price ID using LB SDK
@@ -893,24 +1149,50 @@ export const useDexOperations = () => {
 				}
 			})
 
-			// Call createLBPair function on the factory
-			// Function signature: createLBPair(tokenX, tokenY, activeId, binStep)
-			// activeId: uint24, binStep: uint16
-			const result = await writeContractAsync({
-				address: factoryAddress as `0x${string}`,
-				abi: jsonAbis.LBFactoryV21ABI,
-				functionName: "createLBPair",
-				args: [
-					finalTokenXAddress as `0x${string}`,
-					finalTokenYAddress as `0x${string}`,
-					activePriceId, // uint24 - no BigInt conversion needed for smaller numbers
-					binStepBasisPoints // uint16 - no BigInt conversion needed for smaller numbers
-				],
-				chainId: chainId,
+			// Create transaction status entry
+			const tokenXInfo = getSDKTokenByAddress(poolTokenXAddress, chainId)
+			const tokenYInfo = getSDKTokenByAddress(poolTokenYAddress, chainId)
+			const transactionId = addTransaction({
+				type: 'createPool',
+				status: 'pending',
+				title: 'Creating Pool',
+				description: `${tokenXInfo?.symbol}/${tokenYInfo?.symbol} - Bin Step: ${binStepBasisPoints}`,
+				chainId: chainId
 			})
 
-			console.log("Create pool TX sent:", result)
-			return result
+			try {
+				// Call createLBPair function on the factory
+				// Function signature: createLBPair(tokenX, tokenY, activeId, binStep)
+				// activeId: uint24, binStep: uint16
+				const result = await writeContractAsync({
+					address: factoryAddress as `0x${string}`,
+					abi: jsonAbis.LBFactoryV21ABI,
+					functionName: "createLBPair",
+					args: [
+						finalTokenXAddress as `0x${string}`,
+						finalTokenYAddress as `0x${string}`,
+						activePriceId, // uint24 - no BigInt conversion needed for smaller numbers
+						binStepBasisPoints // uint16 - no BigInt conversion needed for smaller numbers
+					],
+					chainId: chainId,
+				})
+
+				// Update transaction with hash
+				updateTransaction(transactionId, {
+					hash: result,
+					description: `${tokenXInfo?.symbol}/${tokenYInfo?.symbol} - Pool Creation (Hash: ${result.slice(0, 10)}...)`
+				})
+
+				console.log("Create pool TX sent:", result)
+				return result
+			} catch (txError) {
+				// Update transaction status to failed
+				updateTransaction(transactionId, {
+					status: 'failed',
+					errorMessage: (txError as Error).message
+				})
+				throw txError
+			}
 
 		} catch (error) {
 			console.error("Create pool error:", error)

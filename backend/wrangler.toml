@@ -1,0 +1,159 @@
+# ==================================================
+# DEX API V1 - Pure GraphQL Configuration
+# ==================================================
+# This is the pure GraphQL configuration for DEX API V1
+# 
+# Major changes in V1:
+# 1. New D1 database with 15 tables for authentication and analytics
+# 2. API key-based authentication system
+# 3. Scheduled cron jobs for data synchronization
+# 4. Permission-based access control with subscription tiers
+# 5. Comprehensive rate limiting and usage tracking
+#
+# Setup Instructions:
+# 1. Copy this file to wrangler.toml
+# 2. Replace YOUR_*_HERE placeholders with actual values
+# 3. Create D1 databases: wrangler d1 create d1-dex-database
+# 4. Run migrations: npm run migrate:local
+# 5. Initialize data: npm run db:init
+# 6. Set secrets: wrangler secret put KEY && wrangler secret put SUBGRAPH_AUTH_TOKEN
+# 7. Deploy subgraph to The Graph network
+# 8. Update SUBGRAPH_URL in vars section
+# ==================================================
+
+name = "dex-backend-serverless"
+main = "src/index.ts"
+compatibility_date = "2025-06-20"
+compatibility_flags = ["nodejs_compat"]
+
+# Replace with your Cloudflare account ID
+account_id = "ec9b597fa02615ca6a0e62b7ff35d0cc"
+
+# ✅ Scheduled jobs for data synchronization - Multiple cron triggers
+[triggers]
+crons = [
+  "*/5 * * * *",    # Every 5 minutes - Cache warming
+  "0 * * * *",      # Every hour - Hourly data updates  
+  "0 2 * * 7"       # Every Sunday at 2 AM - Weekly cleanup (0 = Sunday)
+]
+
+# ✅ Logging configuration - Enable Workers logs
+# This enables automatic logging in Cloudflare Workers dashboard
+[observability]
+enabled = true
+
+# ✅ Environment variables - Pure GraphQL configuration
+[vars]
+# Basic configuration
+NODE_ENV = "production"
+
+# Logging configuration
+LOG_LEVEL = "info"  # debug, info, warn, error
+ENABLE_CONSOLE_LOGS = "true"
+ENABLE_STRUCTURED_LOGS = "true"
+
+# GraphQL configuration
+SUBGRAPH_URL = "https://gateway.thegraph.com/api/subgraphs/id/EMFDYw5HHE42EPiUJD926NLrpdum7tLmBmAdmJiZFrqj"
+SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
+
+# ⚠️ Sensitive information should use secrets instead of vars
+# Run this command to set secret:
+# wrangler secret put SUBGRAPH_AUTH_TOKEN
+# （输入你的 Bearer token，例如 <The Graph Api KEY> ）
+
+# 🔧 Production AI binding - Enabled for AI functionality
+[ai]
+binding = "AI"
+
+# ✅ Database configuration - Consistent binding names
+[[d1_databases]]
+binding = "D1_DATABASE"  # Matches env.D1_DATABASE in code
+database_name = "d1-dex-database"
+database_id = "2a6573b6-d961-4b68-b907-2c1cb6640329"
+migrations_dir = "drizzle"
+
+# 🔧 Production R2 storage binding - Disabled for initial deployment
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "dex-storage"
+# preview_bucket_name = "dex-storage-preview"  # Optional
+
+# ✅ KV Namespaces for caching
+[[kv_namespaces]]
+binding = "KV"
+id = "f68574afd1684065b575ca4635be1050"
+preview_id = "df3f475a32684aaf9843e876628171ca"
+
+[durable_objects]
+bindings = [
+  { name = "MCP_OBJECT", class_name = "D1Agent" }
+  # { name = "SANDBOX_SHELL_CONTAINER", class_name = "SandboxShellContainer" }  # Disabled for dev
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["D1Agent"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = []
+
+# [[containers]]
+# class_name = "SandboxShellContainer"
+# image = "./Dockerfile"
+# instances = 5
+# name = "sandbox-shell"
+
+# 🔧 Development environment configuration (minimal for testing)
+[env.development]
+[env.development.vars]
+NODE_ENV = "development"
+LOG_LEVEL = "debug"
+ENABLE_CONSOLE_LOGS = "true"
+ENABLE_STRUCTURED_LOGS = "true"
+# Development can use different RPC endpoints or test networks
+SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/entysquare-dex-bsc-testnet/version/latest"
+SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
+
+[env.development.ai]
+binding = "AI"
+
+[[env.development.d1_databases]]
+binding = "D1_DATABASE"
+database_name = "d1-dex-database"
+database_id = "2a6573b6-d961-4b68-b907-2c1cb6640329"
+migrations_dir = "drizzle"
+
+[[env.development.r2_buckets]]
+binding = "R2"
+bucket_name = "dex-storage"
+
+[[env.development.kv_namespaces]]
+binding = "KV"
+id = "df3f475a32684aaf9843e876628171ca"
+
+[env.development.durable_objects]
+bindings = [
+  { name = "MCP_OBJECT", class_name = "D1Agent" }
+]
+
+# ✅ Production environment configuration
+[env.production]
+[env.production.vars]
+NODE_ENV = "production"
+LOG_LEVEL = "warn"
+ENABLE_CONSOLE_LOGS = "false"
+ENABLE_STRUCTURED_LOGS = "true"
+SUBGRAPH_URL = "https://gateway.thegraph.com/api/subgraphs/id/EMFDYw5HHE42EPiUJD926NLrpdum7tLmBmAdmJiZFrqj"
+SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
+
+[env.production.ai]
+binding = "AI"
+
+[[env.production.r2_buckets]]
+binding = "R2"
+bucket_name = "dex-storage"
+
+[[env.production.kv_namespaces]]
+binding = "KV"
+id = "f68574afd1684065b575ca4635be1050"

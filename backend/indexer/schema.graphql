@@ -55,13 +55,13 @@ type LBFactory @entity(immutable: false) {
   tokens: [Token!]! @derivedFrom(field: "factory")
 
   # Hour data
-  hourData: [TraderJoeHourData!]! @derivedFrom(field: "factory")
+  hourData: [LBHourData!]! @derivedFrom(field: "factory")
 
   # Day data
-  dayData: [TraderJoeDayData!]! @derivedFrom(field: "factory")
+  dayData: [LBDayData!]! @derivedFrom(field: "factory")
 }
 
-type TraderJoeHourData @entity(immutable: false) {
+type LBHourData @entity(immutable: false) {
   # timestamp / 3600
   id: ID!
 
@@ -86,7 +86,7 @@ type TraderJoeHourData @entity(immutable: false) {
   txCount: BigInt!
 }
 
-type TraderJoeDayData @entity(immutable: false) {
+type LBDayData @entity(immutable: false) {
   # timestamp / 86400
   id: ID!
 
@@ -243,8 +243,9 @@ type TokenDayData @entity(immutable: false) {
   close: BigDecimal!
 }
 
-type SJoeDayData @entity(immutable: false) {
-  # Timestmap / 86400
+# SUncDayData is used to store daily data for the staked token( aka sUnc = staked Unc)
+type SUncDayData @entity(immutable: false) {
+  # Timestamp / 86400
   id: ID!
 
   # date - day start timestamp

@@ -41,6 +41,8 @@ export function createPoolsHandler(action: string) {
 					return await handleTokensList(c, subgraphClient);
 				case 'analytics':
 					return await handleAnalytics(c, subgraphClient);
+				case 'searchByTokens':
+					return await handlePoolsByTokens(c, subgraphClient);
 				default:
 					return c.json({
 						error: 'Invalid action',
@@ -64,7 +66,7 @@ export function createPoolsHandler(action: string) {
  */
 async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: any) {
 	const page = parseInt(c.req.query('page') || '1');
-	const limit = Math.min(parseInt(c.req.query('limit') || '50'), 100);
+	const limit = Math.min(parseInt(c.req.query('limit') || '10'), 10);
 	const offset = (page - 1) * limit;
 	
 	console.log('🔗 Fetching pools from subgraph...');
@@ -80,7 +82,7 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 	const subgraphPools = await subgraphClient.getPools(limit, offset, 'totalValueLockedUSD', 'desc');
 	
 	// Get 24h data for all pools to calculate real volume and fees
-	const poolsDayData = await subgraphClient.getPoolsDayData(100, 1); // Get last 24h data for up to 100 pools
+	const poolsDayData = await subgraphClient.getPoolsDayData(10, 1); // Get last 24h data for up to 100 pools
 	
 	// Create a map for quick lookup of day data by pool ID
 	const poolDayDataMap = new Map();
@@ -597,4 +599,355 @@ function generateMockChartData(type: 'volume' | 'tvl', days: number) {
 	}
 	
 	return data;
+}
+
+/**
+ * Handle pools search by tokens - find all pools that contain specified tokens
+ */
+async function handlePoolsByTokens(c: Context<{ Bindings: Env }>, subgraphClient: any) {
+	try {
+		// Get query parameters
+		const token1 = c.req.query('token1')?.toLowerCase().trim();
+		const token2 = c.req.query('token2')?.toLowerCase().trim();
+		const page = parseInt(c.req.query('page') || '1');
+		const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100); // Max 100 results
+		const offset = (page - 1) * limit;
+
+		// Validate input - need at least one token
+		if (!token1 && !token2) {
+			return c.json({
+				error: 'At least one token parameter is required',
+				message: 'Provide token1 or token2 (or both) as query parameters. Can be token address or symbol.',
+				timestamp: new Date().toISOString()
+			}, 400);
+		}
+
+		console.log(`🔍 Searching pools for tokens: token1=${token1}, token2=${token2}`);
+
+		let filteredPools: any[] = [];
+
+		if (token1 && token2) {
+			// For two tokens, search for pools containing both
+			console.log('🔍 Searching for pools with both tokens using custom GraphQL query');
+			
+			const query = `
+				query SearchPoolsByBothTokens($token1: String!, $token2: String!, $first: Int!) {
+					lbpairs(
+						where: {
+							or: [
+								{
+									and: [
+										{
+											or: [
+												{ tokenX_: { symbol_contains_nocase: $token1 } },
+												{ tokenX_: { id: $token1 } }
+											]
+										},
+										{
+											or: [
+												{ tokenY_: { symbol_contains_nocase: $token2 } },
+												{ tokenY_: { id: $token2 } }
+											]
+										}
+									]
+								},
+								{
+									and: [
+										{
+											or: [
+												{ tokenX_: { symbol_contains_nocase: $token2 } },
+												{ tokenX_: { id: $token2 } }
+											]
+										},
+										{
+											or: [
+												{ tokenY_: { symbol_contains_nocase: $token1 } },
+												{ tokenY_: { id: $token1 } }
+											]
+										}
+									]
+								}
+							]
+						}
+						first: $first
+						orderBy: totalValueLockedUSD
+						orderDirection: desc
+					) {
+						id
+						name
+						factory {
+							id
+						}
+						baseFeePct
+						tokenX {
+							id
+							symbol
+							name
+							decimals
+							totalValueLocked
+							totalValueLockedUSD
+							derivedBNB
+							volume
+							volumeUSD
+							txCount
+							feesUSD
+						}
+						tokenY {
+							id
+							symbol
+							name
+							decimals
+							totalValueLocked
+							totalValueLockedUSD
+							derivedBNB
+							volume
+							volumeUSD
+							txCount
+							feesUSD
+						}
+						binStep
+						activeId
+						reserveX
+						reserveY
+						totalValueLockedBNB
+						totalValueLockedUSD
+						tokenXPrice
+						tokenYPrice
+						tokenXPriceUSD
+						tokenYPriceUSD
+						volumeTokenX
+						volumeTokenY
+						volumeUSD
+						untrackedVolumeUSD
+						txCount
+						feesTokenX
+						feesTokenY
+						feesUSD
+						liquidityProviderCount
+						timestamp
+						block
+					}
+				}
+			`;
+
+			const variables = {
+				token1,
+				token2,
+				first: 100
+			};
+
+			try {
+				const result = await subgraphClient.query(query, variables);
+				filteredPools = result.data?.lbpairs || [];
+				console.log(`✅ Found ${filteredPools.length} pools with both tokens via GraphQL`);
+			} catch (error) {
+				console.error('GraphQL query failed, falling back to manual search:', error);
+				// Fallback: Get all pools and filter manually
+				const allPools = await subgraphClient.getPools(100, 0, 'totalValueLockedUSD', 'desc');
+				filteredPools = allPools.filter((pool: any) => {
+					const tokenXSymbol = pool.tokenX.symbol.toLowerCase();
+					const tokenYSymbol = pool.tokenY.symbol.toLowerCase();
+					const tokenXAddress = pool.tokenX.id.toLowerCase();
+					const tokenYAddress = pool.tokenY.id.toLowerCase();
+					
+					const hasToken1 = tokenXSymbol.includes(token1!) || tokenYSymbol.includes(token1!) || 
+									 tokenXAddress === token1 || tokenYAddress === token1;
+					const hasToken2 = tokenXSymbol.includes(token2!) || tokenYSymbol.includes(token2!) || 
+									 tokenXAddress === token2 || tokenYAddress === token2;
+					return hasToken1 && hasToken2;
+				});
+			}
+		} else {
+			// Single token search with full fields
+			const searchToken = token1 || token2;
+			console.log(`🔍 Using custom GraphQL query for single token: ${searchToken}`);
+			
+			const query = `
+				query SearchPoolsBySingleToken($searchToken: String!, $first: Int!) {
+					lbpairs(
+						where: {
+							or: [
+								{ tokenX_: { symbol_contains_nocase: $searchToken } },
+								{ tokenY_: { symbol_contains_nocase: $searchToken } },
+								{ tokenX_: { id: $searchToken } },
+								{ tokenY_: { id: $searchToken } }
+							]
+						}
+						first: $first
+						orderBy: totalValueLockedUSD
+						orderDirection: desc
+					) {
+						id
+						name
+						factory {
+							id
+						}
+						baseFeePct
+						tokenX {
+							id
+							symbol
+							name
+							decimals
+							totalValueLocked
+							totalValueLockedUSD
+							derivedBNB
+							volume
+							volumeUSD
+							txCount
+							feesUSD
+						}
+						tokenY {
+							id
+							symbol
+							name
+							decimals
+							totalValueLocked
+							totalValueLockedUSD
+							derivedBNB
+							volume
+							volumeUSD
+							txCount
+							feesUSD
+						}
+						binStep
+						activeId
+						reserveX
+						reserveY
+						totalValueLockedBNB
+						totalValueLockedUSD
+						tokenXPrice
+						tokenYPrice
+						tokenXPriceUSD
+						tokenYPriceUSD
+						volumeTokenX
+						volumeTokenY
+						volumeUSD
+						untrackedVolumeUSD
+						txCount
+						feesTokenX
+						feesTokenY
+						feesUSD
+						liquidityProviderCount
+						timestamp
+						block
+					}
+				}
+			`;
+
+			const variables = {
+				searchToken,
+				first: 100
+			};
+
+			try {
+				const result = await subgraphClient.query(query, variables);
+				filteredPools = result.data?.lbpairs || [];
+				console.log(`✅ Found ${filteredPools.length} pools for single token via GraphQL`);
+			} catch (error) {
+				console.error('GraphQL query failed, falling back to manual search:', error);
+				// Fallback: Get all pools and filter manually
+				const allPools = await subgraphClient.getPools(100, 0, 'totalValueLockedUSD', 'desc');
+				filteredPools = allPools.filter((pool: any) => {
+					const tokenXSymbol = pool.tokenX.symbol.toLowerCase();
+					const tokenYSymbol = pool.tokenY.symbol.toLowerCase();
+					const tokenXAddress = pool.tokenX.id.toLowerCase();
+					const tokenYAddress = pool.tokenY.id.toLowerCase();
+					
+					return tokenXSymbol.includes(searchToken!) || tokenYSymbol.includes(searchToken!) || 
+						   tokenXAddress === searchToken || tokenYAddress === searchToken;
+				});
+			}
+		}
+
+		console.log(`✅ Found ${filteredPools.length} pools matching criteria`);
+
+		// Apply pagination to filtered results
+		const startIndex = offset;
+		const endIndex = offset + limit;
+		const paginatedPools = filteredPools.slice(startIndex, endIndex);
+
+		// Get 24h data for APR calculations
+		const poolsDayData = await subgraphClient.getPoolsDayData(100, 1);
+		const poolDayDataMap = new Map();
+		poolsDayData.forEach((dayData: any) => {
+			const poolId = dayData.lbPair?.id || dayData.id.split('-')[0];
+			poolDayDataMap.set(poolId, dayData);
+		});
+
+		// Transform pools to API format
+		const transformedPools = paginatedPools.map((pool: any) => {
+			const dayData = poolDayDataMap.get(pool.id);
+			const volume24h = dayData ? parseFloat(dayData.volumeUSD || '0') : 0;
+			const fees24h = dayData ? parseFloat(dayData.feesUSD || '0') : 0;
+			
+			const tvl = parseFloat(pool.totalValueLockedUSD || '0');
+			const apr = tvl > 0 && fees24h > 0 ? (fees24h * 365 / tvl) * 100 : 0;
+
+			return {
+				pairAddress: pool.id,
+				name: pool.name,
+				tokenX: {
+					address: pool.tokenX.id,
+					symbol: pool.tokenX.symbol,
+					name: pool.tokenX.name,
+					decimals: parseInt(pool.tokenX.decimals)
+				},
+				tokenY: {
+					address: pool.tokenY.id,
+					symbol: pool.tokenY.symbol,
+					name: pool.tokenY.name,
+					decimals: parseInt(pool.tokenY.decimals)
+				},
+				lbBinStep: parseInt(pool.binStep),
+				activeId: pool.activeId,
+				reserveX: pool.reserveX,
+				reserveY: pool.reserveY,
+				tvlUSD: pool.totalValueLockedUSD,
+				tvlBNB: pool.totalValueLockedBNB,
+				tvlFormatted: `$${parseFloat(pool.totalValueLockedUSD || '0').toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+				volume24hUSD: volume24h.toString(),
+				volume24hFormatted: `$${volume24h.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+				fees24hUSD: fees24h.toString(),
+				fees24hFormatted: `$${fees24h.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+				apr: apr,
+				aprFormatted: `${apr.toFixed(2)}%`,
+				tokenXPrice: pool.tokenXPrice,
+				tokenYPrice: pool.tokenYPrice,
+				tokenXPriceUSD: pool.tokenXPriceUSD,
+				tokenYPriceUSD: pool.tokenYPriceUSD,
+				totalTxCount: parseInt(pool.txCount),
+				createdAt: new Date(parseInt(pool.timestamp) * 1000).toISOString(),
+				blockNumber: parseInt(pool.block)
+			};
+		});
+
+		// Return response
+		return c.json({
+			success: true,
+			data: {
+				pools: transformedPools,
+				pagination: {
+					page,
+					limit,
+					total: filteredPools.length,
+					hasMore: endIndex < filteredPools.length
+				},
+				searchCriteria: {
+					token1: token1 || null,
+					token2: token2 || null,
+					searchType: token1 && token2 ? 'both_tokens' : 'single_token'
+				}
+			},
+			timestamp: new Date().toISOString()
+		});
+
+	} catch (error) {
+		console.error('Error searching pools by tokens:', error);
+		return c.json({
+			success: false,
+			error: 'Failed to search pools',
+			message: error instanceof Error ? error.message : 'Unknown error',
+			timestamp: new Date().toISOString()
+		}, 500);
+	}
 }

@@ -89,6 +89,10 @@ export function createDexRoutes() {
 		createKVCacheMiddleware('POOLS'),
 		createPoolsHandler('list')
 	);
+	app.get('/pools/:chain/search', 
+		createKVCacheMiddleware('POOLS'),
+		createPoolsHandler('searchByTokens')
+	);
 	app.get('/pools/:chain/:poolId', 
 		createKVCacheMiddleware('POOLS'),
 		createPoolsHandler('details')

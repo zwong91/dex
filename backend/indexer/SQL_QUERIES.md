@@ -1,6 +1,7 @@
 # BSC 测试网 Indexer SQL 查询手册
 
 ## 连接数据库
+
 ```bash
 docker exec -it postgres psql -U graph-node -d graph-node
 ```
@@ -8,14 +9,17 @@ docker exec -it postgres psql -U graph-node -d graph-node
 ## 重要说明
 
 ### block_range 字段 (int4range 类型)
+
 Graph Protocol 使用 PostgreSQL 的 `int4range` 类型来跟踪实体的生命周期：
 
 #### 数据类型范围
+
 - **int4range**: PostgreSQL 范围类型，基于 32位有符号整数 (int4)
 - **范围**: -2,147,483,648 到 2,147,483,647
 - **表示法**: `[start, end)` (左闭右开区间)
 
 #### 字段含义
+
 - `lower(block_range)`: 实体被创建的区块号
 - `upper(block_range)`: 实体被删除/更新的区块号
   - 如果为 `NULL`，表示范围是无限的 (`upper_inf(block_range) = true`)
@@ -23,6 +27,7 @@ Graph Protocol 使用 PostgreSQL 的 `int4range` 类型来跟踪实体的生命�
 - **2147483647** = 2³¹-1 (32位有符号整数最大值)，表示"永远有效"
 
 #### 实际使用示例
+
 ```sql
 -- 历史记录: [54522931, 54979683)  - 已结束
 -- 历史记录: [54979683, 55076159)  - 已结束  
@@ -30,6 +35,7 @@ Graph Protocol 使用 PostgreSQL 的 `int4range` 类型来跟踪实体的生命�
 ```
 
 #### 查询模式
+
 ```sql
 -- 查询当前有效记录
 WHERE COALESCE(upper(block_range), 2147483647) = 2147483647
@@ -44,11 +50,13 @@ WHERE block_range @> 55000000::integer
 ## 基础查询
 
 ### 1. 查看工厂信息
+
 ```sql
 SELECT * FROM sgd1.lb_factory;
 ```
 
 ### 2. 查看所有交易对
+
 ```sql
 SELECT 
     id as pair_address,
@@ -61,6 +69,7 @@ FROM sgd1.lb_pair;
 ```
 
 ### 3. 查看代币信息
+
 ```sql
 SELECT DISTINCT
     id as token_address,
@@ -72,6 +81,7 @@ ORDER BY symbol;
 ```
 
 ### 4. 查看流动性池 (Bins)
+
 ```sql
 SELECT 
     id,
@@ -87,6 +97,7 @@ LIMIT 10;
 ```
 
 ### 5. 查看交易活动 (Traces)
+
 ```sql
 SELECT 
     id,
@@ -105,6 +116,7 @@ LIMIT 10;
 ## 高级查询
 
 ### 6. 交易对的流动性分布
+
 ```sql
 SELECT 
     p.name as pair_name,
@@ -119,6 +131,7 @@ GROUP BY p.id, p.name;
 ```
 
 ### 7. 代币交易统计
+
 ```sql
 SELECT 
     t.symbol,
@@ -135,6 +148,7 @@ ORDER BY transaction_count DESC;
 ```
 
 ### 8. 最活跃的价格区间 (Bins)
+
 ```sql
 SELECT 
     b.bin_id,
@@ -153,6 +167,7 @@ LIMIT 10;
 ```
 
 ### 9. 实时数据统计
+
 ```sql
 SELECT 
     'LBFactory' as entity,
@@ -181,6 +196,7 @@ FROM sgd1.trace;
 ```
 
 ### 10. 查看同步状态
+
 ```sql
 -- 查看最新处理的区块
 SELECT 
@@ -196,9 +212,10 @@ FROM sgd1.lb_pair;
 
 ## GraphQL 查询示例
 
-访问 http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet/graphql
+访问 <http://localhost:8000/subgraphs/name/entysquare/bsc-local/graphql>
 
 ### 基础 GraphQL 查询
+
 ```graphql
 # 查询工厂信息
 {

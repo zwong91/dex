@@ -10,18 +10,21 @@ Subgraph for Indexer v21 on multiple networks including Ethereum and BSC.
 
 Use **Subgraph Studio** for all production deployments:
 
-1. **Visit Subgraph Studio**: https://thegraph.com/studio/
+1. **Visit Subgraph Studio**: <https://thegraph.com/studio/>
 2. **Create an account** and connect your wallet
 3. **Create a new subgraph** and get your deployment key
 4. **Authenticate locally**:
+
    ```bash
    npm run auth-studio
-   # Then run: graph auth --studio <YOUR_DEPLOY_KEY>
+   # Then run: graph auth <YOUR_DEPLOY_KEY>
    ```
+
 5. **Deploy to Studio**:
+
    ```bash
    npm run deploy-studio
-   # Then run: graph deploy --studio <YOUR_SUBGRAPH_SLUG>
+   # Then run: graph deploy <YOUR_SUBGRAPH_SLUG>
    ```
 
 ### 🏠 For Local Development
@@ -57,14 +60,16 @@ cd backend/indexer
 ```
 
 部署完成后访问：
-- GraphQL 端点: http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet
-- GraphQL Playground: http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet/graphql
+
+- GraphQL 端点: <http://localhost:8000/subgraphs/name/entysquare/bsc-local>
+- GraphQL Playground: <http://localhost:8000/subgraphs/name/entysquare/bsc-local/graphql>
 
 详细说明请参考：[BSC 测试网部署指南](./DEPLOYMENT_BSC_TESTNET.md)
 
 ### 其他网络部署
 
 #### 🎯 For Production (Subgraph Studio)
+
 ```bash
 # Get instructions for Studio setup
 npm run create-studio
@@ -73,6 +78,7 @@ npm run deploy-studio
 ```
 
 #### 🏠 For Local Development
+
 ```bash
 # Automated deployment
 npm run deploy:testnet
@@ -113,25 +119,29 @@ npm run build:bsc
 ## 🏠 Local Development Setup
 
 ### Method 1: Automated (Recommended)
+
 ```bash
 npm run deploy:testnet    # For BSC testnet development
 npm run deploy:mainnet    # For BSC mainnet development  
 ```
 
 ### Method 2: Manual Setup
+
 1. **Install Docker**: [Get Docker](https://docs.docker.com/get-docker/)
 2. **Start local node**: `npm run start:node`
 3. **Prepare network**: `npm run prepare:bsc` (or your target network)
-4. **Generate types**: `npm run codegen:bsc` 
+4. **Generate types**: `npm run codegen:bsc`
 5. **Build subgraph**: `npm run build:bsc`
 6. **Create local subgraph**: `npm run create-local`
 7. **Deploy locally**: `npm run deploy-local`
 
 ### 🌐 Access Points
-- **Subgraph endpoint**: http://localhost:8000/subgraphs/name/entysquare/indexer-v21
-- **GraphQL playground**: http://localhost:8000/subgraphs/name/entysquare/indexer-v21/graphql
+
+- **Subgraph endpoint**: <http://localhost:8000/subgraphs/name/entysquare/indexer-v21>
+- **GraphQL playground**: <http://localhost:8000/subgraphs/name/entysquare/indexer-v21/graphql>
 
 ### 📊 Management Commands
+
 ```bash
 # View logs
 npm run logs:graph        # Graph Node logs

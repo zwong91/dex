@@ -18,7 +18,6 @@ coverage/
 .env.local
 .env.production
 .env.development
-wrangler.toml
 
 # System files
 .DS_Store

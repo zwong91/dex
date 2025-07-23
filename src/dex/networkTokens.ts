@@ -6,7 +6,7 @@ export const NETWORK_TOKEN_CONFIGS = {
     {
       symbol: 'BNB',
       name: 'BNB',
-      address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd',
+      address: 'NATIVE', // Special identifier for native BNB
       decimals: 18,
       icon: generateTokenIcon('BNB')
     },
@@ -27,7 +27,7 @@ export const NETWORK_TOKEN_CONFIGS = {
     {
       symbol: 'WBNB',
       name: 'Wrapped BNB',
-      address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd', // Same as BNB on testnet
+      address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd', // Real WBNB contract address
       decimals: 18,
       icon: generateTokenIcon('WBNB')
     },
@@ -36,14 +36,14 @@ export const NETWORK_TOKEN_CONFIGS = {
     {
       symbol: 'BNB',
       name: 'BNB',
-      address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+      address: 'NATIVE', // Special identifier for native BNB
       decimals: 18,
       icon: generateTokenIcon('BNB')
     },
     {
       symbol: 'WBNB',
       name: 'Wrapped BNB',
-      address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // Same as BNB on mainnet
+      address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // Real WBNB contract address
       decimals: 18,
       icon: generateTokenIcon('WBNB')
     },

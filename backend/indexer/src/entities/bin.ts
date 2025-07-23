@@ -30,24 +30,20 @@ export function loadBin(lbPair: LBPair, binId: number): Bin {
 export function trackBin(
   lbPair: LBPair,
   binId: number,
-  amountXIn: BigDecimal,
-  amountXOut: BigDecimal,
-  amountYIn: BigDecimal,
-  amountYOut: BigDecimal,
-  minted: BigInt,
-  burned: BigInt
+  amountXIn: BigDecimal, // 流入的X代币数量
+  amountXOut: BigDecimal,// 流出的X代币数量  
+  amountYIn: BigDecimal, // 流入的Y代币数量
+  amountYOut: BigDecimal,// 流出的Y代币数量
+  minted: BigInt,        // 铸造的LP代币数量
+  burned: BigInt         // 销毁的LP代币数量
 ): Bin {
   const bin = loadBin(lbPair, binId);
 
   bin.totalSupply = bin.totalSupply.plus(minted).minus(burned);
   
-  // Calculate new reserves with safety checks
-  const newReserveX = bin.reserveX.plus(amountXIn).minus(amountXOut);
-  const newReserveY = bin.reserveY.plus(amountYIn).minus(amountYOut);
-  
-  // Prevent negative reserves
-  bin.reserveX = newReserveX.lt(BIG_DECIMAL_ZERO) ? BIG_DECIMAL_ZERO : newReserveX;
-  bin.reserveY = newReserveY.lt(BIG_DECIMAL_ZERO) ? BIG_DECIMAL_ZERO : newReserveY;
+  // Update reserves directly - let errors surface if calculations are wrong
+  bin.reserveX = bin.reserveX.plus(amountXIn).minus(amountXOut);
+  bin.reserveY = bin.reserveY.plus(amountYIn).minus(amountYOut);
   
   bin.save();
 

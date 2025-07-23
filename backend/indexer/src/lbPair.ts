@@ -25,11 +25,11 @@ import {
   loadToken,
   loadBundle,
   loadLBFactory,
-  loadTraderJoeHourData,
-  loadTraderJoeDayData,
+  loadLBHourData,
+  loadLBDayData,
   loadTokenHourData,
   loadTokenDayData,
-  loadSJoeDayData,
+  loadSUncDayData,
   loadUser,
   loadLBPairDayData,
   loadLBPairHourData,
@@ -57,71 +57,16 @@ import {
 import { StaticFeeParametersSet } from "../generated/LBFactory/LBPair";
 
 function safeMultiply(a: BigDecimal, b: BigDecimal): BigDecimal {
-  const maxSafeValue = BigDecimal.fromString("1e20"); // 100 quintillion
-  const minSafeValue = BigDecimal.fromString("-1e20");
-
-  // Check for zero
   if (a.equals(BIG_DECIMAL_ZERO) || b.equals(BIG_DECIMAL_ZERO)) {
     return BIG_DECIMAL_ZERO;
   }
-
-  // Check for potential overflow
-  if (
-    (a.gt(maxSafeValue) || a.lt(minSafeValue)) ||
-    (b.gt(maxSafeValue) || b.lt(minSafeValue))
-  ) {
-    log.warning(
-      "[safeMultiply] Potential overflow detected, a: {}, b: {}",
-      [a.toString(), b.toString()]
-    );
-    return BIG_DECIMAL_ZERO;
-  }
-
-  const result = a.times(b);
-
-  // Final sanity check
-  if (result.gt(maxSafeValue) || result.lt(minSafeValue)) {
-    log.warning("[safeMultiply] Result overflow detected: {}", [
-      result.toString(),
-    ]);
-    return BIG_DECIMAL_ZERO;
-  }
-
-  return result;
-}
-
-/**
- * Safe reserve validation
- */
-function validateReserve(reserve: BigDecimal, tokenSymbol: string): BigDecimal {
-  const maxReasonableReserve = BigDecimal.fromString("1e15"); // 1 quadrillion
-
-  if (reserve.lt(BIG_DECIMAL_ZERO)) {
-    log.warning(
-      "[validateReserve] Negative reserve detected for {}: {}",
-      [tokenSymbol, reserve.toString()]
-    );
-    return BIG_DECIMAL_ZERO;
-  }
-
-  if (reserve.gt(maxReasonableReserve)) {
-    log.warning(
-      "[validateReserve] Unreasonably large reserve for {}: {}",
-      [tokenSymbol, reserve.toString()]
-    );
-    return BIG_DECIMAL_ZERO;
-  }
-
-  return reserve;
+  return a.times(b);
 }
 
 export function handleSwap(event: SwapEvent): void {
   const lbPair = loadLbPair(event.address);
-
   if (!lbPair) {
-    log.warning("[handleSwap] LBPair not detected: {} ", [
-      event.address.toHexString(),
-    ]);
+    log.warning("[handleSwap] LBPair not found: {}", [event.address.toHexString()]);
     return;
   }
 
@@ -143,40 +88,17 @@ export function handleSwap(event: SwapEvent): void {
   const tokenXPriceUSD = safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD);
   const tokenYPriceUSD = safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD);
 
+  // Validate and decode input amounts
   const amountsIn = decodeAmounts(event.params.amountsIn);
-  const amountXIn = amountsIn[0];
-  const amountYIn = amountsIn[1];
-
-  const fmtAmountXIn = formatTokenAmountByDecimals(amountXIn, tokenX.decimals);
-  const fmtAmountYIn = formatTokenAmountByDecimals(amountYIn, tokenY.decimals);
-
   const amountsOut = decodeAmounts(event.params.amountsOut);
-  const amountXOut = amountsOut[0];
-  const amountYOut = amountsOut[1];
+  
+  const fmtAmountXIn = formatTokenAmountByDecimals(amountsIn[0], tokenX.decimals);
+  const fmtAmountYIn = formatTokenAmountByDecimals(amountsIn[1], tokenY.decimals);
+  const fmtAmountXOut = formatTokenAmountByDecimals(amountsOut[0], tokenX.decimals);
+  const fmtAmountYOut = formatTokenAmountByDecimals(amountsOut[1], tokenY.decimals);
 
-  const fmtAmountXOut = formatTokenAmountByDecimals(amountXOut, tokenX.decimals);
-  const fmtAmountYOut = formatTokenAmountByDecimals(amountYOut, tokenY.decimals);
-
-  // Determine swap direction using the existing utility function
+  // Determine swap direction: X->Y or Y->X
   const swapForY = isSwapForY(event.params.amountsIn);
-
-  // Safety check: verify our direction detection is consistent
-  if (swapForY && fmtAmountXIn.equals(BIG_DECIMAL_ZERO)) {
-    log.warning(
-      "[handleSwap] Direction mismatch: isSwapForY=true but amountXIn = 0",
-      []
-    );
-  } else if (!swapForY && fmtAmountYIn.equals(BIG_DECIMAL_ZERO)) {
-    log.warning(
-      "[handleSwap] Direction mismatch: isSwapForY=false but amountYIn = 0",
-      []
-    );
-  }
-
-  const tokenIn = swapForY ? tokenX : tokenY;
-  const tokenOut = swapForY ? tokenY : tokenX;
-  const amountIn = swapForY ? fmtAmountXIn : fmtAmountYIn;
-  const amountOut = swapForY ? fmtAmountYOut : fmtAmountXOut;
 
   const totalFees = decodeAmounts(event.params.totalFees);
   const totalFeesX = formatTokenAmountByDecimals(totalFees[0], tokenX.decimals);
@@ -196,29 +118,25 @@ export function handleSwap(event: SwapEvent): void {
   );
   const trackedVolumeBNB = safeDiv(trackedVolumeUSD, bundle.bnbPriceUSD);
 
-  // Bin
+  // Only one direction should have non-zero values in a swap
   const bin = trackBin(
     lbPair as LBPair,
     event.params.id,
-    fmtAmountXIn,
-    fmtAmountXOut,
-    fmtAmountYIn,
-    fmtAmountYOut,
+    swapForY ? fmtAmountXIn : BIG_DECIMAL_ZERO,  // X流入 (X换Y时)
+    swapForY ? BIG_DECIMAL_ZERO : fmtAmountXOut, // X流出 (Y换X时)
+    swapForY ? BIG_DECIMAL_ZERO : fmtAmountYIn,  // Y流入 (Y换X时)
+    swapForY ? fmtAmountYOut : BIG_DECIMAL_ZERO, // Y流出 (X换Y时)
     BIG_INT_ZERO,
     BIG_INT_ZERO
   );
 
-  // LBPair
-  lbPair.activeId = event.params.id;
-  lbPair.txCount = lbPair.txCount.plus(BIG_INT_ONE);
-  
-  // Calculate new reserves with safety checks
-  const newReserveX = lbPair.reserveX.plus(fmtAmountXIn).minus(fmtAmountXOut);
-  const newReserveY = lbPair.reserveY.plus(fmtAmountYIn).minus(fmtAmountYOut);
-  
-  // Prevent negative reserves
-  lbPair.reserveX = validateReserve(newReserveX, tokenX.symbol);
-  lbPair.reserveY = validateReserve(newReserveY, tokenY.symbol);
+  // Update reserves based on swap direction
+  lbPair.reserveX = swapForY 
+    ? lbPair.reserveX.plus(fmtAmountXIn)  // X换Y: X流入
+    : lbPair.reserveX.minus(fmtAmountXOut); // Y换X: X流出
+  lbPair.reserveY = swapForY 
+    ? lbPair.reserveY.minus(fmtAmountYOut) // X换Y: Y流出
+    : lbPair.reserveY.plus(fmtAmountYIn);  // Y换X: Y流入
   
   lbPair.totalValueLockedUSD = getTrackedLiquidityUSD(
     lbPair.reserveX,
@@ -279,55 +197,47 @@ export function handleSwap(event: SwapEvent): void {
   lbFactory.feesBNB = safeDiv(lbFactory.feesUSD, bundle.bnbPriceUSD);
   lbFactory.save();
 
-  // TraderJoeHourData
-  const traderJoeHourData = loadTraderJoeHourData(event.block.timestamp, true);
-  traderJoeHourData.volumeBNB = traderJoeHourData.volumeBNB.plus(
+  // LBHourData
+  const lbHourData = loadLBHourData(event.block.timestamp, true);
+  lbHourData.volumeBNB = lbHourData.volumeBNB.plus(
     trackedVolumeBNB
   );
-  traderJoeHourData.volumeUSD = traderJoeHourData.volumeUSD.plus(
+  lbHourData.volumeUSD = lbHourData.volumeUSD.plus(
     trackedVolumeUSD
   );
-  traderJoeHourData.feesUSD = traderJoeHourData.feesUSD.plus(feesUSD);
-  traderJoeHourData.save();
+  lbHourData.feesUSD = lbHourData.feesUSD.plus(feesUSD);
+  lbHourData.save();
 
-  // TraderJoeDayData
-  const traderJoeDayData = loadTraderJoeDayData(event.block.timestamp, true);
-  traderJoeDayData.volumeBNB = traderJoeDayData.volumeBNB.plus(
+  // LBDayData
+  const lbDayData = loadLBDayData(event.block.timestamp, true);
+  lbDayData.volumeBNB = lbDayData.volumeBNB.plus(
     trackedVolumeBNB
   );
-  traderJoeDayData.volumeUSD = traderJoeDayData.volumeUSD.plus(
+  lbDayData.volumeUSD = lbDayData.volumeUSD.plus(
     trackedVolumeUSD
   );
-  traderJoeDayData.feesUSD = traderJoeDayData.feesUSD.plus(feesUSD);
-  traderJoeDayData.save();
+  lbDayData.feesUSD = lbDayData.feesUSD.plus(feesUSD);
+  lbDayData.save();
 
-  // TokenX
+  // TokenX - Swap doesn't change token TVL, only volume and fees
   tokenX.txCount = tokenX.txCount.plus(BIG_INT_ONE);
   tokenX.volume = tokenX.volume.plus(amountXTotal);
   tokenX.volumeUSD = tokenX.volumeUSD.plus(
     safeMultiply(amountXTotal, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
   );
-  tokenX.totalValueLocked = validateReserve(
-    tokenX.totalValueLocked.plus(fmtAmountXIn).minus(fmtAmountXOut),
-    tokenX.symbol
-  );
-  tokenX.totalValueLockedUSD = safeMultiply(tokenX.totalValueLocked, tokenXPriceUSD);
   const feesUsdX = safeMultiply(totalFeesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD));
   tokenX.feesUSD = tokenX.feesUSD.plus(feesUsdX);
+  tokenX.totalValueLockedUSD = safeMultiply(tokenX.totalValueLocked, tokenXPriceUSD);
 
-  // TokenY
+  // TokenY - Swap doesn't change token TVL, only volume and fees
   tokenY.txCount = tokenY.txCount.plus(BIG_INT_ONE);
   tokenY.volume = tokenY.volume.plus(amountYTotal);
   tokenY.volumeUSD = tokenY.volumeUSD.plus(
     safeMultiply(amountYTotal, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD))
   );
-  tokenY.totalValueLocked = validateReserve(
-    tokenY.totalValueLocked.plus(fmtAmountYIn).minus(fmtAmountYOut),
-    tokenY.symbol
-  );
-  tokenY.totalValueLockedUSD = safeMultiply(tokenY.totalValueLocked, tokenYPriceUSD);
   const feesUsdY = safeMultiply(totalFeesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD));
   tokenY.feesUSD = tokenY.feesUSD.plus(feesUsdY);
+  tokenY.totalValueLockedUSD = safeMultiply(tokenY.totalValueLocked, tokenYPriceUSD);
 
   tokenX.save();
   tokenY.save();
@@ -458,13 +368,13 @@ export function handleFlashLoan(event: FlashLoan): void {
   lbFactory.feesBNB = safeDiv(lbFactory.feesUSD, bundle.bnbPriceUSD);
   lbFactory.save();
 
-  const traderJoeHourData = loadTraderJoeHourData(event.block.timestamp, true);
-  traderJoeHourData.feesUSD = traderJoeHourData.feesUSD.plus(feesUSD);
-  traderJoeHourData.save();
+  const lbHourData = loadLBHourData(event.block.timestamp, true);
+  lbHourData.feesUSD = lbHourData.feesUSD.plus(feesUSD);
+  lbHourData.save();
 
-  const traderJoeDayData = loadTraderJoeDayData(event.block.timestamp, true);
-  traderJoeDayData.feesUSD = traderJoeDayData.feesUSD.plus(feesUSD);
-  traderJoeDayData.save();
+  const lbDayData = loadLBDayData(event.block.timestamp, true);
+  lbDayData.feesUSD = lbDayData.feesUSD.plus(feesUSD);
+  lbDayData.save();
 
   // Handle individual token fees
   const individualFees = [feesX, feesY];
@@ -548,7 +458,7 @@ export function handleCompositionFee(event: CompositionFees): void {
     return;
   }
 
-  // update pricing
+  // update BNB/USD Price and tokenX/tokenY / BNB Price
   updateNativeInUsdPricing();
   updateTokensDerivedNative(lbPair);
 
@@ -571,13 +481,13 @@ export function handleCompositionFee(event: CompositionFees): void {
   lbFactory.feesBNB = safeDiv(lbFactory.feesUSD, bundle.bnbPriceUSD);
   lbFactory.save();
 
-  const traderJoeHourData = loadTraderJoeHourData(event.block.timestamp, false);
-  traderJoeHourData.feesUSD = traderJoeHourData.feesUSD.plus(feesUSD);
-  traderJoeHourData.save();
+  const lbHourData = loadLBHourData(event.block.timestamp, false);
+  lbHourData.feesUSD = lbHourData.feesUSD.plus(feesUSD);
+  lbHourData.save();
 
-  const traderJoeDayData = loadTraderJoeDayData(event.block.timestamp, false);
-  traderJoeDayData.feesUSD = traderJoeDayData.feesUSD.plus(feesUSD);
-  traderJoeDayData.save();
+  const lbDayData = loadLBDayData(event.block.timestamp, false);
+  lbDayData.feesUSD = lbDayData.feesUSD.plus(feesUSD);
+  lbDayData.save();
 
   tokenX.feesUSD = tokenX.feesUSD.plus(safeMultiply(feesX, tokenXPriceUSD));
   tokenX.save();
@@ -690,6 +600,7 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
     const amountX = formatTokenAmountByDecimals(amounts[0], tokenX.decimals);
     const amountY = formatTokenAmountByDecimals(amounts[1], tokenY.decimals);
 
+    // TODO: Need to get actual LP token amounts minted for proper totalSupply tracking
     trackBin(
       lbPair,
       bidId.toI32(),
@@ -697,7 +608,7 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
       BIG_DECIMAL_ZERO,
       amountY, // amountYIn
       BIG_DECIMAL_ZERO,
-      BIG_INT_ZERO,
+      BIG_INT_ZERO, // Should be LP tokens minted
       BIG_INT_ZERO
     );
   }
@@ -709,8 +620,10 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
 
   // LBPair
   lbPair.txCount = lbPair.txCount.plus(BIG_INT_ONE);
-  lbPair.reserveX = validateReserve(lbPair.reserveX.plus(totalAmountX), tokenX.symbol);
-  lbPair.reserveY = validateReserve(lbPair.reserveY.plus(totalAmountY), tokenY.symbol);
+  
+  // Update reserves directly
+  lbPair.reserveX = lbPair.reserveX.plus(totalAmountX);
+  lbPair.reserveY = lbPair.reserveY.plus(totalAmountY);
 
   // Safe TVL calculation with overflow protection
   const reserveXValue = safeMultiply(lbPair.reserveX, tokenX.derivedBNB);
@@ -748,8 +661,8 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
 
   loadLBPairHourData(event.block.timestamp, lbPair as LBPair, true);
   loadLBPairDayData(event.block.timestamp, lbPair as LBPair, true);
-  loadTraderJoeHourData(event.block.timestamp, true);
-  loadTraderJoeDayData(event.block.timestamp, true);
+  loadLBHourData(event.block.timestamp, true);
+  loadLBDayData(event.block.timestamp, true);
 
   // TokenX
   tokenX.txCount = tokenX.txCount.plus(BIG_INT_ONE);
@@ -803,15 +716,16 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
     const fmtAmountX = formatTokenAmountByDecimals(amounts[0], tokenX.decimals);
     const fmtAmountY = formatTokenAmountByDecimals(amounts[1], tokenY.decimals);
 
+    // TODO: Need to get actual LP token amounts burned for proper totalSupply tracking
     trackBin(
       lbPair,
-      event.params.ids[i].toU32(),
+      event.params.ids[i].toI32(),
       BIG_DECIMAL_ZERO,
       fmtAmountX, // amountXOut
       BIG_DECIMAL_ZERO,
       fmtAmountY, // amountYOut
       BIG_INT_ZERO,
-      BIG_INT_ZERO
+      BIG_INT_ZERO // Should be LP tokens burned
     );
   }
 
@@ -837,13 +751,9 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
   // LBPair
   lbPair.txCount = lbPair.txCount.plus(BIG_INT_ONE);
   
-  // Calculate new reserves with safety checks for removal
-  const newReserveX = lbPair.reserveX.minus(totalAmountX);
-  const newReserveY = lbPair.reserveY.minus(totalAmountY);
-  
-  // Prevent negative reserves
-  lbPair.reserveX = validateReserve(newReserveX, tokenX.symbol);
-  lbPair.reserveY = validateReserve(newReserveY, tokenY.symbol);
+  // Update reserves directly
+  lbPair.reserveX = lbPair.reserveX.minus(totalAmountX);
+  lbPair.reserveY = lbPair.reserveY.minus(totalAmountY);
 
   // Safe TVL calculation with overflow protection
   const reserveXValue = safeMultiply(lbPair.reserveX, tokenX.derivedBNB);
@@ -881,13 +791,12 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
 
   loadLBPairHourData(event.block.timestamp, lbPair as LBPair, true);
   loadLBPairDayData(event.block.timestamp, lbPair as LBPair, true);
-  loadTraderJoeHourData(event.block.timestamp, true);
-  loadTraderJoeDayData(event.block.timestamp, true);
+  loadLBHourData(event.block.timestamp, true);
+  loadLBDayData(event.block.timestamp, true);
 
   // TokenX
   tokenX.txCount = tokenX.txCount.plus(BIG_INT_ONE);
-  const newTokenXLocked = tokenX.totalValueLocked.minus(totalAmountX);
-  tokenX.totalValueLocked = validateReserve(newTokenXLocked, tokenX.symbol);
+  tokenX.totalValueLocked = tokenX.totalValueLocked.minus(totalAmountX);
   tokenX.totalValueLockedUSD = safeMultiply(
     tokenX.totalValueLocked,
     safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD)
@@ -896,8 +805,7 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
 
   // TokenY
   tokenY.txCount = tokenY.txCount.plus(BIG_INT_ONE);
-  const newTokenYLocked = tokenY.totalValueLocked.minus(totalAmountY);
-  tokenY.totalValueLocked = validateReserve(newTokenYLocked, tokenY.symbol);
+  tokenY.totalValueLocked = tokenY.totalValueLocked.minus(totalAmountY);
   tokenY.totalValueLockedUSD = safeMultiply(
     tokenY.totalValueLocked,
     safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD)
@@ -916,9 +824,9 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
 export function handleProtocolFeesCollected(
   event: CollectedProtocolFees
 ): void {
-  // handle sJOE payout calculations here
-  // NOTE: this event will split amount recieved to multiple addresses
-  // - sJOE is just one of them so this mapping should be modified in future
+  // handle sUNC payout calculations here
+  // NOTE: this event will split amount received to multiple addresses
+  // - sUNC is just one of them so this mapping should be modified in future
 
   const lbPair = loadLbPair(event.address);
 
@@ -942,14 +850,14 @@ export function handleProtocolFeesCollected(
   const derivedAmountBNB = safeMultiply(amountX, tokenX.derivedBNB)
     .plus(safeMultiply(amountY, tokenY.derivedBNB));
 
-  const sJoeDayData = loadSJoeDayData(event.block.timestamp);
-  sJoeDayData.amountX = sJoeDayData.amountX.plus(amountX);
-  sJoeDayData.amountY = sJoeDayData.amountY.plus(amountY);
-  sJoeDayData.collectedBNB = sJoeDayData.collectedBNB.plus(derivedAmountBNB);
-  sJoeDayData.collectedUSD = sJoeDayData.collectedUSD.plus(
+  const sUncDayData = loadSUncDayData(event.block.timestamp);
+  sUncDayData.amountX = sUncDayData.amountX.plus(amountX);
+  sUncDayData.amountY = sUncDayData.amountY.plus(amountY);
+  sUncDayData.collectedBNB = sUncDayData.collectedBNB.plus(derivedAmountBNB);
+  sUncDayData.collectedUSD = sUncDayData.collectedUSD.plus(
     safeMultiply(derivedAmountBNB, bundle.bnbPriceUSD)
   );
-  sJoeDayData.save();
+  sUncDayData.save();
 }
 
 export function handleTransferBatch(event: TransferBatch): void {
@@ -965,8 +873,8 @@ export function handleTransferBatch(event: TransferBatch): void {
   lbFactory.txCount = lbFactory.txCount.plus(BIG_INT_ONE);
   lbFactory.save();
 
-  loadTraderJoeHourData(event.block.timestamp, true);
-  loadTraderJoeDayData(event.block.timestamp, true);
+  loadLBHourData(event.block.timestamp, true);
+  loadLBDayData(event.block.timestamp, true);
   loadLBPairDayData(event.block.timestamp, lbPair as LBPair, true);
   loadLBPairHourData(event.block.timestamp, lbPair as LBPair, true);
 
@@ -995,7 +903,7 @@ export function handleTransferBatch(event: TransferBatch): void {
     if (isMint) {
       trackBin(
         lbPair,
-        event.params.ids[i].toU32(),
+        event.params.ids[i].toI32(),
         BIG_DECIMAL_ZERO,
         BIG_DECIMAL_ZERO,
         BIG_DECIMAL_ZERO,
@@ -1009,7 +917,7 @@ export function handleTransferBatch(event: TransferBatch): void {
     if (isBurn) {
       trackBin(
         lbPair,
-        event.params.ids[i].toU32(),
+        event.params.ids[i].toI32(),
         BIG_DECIMAL_ZERO,
         BIG_DECIMAL_ZERO,
         BIG_DECIMAL_ZERO,
@@ -1063,9 +971,7 @@ export function handleStaticFeeParametersSet(
   lbPairParameter.reductionFactor = event.params.reductionFactor;
   lbPairParameter.variableFeeControl = event.params.variableFeeControl;
   lbPairParameter.protocolShare = event.params.protocolShare;
-  // Convert basis points to percentage: protocolShare (basis points) / 100
-  // e.g., 250 basis points = 2.5%
-  lbPairParameter.protocolSharePct = event.params.protocolShare / 100;
+  lbPairParameter.protocolSharePct = event.params.protocolShare;
   lbPairParameter.maxVolatilityAccumulator =
     event.params.maxVolatilityAccumulator;
 

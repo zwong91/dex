@@ -146,7 +146,7 @@ export class SubgraphClient {
     // Use provided endpoint or get from environment or use default
     this.endpoint = endpoint || 
       env?.SUBGRAPH_URL ||
-      'http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet';
+      'http://localhost:8000/subgraphs/name/entysquare/bsc-local';
     this.auth_token = env?.SUBGRAPH_AUTH_TOKEN || ''; // Optional auth token for private subgraphs
     
     // Debug logging to see which endpoint is being used

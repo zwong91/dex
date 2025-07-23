@@ -16,7 +16,9 @@ curl -X POST "http://localhost:8787/v1/api/r2/create" \
     "template": "dex"
   }'
 ```
+
 > 返回示例（成功）：
+>
 > ```json
 > {
 >   "success": true,
@@ -62,6 +64,7 @@ curl -X GET "http://localhost:8787/v1/api/r2/project" \
 curl -X GET "http://localhost:8787/v1/api/r2/file/projects/proj_xxx/README.md" \
   -H "x-api-key: test-key" | jq
 ```
+
 > README.md 替换为实际文件路径
 
 ---
@@ -99,6 +102,7 @@ curl -X GET "http://localhost:8787/v1/api/r2/size" \
 ```
 
 > 返回示例：
+>
 > ```json
 > {
 >   "success": true,

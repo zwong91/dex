@@ -43,18 +43,18 @@ npm run build:bsc-testnet
 
 ```bash
 # 创建子图
-npx graph create --node http://localhost:8020/ entysquare/indexer-bnb-testnet
+npx graph create --node http://localhost:8020/ entysquare/bsc-local
 
 # 部署子图
-echo "v0.0.1" | npx graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001/ entysquare/indexer-bnb-testnet subgraph.bsc-testnet.yaml
+echo "v0.0.1" | npx graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001/ entysquare/bsc-local subgraph.bsc-testnet.yaml
 ```
 
 ## 访问端点
 
 部署成功后，可以通过以下端点访问：
 
-- **GraphQL 查询**: <http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet>
-- **GraphQL Playground**: <http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet/graphql>
+- **GraphQL 查询**: <http://localhost:8000/subgraphs/name/entysquare/bsc-local>
+- **GraphQL Playground**: <http://localhost:8000/subgraphs/name/entysquare/bsc-local/graphql>
 
 ## 管理命令
 
@@ -96,7 +96,7 @@ docker-compose ps       # 查看容器状态
 **解决**: 先创建子图，再部署：
 
 ```bash
-npx graph create --node http://localhost:8020/ entysquare/indexer-bnb-testnet
+npx graph create --node http://localhost:8020/ entysquare/bsc-local
 ```
 
 ### 3. 编译时找不到 WASM 文件

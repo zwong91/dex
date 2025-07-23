@@ -175,11 +175,13 @@ export function createPoolsHandler(action: string) {
 ### Subgraph 端点
 
 默认使用本地 Graph Node 端点：
+
 ```
 http://localhost:8000/subgraphs/name/entysquare/indexer-bnb
 ```
 
 可以通过环境变量自定义：
+
 ```typescript
 const client = new SubgraphClient(process.env.SUBGRAPH_ENDPOINT);
 ```
@@ -198,6 +200,7 @@ node test-graphql.mjs
 ```
 
 测试包括：
+
 - Subgraph 健康检查
 - 元数据查询
 - 池数据查询
@@ -268,6 +271,7 @@ Response to Frontend
 ### 调试
 
 启用详细日志：
+
 ```typescript
 // 在 client.ts 中添加调试日志
 console.log('GraphQL Query:', query);

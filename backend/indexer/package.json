@@ -14,9 +14,9 @@
     "create-studio": "echo '📝 To create a subgraph in Subgraph Studio:' && echo '1. Visit https://thegraph.com/studio/' && echo '2. Connect your wallet' && echo '3. Click \"Create a Subgraph\"' && echo '4. Follow the instructions'",
     "auth-studio": "echo '🔑 To authenticate with Subgraph Studio:' && echo 'graph auth --studio <DEPLOY_KEY>' && echo 'Get your deploy key from: https://thegraph.com/studio/'",
     "deploy-studio": "echo '🚀 To deploy to Subgraph Studio:' && echo 'graph deploy --studio <SUBGRAPH_SLUG>' && echo 'Replace <SUBGRAPH_SLUG> with your subgraph name from Studio'",
-    "create-local": "graph create --node http://localhost:8020/ entysquare/indexer-bnb-testnet",
-    "remove-local": "graph remove --node http://localhost:8020/ entysquare/indexer-bnb-testnet",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 entysquare/indexer-bnb-testnet subgraph.bsc-testnet.yaml",
+    "create-local": "graph create --node http://localhost:8020/ entysquare/bsc-local",
+    "remove-local": "graph remove --node http://localhost:8020/ entysquare/bsc-local",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 entysquare/bsc-local subgraph.bsc-testnet.yaml",
     "start:node": "rm -rf ./graph_data && docker-compose up -d",
     "stop:node": "docker-compose down",
     "restart:node": "docker-compose restart",
@@ -26,7 +26,7 @@
     "clean": "docker-compose down -v && rm -rf ./graph_data && rm -rf ./build && rm -rf ./generated"
   },
   "dependencies": {
-    "@graphprotocol/graph-ts": "0.38.1",
+    "@graphprotocol/graph-ts": "^0.38.1",
     "mustache": "^4.2.0"
   },
   "devDependencies": {

@@ -1237,16 +1237,16 @@ query_menu() {
                 echo -e "${BLUE}🎮 打开 GraphQL Playground...${NC}"
                 echo ""
                 echo "GraphQL Playground URLs:"
-                echo "• 本地查询端点: http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet"
-                echo "• 交互式浏览器: http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet/graphql"
+                echo "• 本地查询端点: http://localhost:8000/subgraphs/name/entysquare/bsc-local"
+                echo "• 交互式浏览器: http://localhost:8000/subgraphs/name/entysquare/bsc-local/graphql"
                 echo ""
                 # 尝试在默认浏览器中打开
                 if command -v open >/dev/null 2>&1; then
                     echo "正在打开默认浏览器..."
-                    open "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet/graphql"
+                    open "http://localhost:8000/subgraphs/name/entysquare/bsc-local/graphql"
                 elif command -v xdg-open >/dev/null 2>&1; then
                     echo "正在打开默认浏览器..."
-                    xdg-open "http://localhost:8000/subgraphs/name/entysquare/indexer-bnb-testnet/graphql"
+                    xdg-open "http://localhost:8000/subgraphs/name/entysquare/bsc-local/graphql"
                 else
                     echo "请手动在浏览器中打开上述链接"
                 fi

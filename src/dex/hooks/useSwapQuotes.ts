@@ -17,11 +17,13 @@ import { useChainId, useWriteContract } from "wagmi"
 import { getSDKTokenByAddress, getSDKTokensForChain, wagmiChainIdToSDKChainId } from "../lbSdkConfig"
 import { ReverseSwapQuote, SwapQuote } from "../types"
 import { createViemClient } from "../viemClient"
+import { useTransactionStore } from "../../stores/transactionStore"
 
 // Enhanced swap using LB SDK with proper slippage and routing
 export const useSwapWithSDK = () => {
 	const { writeContractAsync } = useWriteContract()
 	const chainId = useChainId()
+	const { addTransaction, updateTransaction } = useTransactionStore()
 
 	// Check token allowance
 	const checkAllowance = async (tokenAddress: string, userAddress: string, spenderAddress: string): Promise<bigint> => {
@@ -47,26 +49,50 @@ export const useSwapWithSDK = () => {
 		try {
 			console.log(`🔑 Approving ${amount.toString()} tokens for ${tokenAddress}`)
 			
-			const hash = await writeContractAsync({
-				address: tokenAddress as `0x${string}`,
-				abi: erc20Abi,
-				functionName: 'approve',
-				args: [spenderAddress as `0x${string}`, amount],
+			// Get token info for better display
+			const token = getSDKTokenByAddress(tokenAddress, chainId)
+			
+			// Create transaction status entry
+			const transactionId = addTransaction({
+				type: 'approve',
+				status: 'pending',
+				title: 'Token Approval',
+				description: `Approve ${token?.symbol || 'Token'} for trading`,
+				chainId: chainId
 			})
 
-			console.log(`✅ Approval transaction submitted:`, hash)
-			
-			// Wait for transaction confirmation
-			const client = createViemClient(chainId)
-			await client.waitForTransactionReceipt({ hash })
-			console.log(`✅ Approval confirmed for ${tokenAddress}`)
+			try {
+				const hash = await writeContractAsync({
+					address: tokenAddress as `0x${string}`,
+					abi: erc20Abi,
+					functionName: 'approve',
+					args: [spenderAddress as `0x${string}`, amount],
+				})
+
+				// Update transaction with hash
+				updateTransaction(transactionId, {
+					hash,
+					description: `${token?.symbol || 'Token'} approval (Hash: ${hash.slice(0, 10)}...)`
+				})
+
+				console.log(`✅ Approval transaction sent: ${hash}`)
+				
+				const client = createViemClient(chainId)
+				await client.waitForTransactionReceipt({ hash })
+				console.log(`✅ Approval confirmed for ${tokenAddress}`)
+			} catch (txError) {
+				// Update transaction status to failed
+				updateTransaction(transactionId, {
+					status: 'failed',
+					errorMessage: (txError as Error).message
+				})
+				throw txError
+			}
 		} catch (error) {
 			console.error('Error approving token:', error)
 			throw new Error(`Failed to approve ${tokenAddress}: ${error}`)
 		}
-	}
-
-	// Ensure token approval for swap
+	}	// Ensure token approval for swap
 	const ensureTokenApproval = async (
 		tokenAddress: string,
 		userAddress: string,
@@ -181,16 +207,44 @@ export const useSwapWithSDK = () => {
 			}
 
 			// Execute the swap using writeContractAsync
-			const txHash = await writeContractAsync({
-				address: lbRouterContractAddress as `0x${string}`,
-				abi: jsonAbis.LBRouterV22ABI,
-				functionName: methodName as any,
-				args: args as any,
-				value: value ? BigInt(value) : undefined,
+			// Get token info for better display
+			const fromToken = getSDKTokenByAddress(fromTokenContractAddress, chainId)
+			const toToken = getSDKTokenByAddress(toTokenContractAddress, chainId)
+			
+			// Create transaction status entry
+			const transactionId = addTransaction({
+				type: 'swap',
+				status: 'pending',
+				title: 'Token Swap',
+				description: `${fromToken?.symbol} → ${toToken?.symbol} (${inputAmount} ${fromToken?.symbol})`,
+				chainId: chainId
 			})
 
-			console.log("Swap TX sent:", txHash)
-			return txHash
+			try {
+				const txHash = await writeContractAsync({
+					address: lbRouterContractAddress as `0x${string}`,
+					abi: jsonAbis.LBRouterV22ABI,
+					functionName: methodName as any,
+					args: args as any,
+					value: value ? BigInt(value) : undefined,
+				})
+
+				// Update transaction with hash
+				updateTransaction(transactionId, {
+					hash: txHash,
+					description: `${fromToken?.symbol} → ${toToken?.symbol} (Hash: ${txHash.slice(0, 10)}...)`
+				})
+
+				console.log("Swap TX sent:", txHash)
+				return txHash
+			} catch (txError) {
+				// Update transaction status to failed
+				updateTransaction(transactionId, {
+					status: 'failed',
+					errorMessage: (txError as Error).message
+				})
+				throw txError
+			}
 
 		} catch (error) {
 			console.error("LB SDK swap error:", error)

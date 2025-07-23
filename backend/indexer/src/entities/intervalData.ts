@@ -1,88 +1,88 @@
 import { BigInt } from "@graphprotocol/graph-ts";
 import {
-  TraderJoeHourData,
-  TraderJoeDayData,
+  LBHourData,
+  LBDayData,
   TokenHourData,
   TokenDayData,
   Token,
   LBPairDayData,
   LBPairHourData,
   LBPair,
-  SJoeDayData,
+  SUncDayData,
 } from "../../generated/schema";
 import { loadLBFactory } from "./lbFactory";
 import { loadBundle } from "./bundle";
 import { BIG_DECIMAL_ZERO, BIG_INT_ZERO, BIG_INT_ONE } from "../constants";
 import { safeDiv } from "../utils";
 
-export function loadTraderJoeHourData(
+export function loadLBHourData(
   timestamp: BigInt,
   update: bool
-): TraderJoeHourData {
+): LBHourData {
   const SECONDS_IN_HOUR = BigInt.fromI32(60 * 60);
   const hourId = timestamp.div(SECONDS_IN_HOUR);
   const hourStartTimestamp = hourId.times(SECONDS_IN_HOUR);
 
   const lbFactory = loadLBFactory();
-  let traderJoeHourData = TraderJoeHourData.load(hourId.toString());
-  if (!traderJoeHourData) {
-    traderJoeHourData = new TraderJoeHourData(hourId.toString());
-    traderJoeHourData.date = hourStartTimestamp.toI32();
-    traderJoeHourData.factory = lbFactory.id;
+  let lbHourData = LBHourData.load(hourId.toString());
+  if (!lbHourData) {
+    lbHourData = new LBHourData(hourId.toString());
+    lbHourData.date = hourStartTimestamp.toI32();
+    lbHourData.factory = lbFactory.id;
 
-    traderJoeHourData.volumeBNB = BIG_DECIMAL_ZERO;
-    traderJoeHourData.volumeUSD = BIG_DECIMAL_ZERO;
-    traderJoeHourData.untrackedVolumeUSD = BIG_DECIMAL_ZERO;
-    traderJoeHourData.totalValueLockedBNB = BIG_DECIMAL_ZERO;
-    traderJoeHourData.totalValueLockedUSD = BIG_DECIMAL_ZERO;
-    traderJoeHourData.feesUSD = BIG_DECIMAL_ZERO;
-    traderJoeHourData.txCount = BIG_INT_ZERO;
-    traderJoeHourData.save();
+    lbHourData.volumeBNB = BIG_DECIMAL_ZERO;
+    lbHourData.volumeUSD = BIG_DECIMAL_ZERO;
+    lbHourData.untrackedVolumeUSD = BIG_DECIMAL_ZERO;
+    lbHourData.totalValueLockedBNB = BIG_DECIMAL_ZERO;
+    lbHourData.totalValueLockedUSD = BIG_DECIMAL_ZERO;
+    lbHourData.feesUSD = BIG_DECIMAL_ZERO;
+    lbHourData.txCount = BIG_INT_ZERO;
+    lbHourData.save();
   }
 
   if (update) {
-    traderJoeHourData.totalValueLockedBNB = lbFactory.totalValueLockedBNB;
-    traderJoeHourData.totalValueLockedUSD = lbFactory.totalValueLockedUSD;
-    traderJoeHourData.txCount = traderJoeHourData.txCount.plus(BIG_INT_ONE);
-    traderJoeHourData.save();
+    lbHourData.totalValueLockedBNB = lbFactory.totalValueLockedBNB;
+    lbHourData.totalValueLockedUSD = lbFactory.totalValueLockedUSD;
+    lbHourData.txCount = lbHourData.txCount.plus(BIG_INT_ONE);
+    lbHourData.save();
   }
 
-  return traderJoeHourData as TraderJoeHourData;
+  return lbHourData as LBHourData;
 }
 
-export function loadTraderJoeDayData(
+export function loadLBDayData(
   timestamp: BigInt,
   update: bool
-): TraderJoeDayData {
+): LBDayData {
   const SECONDS_IN_DAY = BigInt.fromI32(60 * 60 * 24);
   const dayId = timestamp.div(SECONDS_IN_DAY);
   const dayStartTimestamp = dayId.times(SECONDS_IN_DAY);
 
   const lbFactory = loadLBFactory();
-  let traderJoeDayData = TraderJoeDayData.load(dayId.toString());
-  if (!traderJoeDayData) {
-    traderJoeDayData = new TraderJoeDayData(dayId.toString());
-    traderJoeDayData.date = dayStartTimestamp.toI32();
-    traderJoeDayData.factory = lbFactory.id;
+  let lbDayData = LBDayData.load(dayId.toString());
+  if (!lbDayData) {
+    lbDayData = new LBDayData(dayId.toString());
+    lbDayData.date = dayStartTimestamp.toI32();
+    lbDayData.factory = lbFactory.id;
 
-    traderJoeDayData.volumeBNB = BIG_DECIMAL_ZERO;
-    traderJoeDayData.volumeUSD = BIG_DECIMAL_ZERO;
-    traderJoeDayData.untrackedVolumeUSD = BIG_DECIMAL_ZERO;
-    traderJoeDayData.totalValueLockedBNB = BIG_DECIMAL_ZERO;
-    traderJoeDayData.totalValueLockedUSD = BIG_DECIMAL_ZERO;
-    traderJoeDayData.feesUSD = BIG_DECIMAL_ZERO;
-    traderJoeDayData.txCount = BIG_INT_ZERO;
-    traderJoeDayData.save();
+    lbDayData.volumeBNB = BIG_DECIMAL_ZERO;
+    lbDayData.volumeUSD = BIG_DECIMAL_ZERO;
+    lbDayData.untrackedVolumeUSD = BIG_DECIMAL_ZERO;
+    lbDayData.totalValueLockedBNB = BIG_DECIMAL_ZERO;
+    lbDayData.totalValueLockedUSD = BIG_DECIMAL_ZERO;
+    lbDayData.feesUSD = BIG_DECIMAL_ZERO;
+    lbDayData.txCount = BIG_INT_ZERO;
+    lbDayData.save();
   }
 
   if (update) {
-    traderJoeDayData.totalValueLockedBNB = lbFactory.totalValueLockedBNB;
-    traderJoeDayData.totalValueLockedUSD = lbFactory.totalValueLockedUSD;
-    traderJoeDayData.txCount = traderJoeDayData.txCount.plus(BIG_INT_ONE);
-    traderJoeDayData.save();
+    lbDayData.totalValueLockedBNB = lbFactory.totalValueLockedBNB;
+    lbDayData.totalValueLockedUSD = lbFactory.totalValueLockedUSD;
+    lbDayData.txCount = lbDayData.txCount.plus(BIG_INT_ONE);
+    lbDayData.save();
   }
 
-  return traderJoeDayData as TraderJoeDayData;
+  return lbDayData as LBDayData;
 }
 
 export function loadTokenHourData(
@@ -285,22 +285,22 @@ export function loadLBPairDayData(
   return lbPairDayData as LBPairDayData;
 }
 
-export function loadSJoeDayData(timestamp: BigInt): SJoeDayData {
+export function loadSUncDayData(timestamp: BigInt): SUncDayData {
   const SECONDS_IN_DAY = BigInt.fromI32(60 * 60 * 24);
   const dayId = timestamp.div(SECONDS_IN_DAY);
   const dayStartTimestamp = dayId.times(SECONDS_IN_DAY);
 
-  let sJoeDayData = SJoeDayData.load(dayId.toString());
-  if (!sJoeDayData) {
-    sJoeDayData = new SJoeDayData(dayId.toString());
-    sJoeDayData.date = dayStartTimestamp.toI32();
-    sJoeDayData.amountX = BIG_DECIMAL_ZERO;
-    sJoeDayData.amountY = BIG_DECIMAL_ZERO;
-    sJoeDayData.collectedBNB = BIG_DECIMAL_ZERO;
-    sJoeDayData.collectedUSD = BIG_DECIMAL_ZERO;
+  let sUncDayData = SUncDayData.load(dayId.toString());
+  if (!sUncDayData) {
+    sUncDayData = new SUncDayData(dayId.toString());
+    sUncDayData.date = dayStartTimestamp.toI32();
+    sUncDayData.amountX = BIG_DECIMAL_ZERO;
+    sUncDayData.amountY = BIG_DECIMAL_ZERO;
+    sUncDayData.collectedBNB = BIG_DECIMAL_ZERO;
+    sUncDayData.collectedUSD = BIG_DECIMAL_ZERO;
 
-    sJoeDayData.save();
+    sUncDayData.save();
   }
 
-  return sJoeDayData as SJoeDayData;
+  return sUncDayData as SUncDayData;
 }

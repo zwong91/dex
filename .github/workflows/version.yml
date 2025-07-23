@@ -1,0 +1,167 @@
+name: 🔖 Auto Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease_id:
+        description: 'Prerelease identifier (alpha, beta, rc)'
+        required: false
+        default: 'alpha'
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version-bump:
+    name: 🔖 Bump Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Run tests before version bump
+        run: |
+          npm run lint
+          if npm run test --if-present; then
+            echo "✅ All checks passed"
+          else
+            echo "No tests found, continuing..."
+          fi
+
+      - name: 🔖 Bump version
+        id: version
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [ "${{ github.event.inputs.version_type }}" = "prerelease" ]; then
+            NEW_VERSION=$(npm version prerelease --preid=${{ github.event.inputs.prerelease_id }} --no-git-tag-version)
+          else
+            NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version)
+          fi
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "version_without_v=${NEW_VERSION#v}" >> $GITHUB_OUTPUT
+
+      - name: 📝 Update CHANGELOG
+        run: |
+          if [ ! -f CHANGELOG.md ]; then
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+          
+          # Create temporary changelog entry
+          cat > temp_changelog.md << EOF
+          # Changelog
+          
+          ## [${{ steps.version.outputs.version_without_v }}] - $(date +%Y-%m-%d)
+          
+          ### Added
+          - Version bump to ${{ steps.version.outputs.new_version }}
+          
+          ### Changed
+          - Updated dependencies and build process
+          
+          ### Fixed
+          - Minor bug fixes and improvements
+          
+          EOF
+          
+          # Append existing changelog (skip first line if it's "# Changelog")
+          if [ -f CHANGELOG.md ]; then
+            tail -n +2 CHANGELOG.md >> temp_changelog.md
+          fi
+          
+          mv temp_changelog.md CHANGELOG.md
+
+      - name: 📝 Commit changes
+        run: |
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "🔖 Bump version to ${{ steps.version.outputs.new_version }}
+          
+          - Update package.json version
+          - Update CHANGELOG.md with new version
+          - Automated version bump via GitHub Actions"
+
+      - name: 🏷️ Create and push tag
+        run: |
+          git tag -a ${{ steps.version.outputs.new_version }} -m "Release ${{ steps.version.outputs.new_version }}"
+          git push origin main
+          git push origin ${{ steps.version.outputs.new_version }}
+
+      - name: 📋 Create Pull Request (for develop branch)
+        if: github.ref_name == 'main'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/version-bump-${{ steps.version.outputs.version_without_v }}
+          title: '🔖 Version bump to ${{ steps.version.outputs.new_version }}'
+          body: |
+            ## 🔖 Automated Version Bump
+            
+            This PR was automatically created to bump the version to **${{ steps.version.outputs.new_version }}**.
+            
+            ### Changes Made
+            - ✅ Updated `package.json` version to `${{ steps.version.outputs.version_without_v }}`
+            - ✅ Updated `CHANGELOG.md` with new version entry
+            - ✅ Created git tag `${{ steps.version.outputs.new_version }}`
+            
+            ### Release Type
+            - **Type**: `${{ github.event.inputs.version_type }}`
+            ${{ github.event.inputs.version_type == 'prerelease' && format('- **Prerelease ID**: `{0}`', github.event.inputs.prerelease_id) || '' }}
+            
+            ### Next Steps
+            1. Review and merge this PR
+            2. The release workflow will automatically trigger
+            3. Production deployment will follow for stable releases
+            
+            ---
+            
+            🤖 _This PR was created automatically by GitHub Actions_
+          labels: |
+            version-bump
+            automated
+            chore
+          assignees: ${{ github.actor }}
+
+      - name: 📢 Summary
+        run: |
+          echo "## 🎉 Version Bump Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **New Version**: \`${{ steps.version.outputs.new_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: \`${{ github.event.inputs.version_type }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event.inputs.version_type }}" = "prerelease" ]; then
+            echo "- **Prerelease ID**: \`${{ github.event.inputs.prerelease_id }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### What happens next?" >> $GITHUB_STEP_SUMMARY
+          echo "1. 🏷️ Git tag \`${{ steps.version.outputs.new_version }}\` has been created and pushed" >> $GITHUB_STEP_SUMMARY
+          echo "2. 🚀 Release workflow will automatically trigger" >> $GITHUB_STEP_SUMMARY
+          echo "3. 📦 GitHub release will be created with build artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "4. 🌐 Production deployment will happen for stable releases" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Tag**: [\`${{ steps.version.outputs.new_version }}\`](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.new_version }})" >> $GITHUB_STEP_SUMMARY

@@ -26,7 +26,6 @@
 
     // 调试和测试
     "ms-vscode.vscode-chrome-debug",
-    "ms-vscode.vscode-edge-debug",
     "hbenl.vscode-test-explorer",
 
     // 实用工具
@@ -36,10 +35,6 @@
     "foxundermoon.shell-format",
     "streetsidesoftware.code-spell-checker",
 
-    // 主题和UI
-    "pkief.material-icon-theme",
-    "github.github-vscode-theme",
-
     // API 开发
     "humao.rest-client",
     "ms-vscode.vscode-thunder-client",
@@ -47,8 +42,5 @@
     // 代码质量
     "sonarjs.sonarlint-vscode",
     "ms-vscode.vscode-npm-script-runner",
-
-    // 其他
-    "jnoortheen.nix-ide"
   ]
 }

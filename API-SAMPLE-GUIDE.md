@@ -25,6 +25,42 @@ curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/pools/bsc/0xe785e0899e7ac
 
 ---
 
+#### 3.1. 按代币搜索池子
+
+```bash
+# 搜索包含单个代币的所有池子（可以用代币符号）
+curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/pools/bsc/search?token1=WBNB&page=1&limit=20" \
+  -H "x-api-key: test-key" | jq
+
+# 搜索包含单个代币的所有池子（可以用代币地址）
+curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/pools/bsc/search?token1=0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c&page=1&limit=20" \
+  -H "x-api-key: test-key" | jq
+
+# 搜索包含两个特定代币的池子
+curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/pools/bsc/search?token1=WBNB&token2=USDT&page=1&limit=10" \
+  -H "x-api-key: test-key" | jq
+
+# 搜索包含 USDT 的所有池子
+curl -X GET "https://api.dex.jongun2038.win/v1/api/dex/pools/bsc/search?token2=USDT&limit=30" \
+  -H "x-api-key: test-key" | jq
+```
+
+**参数说明：**
+
+- `token1`（可选）：第一个代币，可以是代币符号（如 BNB）或代币地址
+- `token2`（可选）：第二个代币，可以是代币符号（如 USDT）或代币地址  
+- `page`（可选，默认1）：页码
+- `limit`（可选，默认20，最大50）：每页返回的池子数量
+- 至少需要提供 `token1` 或 `token2` 中的一个
+
+**返回数据包含：**
+
+- 匹配的池子列表，包含完整的池子信息
+- 分页信息
+- 搜索条件信息
+
+---
+
 **说明：**
 
 - 所有请求都需要在 header 里加上 `x-api-key: test-key`。

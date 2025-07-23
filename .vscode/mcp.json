@@ -23,6 +23,13 @@
                 "mcp-remote",
                 "https://graphql.mcp.cloudflare.com/sse"
             ]
+        },
+        "subgraph": {
+            "command": "npx",
+            "args": ["mcp-remote", "--header", "Authorization:${AUTH_HEADER}", "https://subgraphs.mcp.thegraph.com/sse"],
+            "env": {
+                "AUTH_HEADER": "Bearer e74e6acaa5e94a4917afc26650ff00bb"
+            }
         }
     }
 }

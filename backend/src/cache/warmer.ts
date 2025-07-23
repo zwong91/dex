@@ -91,11 +91,8 @@ export class CacheWarmer {
 			}))
 
 			const queryVariations = [
-				{ limit: 100, offset: 0, orderBy: 'totalValueLockedUSD', orderDirection: 'desc' as const },
-				{ limit: 50, offset: 0, orderBy: 'totalValueLockedUSD', orderDirection: 'desc' as const },
-				{ limit: 20, offset: 0, orderBy: 'totalValueLockedUSD', orderDirection: 'desc' as const },
-				{ limit: 100, offset: 0, orderBy: 'volumeUSD', orderDirection: 'desc' as const },
-				{ limit: 50, offset: 0, orderBy: 'volumeUSD', orderDirection: 'desc' as const },
+				{ limit: 10, offset: 0, orderBy: 'totalValueLockedUSD', orderDirection: 'desc' as const },
+				{ limit: 10, offset: 0, orderBy: 'volumeUSD', orderDirection: 'desc' as const },
 				...paginatedVariations
 			]
 
