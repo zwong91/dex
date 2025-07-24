@@ -17,6 +17,7 @@ const RETRY_DELAY = 1000; // 1秒
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export interface ApiPool {
+  id?: string; // API返回的池子ID
   pairAddress: string;
   chain: string;
   name: string;
@@ -254,7 +255,8 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
           poolId: pool.id,
           pairAddress: pool.pairAddress,
           hasValidPairAddress: !!pool.pairAddress,
-          poolKeys: Object.keys(pool)
+          poolKeys: Object.keys(pool),
+          rawPool: pool // 完整打印原始数据
         });
         
         return {
