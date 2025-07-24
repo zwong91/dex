@@ -54,6 +54,12 @@ const apiPoolToPoolData = (pool: ApiPool): PoolData | null => {
     id: pool.id,
     tokenX: pool.tokenX,
     tokenY: pool.tokenY,
+    binStep: (pool as any).binStep, // API uses 'binStep' not 'lbBinStep'
+    lbBinStep: pool.lbBinStep,
+    hasBinStep: (pool as any).binStep !== undefined,
+    hasLbBinStep: pool.lbBinStep !== undefined && pool.lbBinStep !== null,
+    binStepType: typeof (pool as any).binStep,
+    lbBinStepType: typeof pool.lbBinStep,
     poolKeys: Object.keys(pool)
   });
   
@@ -63,6 +69,18 @@ const apiPoolToPoolData = (pool: ApiPool): PoolData | null => {
     console.error('❌ Pool missing both pairAddress and id:', pool);
     return null;
   }
+  
+  // 优先使用 API 的 binStep 字段，然后是 lbBinStep，最后默认值
+  const binStepRaw = (pool as any).binStep || pool.lbBinStep;
+  const binStep = binStepRaw ? (typeof binStepRaw === 'string' ? parseInt(binStepRaw, 10) : binStepRaw) : 25;
+  
+  console.log('🎯 Final pool data with binStep:', {
+    address,
+    binStep,
+    binStepRaw,
+    originalBinStep: (pool as any).binStep,
+    originalLbBinStep: pool.lbBinStep
+  });
   
   return {
     id: address,
@@ -76,7 +94,7 @@ const apiPoolToPoolData = (pool: ApiPool): PoolData | null => {
     fees24h: pool.fees24hFormatted,
     userLiquidity: undefined, // Not available in ApiPool
     pairAddress: address,
-    binStep: pool.lbBinStep,
+    binStep: binStep,
     tokenXAddress: pool.tokenX?.address,
     tokenYAddress: pool.tokenY?.address,
   };

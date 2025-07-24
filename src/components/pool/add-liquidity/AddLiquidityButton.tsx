@@ -62,6 +62,14 @@ const AddLiquidityButton = ({
 		selectedPool
 	}
 
+	// 🔍 DEBUG: 添加调试信息来检查binStep
+	console.log('🔍 DEBUG AddLiquidityButton - Validation params:', {
+		selectedPool,
+		binStep,
+		selectedPoolBinStep: selectedPool?.binStep,
+		validationParams
+	});
+
 	const validationResults = validateLiquidityParams(validationParams)
 	const { errors: validationErrors, warnings: validationWarnings } = groupErrorsBySeverity(validationResults)
 	const hasErrors = hasBlockingErrors(validationResults)
