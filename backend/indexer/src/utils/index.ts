@@ -50,20 +50,19 @@ export function isSwapForY(amountsInBytes32: Bytes): bool {
 
 // reference link https://developers.lfj.gg/guides/byte-32-decoding
 export function decodeAmounts(amounts: Bytes): Array<BigInt> {
-  // Convert amounts to a BigInt, reverse the bytes from big-endian
-  // to little-endian format, as the amounts are stored in little-endian format
-  amounts.reverse();
+  // Convert amounts to a BigInt
+  // NOTE: DO NOT reverse bytes - amounts are stored in correct big-endian format
   const amountsBigInt = BigInt.fromUnsignedBytes(amounts);
 
-  // Read the right 128 bits of the 256 bits
-  const amountsX = amountsBigInt.bitAnd(
+  // Read the left 128 bits (AmountX is in high bits)
+  const amountsX = amountsBigInt.rightShift(128);
+  
+  // Read the right 128 bits (AmountY is in low bits)
+  const amountsY = amountsBigInt.bitAnd(
     BigInt.fromI32(2)
       .pow(128)
       .minus(BigInt.fromI32(1))
   );
-
-  // Read the left 128 bits of the 256 bits
-  const amountsY = amountsBigInt.rightShift(128);
 
   return [amountsX, amountsY];
 }

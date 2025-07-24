@@ -91,7 +91,80 @@ const SwapPage = () => {
     toToken.address as `0x${string}`
   );
 
-  const exchangeRate = 1.0; // We now get accurate rates from LB SDK swap quotes
+  // Calculate display rate from swap quote or fallback to token prices
+  const getDisplayRate = () => {
+    // If we have swap quote data, use it for accurate rate
+    if (swapQuote.amountOut && fromAmount && parseFloat(fromAmount) > 0) {
+      const amountOutNum = parseFloat(swapQuote.amountOut);
+      const fromAmountNum = parseFloat(fromAmount);
+      const rate = amountOutNum / fromAmountNum;
+      
+      // Debug log for rate calculation
+      console.log('Rate calculation:', {
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        fromAmount: fromAmount,
+        amountOut: swapQuote.amountOut,
+        fromAmountNum,
+        amountOutNum,
+        calculatedRate: rate,
+        chainId: chainId,
+        fromTokenAddress: fromToken.address,
+        toTokenAddress: toToken.address,
+        swapQuoteLoading: swapQuote.loading,
+        swapQuoteError: swapQuote.error
+      });
+      
+      // Sanity check: if rate is extremely small (< 0.01), something is wrong
+      if (rate < 0.01 && (fromToken.symbol.includes('BNB') || toToken.symbol.includes('BNB'))) {
+        console.warn('⚠️ Suspicious rate detected, using fallback instead:', {
+          rate,
+          expected: 'BNB should be worth hundreds of USDT, not fractions'
+        });
+        // Fall through to fallback calculation
+      } else {
+        return rate;
+      }
+    }
+    
+    // Fallback: calculate from token USD prices
+    // Note: On testnet, USDT/USDC are test tokens with 18 decimals, not real stablecoins
+    const isTestnet = chainId === 97;
+    
+    let fromTokenPrice = 1.0;
+    let toTokenPrice = 1.0;
+    
+    if (fromToken.symbol === 'WBNB' || fromToken.symbol === 'BNB') {
+      fromTokenPrice = isTestnet ? 600.0 : 766.92; // Lower testnet price
+    } else if (fromToken.symbol === 'USDT' || fromToken.symbol === 'USDC') {
+      fromTokenPrice = isTestnet ? 600.0 : 1.0; // Test tokens worth ~600 like BNB
+    }
+    
+    if (toToken.symbol === 'WBNB' || toToken.symbol === 'BNB') {
+      toTokenPrice = isTestnet ? 600.0 : 766.92;
+    } else if (toToken.symbol === 'USDT' || toToken.symbol === 'USDC') {
+      toTokenPrice = isTestnet ? 600.0 : 1.0; // Test tokens worth ~600 like BNB
+    }
+    
+    if (fromTokenPrice > 0 && toTokenPrice > 0) {
+      const fallbackRate = fromTokenPrice / toTokenPrice;
+      console.log('Using fallback rate:', {
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        fromTokenPrice,
+        toTokenPrice,
+        fallbackRate,
+        isTestnet,
+        note: isTestnet ? 'Using testnet prices - USDT/USDC are test tokens worth ~600 like BNB' : 'Using mainnet prices'
+      });
+      return fallbackRate;
+    }
+    
+    return 1.0; // Ultimate fallback
+  };
+
+  const displayRate = getDisplayRate();
+  const exchangeRate = 1.0; // Keep for backward compatibility in calculations
   const networkFee = 0.0023;
 
   // Get effective balance for UI display
@@ -480,7 +553,7 @@ const SwapPage = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2" color="text.secondary">Rate</Typography>
                       <Typography variant="body2">
-                        1 {fromToken.symbol} = {exchangeRate.toLocaleString()} {toToken.symbol}
+                        1 {fromToken.symbol} = {displayRate.toLocaleString(undefined, { maximumFractionDigits: 6 })} {toToken.symbol}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>

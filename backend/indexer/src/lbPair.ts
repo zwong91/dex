@@ -9,6 +9,7 @@ import {
   WithdrawnFromBins,
   CollectedProtocolFees,
   TransferBatch,
+  LBPair as LBPairContract,
 } from "../generated/LBPair/LBPair";
 import {
   Token,
@@ -60,6 +61,7 @@ function safeMultiply(a: BigDecimal, b: BigDecimal): BigDecimal {
   if (a.equals(BIG_DECIMAL_ZERO) || b.equals(BIG_DECIMAL_ZERO)) {
     return BIG_DECIMAL_ZERO;
   }
+  
   return a.times(b);
 }
 
@@ -130,13 +132,23 @@ export function handleSwap(event: SwapEvent): void {
     BIG_INT_ZERO
   );
 
-  // Update reserves based on swap direction
-  lbPair.reserveX = swapForY 
-    ? lbPair.reserveX.plus(fmtAmountXIn)  // X换Y: X流入
-    : lbPair.reserveX.minus(fmtAmountXOut); // Y换X: X流出
-  lbPair.reserveY = swapForY 
-    ? lbPair.reserveY.minus(fmtAmountYOut) // X换Y: Y流出
-    : lbPair.reserveY.plus(fmtAmountYIn);  // Y换X: Y流入
+  // Get actual reserves from contract instead of manual calculation
+  const lbPairContract = LBPairContract.bind(event.address);
+  const reservesCall = lbPairContract.try_getReserves();
+  
+  if (!reservesCall.reverted) {
+    lbPair.reserveX = formatTokenAmountByDecimals(reservesCall.value.value0, tokenX.decimals);
+    lbPair.reserveY = formatTokenAmountByDecimals(reservesCall.value.value1, tokenY.decimals);
+  } else {
+    log.warning("[handleSwap] Failed to get reserves for pair {}", [event.address.toHexString()]);
+    // Fallback to manual calculation only if contract call fails
+    lbPair.reserveX = swapForY 
+      ? lbPair.reserveX.plus(fmtAmountXIn)  // X换Y: X流入
+      : lbPair.reserveX.minus(fmtAmountXOut); // Y换X: X流出
+    lbPair.reserveY = swapForY 
+      ? lbPair.reserveY.minus(fmtAmountYOut) // X换Y: Y流出
+      : lbPair.reserveY.plus(fmtAmountYIn);  // Y换X: Y流入
+  }
   
   lbPair.totalValueLockedUSD = getTrackedLiquidityUSD(
     lbPair.reserveX,
@@ -621,9 +633,19 @@ export function handleLiquidityAdded(event: DepositedToBins): void {
   // LBPair
   lbPair.txCount = lbPair.txCount.plus(BIG_INT_ONE);
   
-  // Update reserves directly
-  lbPair.reserveX = lbPair.reserveX.plus(totalAmountX);
-  lbPair.reserveY = lbPair.reserveY.plus(totalAmountY);
+  // Get actual reserves from contract instead of manual calculation
+  const lbPairContract = LBPairContract.bind(event.address);
+  const reservesCall = lbPairContract.try_getReserves();
+  
+  if (!reservesCall.reverted) {
+    lbPair.reserveX = formatTokenAmountByDecimals(reservesCall.value.value0, tokenX.decimals);
+    lbPair.reserveY = formatTokenAmountByDecimals(reservesCall.value.value1, tokenY.decimals);
+  } else {
+    log.warning("[handleLiquidityAdded] Failed to get reserves for pair {}", [event.address.toHexString()]);
+    // Fallback to manual calculation only if contract call fails
+    lbPair.reserveX = lbPair.reserveX.plus(totalAmountX);
+    lbPair.reserveY = lbPair.reserveY.plus(totalAmountY);
+  }
 
   // Safe TVL calculation with overflow protection
   const reserveXValue = safeMultiply(lbPair.reserveX, tokenX.derivedBNB);
@@ -751,9 +773,19 @@ export function handleLiquidityRemoved(event: WithdrawnFromBins): void {
   // LBPair
   lbPair.txCount = lbPair.txCount.plus(BIG_INT_ONE);
   
-  // Update reserves directly
-  lbPair.reserveX = lbPair.reserveX.minus(totalAmountX);
-  lbPair.reserveY = lbPair.reserveY.minus(totalAmountY);
+  // Get actual reserves from contract instead of manual calculation
+  const lbPairContract = LBPairContract.bind(event.address);
+  const reservesCall = lbPairContract.try_getReserves();
+  
+  if (!reservesCall.reverted) {
+    lbPair.reserveX = formatTokenAmountByDecimals(reservesCall.value.value0, tokenX.decimals);
+    lbPair.reserveY = formatTokenAmountByDecimals(reservesCall.value.value1, tokenY.decimals);
+  } else {
+    log.warning("[handleLiquidityRemoved] Failed to get reserves for pair {}", [event.address.toHexString()]);
+    // Fallback to manual calculation only if contract call fails
+    lbPair.reserveX = lbPair.reserveX.minus(totalAmountX);
+    lbPair.reserveY = lbPair.reserveY.minus(totalAmountY);
+  }
 
   // Safe TVL calculation with overflow protection
   const reserveXValue = safeMultiply(lbPair.reserveX, tokenX.derivedBNB);

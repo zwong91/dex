@@ -3,7 +3,7 @@
 # 简单的缓存清理脚本
 # 调用 API 端点来清理所有缓存
 
-API_BASE_URL="${API_BASE_URL:-https://your-worker.workers.dev}"
+API_BASE_URL="${API_BASE_URL:-https://api.dex.jongun2038.win}"
 AUTH_TOKEN="${AUTH_TOKEN:-}"
 
 echo "🗑️ 开始清理所有缓存..."
