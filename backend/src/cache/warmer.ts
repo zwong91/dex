@@ -80,7 +80,7 @@ export class CacheWarmer {
 			// 预热多种常用的查询组合，分页参数自动生成，避免冗余
 			const paginatedVariations = [
 				{ page: 1, limit: 10 },
-				...Array.from({ length: 3 }, (_, i) => ({ page: i + 1, limit: 10 }))
+				...Array.from({ length: 2 }, (_, i) => ({ page: i + 1, limit: 10 }))
 			].map(v => ({
 				...v,
 				orderby: 'volume',
@@ -192,8 +192,6 @@ export class CacheWarmer {
 			
 			// 预热多种常用的查询组合
 			const queryVariations = [
-				{ limit: 100, offset: 0 },
-				{ limit: 50, offset: 0 },
 				{ limit: 20, offset: 0 }
 			]
 			

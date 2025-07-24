@@ -123,8 +123,8 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
     // 🚨 修复：使用正确的参数名称 
-    params.append('pageNum', String(stableOptions.pageNum)); // 后端期望 pageNum
-    params.append('pageSize', String(stableOptions.pageSize)); // 后端期望 pageSize
+    params.append('page', String(stableOptions.pageNum)); // 后端期望 page
+    params.append('limit', String(stableOptions.pageSize)); // 后端期望 limit
     params.append('orderBy', stableOptions.orderBy);
     params.append('filterBy', stableOptions.filterBy);
     params.append('status', stableOptions.status);

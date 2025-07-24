@@ -9,7 +9,7 @@ export function useApiDexUserPoolIds(address: string, chain: string, pageSize = 
     if (!address || !chain) return;
     setLoading(true);
     axios.get(
-      `https://api.dex.jongun2038.win/v1/api/dex/user/pool-ids/${address}/${chain}?pageSize=${pageSize}&pageNum=${pageNum}`,
+      `https://api.dex.jongun2038.win/v1/api/dex/user/pool-ids/${address}/${chain}?limit=${pageSize}&page=${pageNum}`,
       { headers: { 'x-api-key': 'test-key' } }
     ).then(res => setData(res.data))
      .finally(() => setLoading(false));

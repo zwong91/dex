@@ -47,23 +47,25 @@ interface PoolData {
 }
 
 // 简化的转换函数 - 直接使用 API 预格式化的数据
-const apiPoolToPoolData = (pool: ApiPool): PoolData => {
+const apiPoolToPoolData = (pool: ApiPool): PoolData | null => {
   console.log('🔍 DEBUG: apiPoolToPoolData transformation:', {
     inputPool: pool,
     pairAddress: pool.pairAddress,
+    id: pool.id,
     tokenX: pool.tokenX,
     tokenY: pool.tokenY,
     poolKeys: Object.keys(pool)
   });
   
-  if (!pool.pairAddress) {
-    console.error('❌ Pool missing pairAddress:', pool);
-    // 暂时跳过没有有效地址的池子
-    return null as any;
+  // 使用 id 或 pairAddress 作为地址
+  const address = pool.pairAddress || pool.id;
+  if (!address) {
+    console.error('❌ Pool missing both pairAddress and id:', pool);
+    return null;
   }
   
   return {
-    id: pool.pairAddress,
+    id: address,
     token0: pool.tokenX?.symbol || '',
     token1: pool.tokenY?.symbol || '',
     icon0: generateTokenIcon(pool.tokenX?.symbol || 'TOKEN', 36),
@@ -73,7 +75,7 @@ const apiPoolToPoolData = (pool: ApiPool): PoolData => {
     volume24h: pool.volume24hFormatted,
     fees24h: pool.fees24hFormatted,
     userLiquidity: undefined, // Not available in ApiPool
-    pairAddress: pool.pairAddress,
+    pairAddress: address,
     binStep: pool.lbBinStep,
     tokenXAddress: pool.tokenX?.address,
     tokenYAddress: pool.tokenY?.address,
@@ -209,6 +211,11 @@ const PoolPage = () => {
   const [showAddNewPool, setShowAddNewPool] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10); // 固定每页10条
+  const [allPools, setAllPools] = useState<ApiPool[]>([]); // 累积所有池子数据
+  
   // Add Liquidity states
   const [selectedPool, setSelectedPool] = useState<PoolData | null>(null);
   const [showAddLiquidity, setShowAddLiquidity] = useState(false);
@@ -238,15 +245,33 @@ const PoolPage = () => {
   }), []);
 
   const chainName = chainMap[chainId] || 'binance';
-  const { pools: realPoolData, loading: poolsLoading, refetch } = useApiPoolData({
+  const { pools: realPoolData, loading: poolsLoading, refetch, total } = useApiPoolData({
     chain: chainName,
-    pageSize: 10, // default 10
+    pageSize: pageSize,
+    pageNum: currentPage,
     orderBy: 'volume',
     filterBy: '1d',
     status: 'main',
     version: 'all',
     excludeLowVolumePools: true,
   });
+
+  // 累积池子数据 - 当新数据到达时累积
+  useEffect(() => {
+    if (realPoolData.length > 0) {
+      if (currentPage === 1) {
+        // 第一页或刷新时重置
+        setAllPools(realPoolData);
+      } else {
+        // 后续页面累积添加
+        setAllPools(prevPools => {
+          const existingIds = new Set(prevPools.map(p => p.id || p.pairAddress));
+          const newPools = realPoolData.filter(p => !existingIds.has(p.id || p.pairAddress));
+          return [...prevPools, ...newPools];
+        });
+      }
+    }
+  }, [realPoolData, currentPage]);
 
   // Get tokens for current chain - memoized
   const tokens = useMemo(() => getTokensForChain(chainId), [chainId]);
@@ -289,15 +314,41 @@ const PoolPage = () => {
 
   const handlePoolCreated = useCallback(() => {
     setTimeout(() => {
+      setCurrentPage(1); // 重置到第一页
+      setAllPools([]); // 清空累积数据
       refetch(); // Use refetch instead of window.location.reload
     }, 2000);
   }, [refetch]);
 
+  // 当搜索查询改变时重置累积数据
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      // 如果有搜索，不需要重置累积数据，因为搜索是基于已加载的数据
+    } else {
+      // 如果清空搜索，确保显示所有已加载的数据
+    }
+  }, [searchQuery]);
+
+  // 计算总页数
+  const totalPages = Math.ceil(total / pageSize);
+
+  // 调试分页状态
+  console.log('🔍 DEBUG Pagination State:', {
+    total,
+    pageSize,
+    currentPage,
+    totalPages,
+    allPoolsLength: allPools.length,
+    realPoolDataLength: realPoolData?.length,
+    hasMorePages: allPools.length < total,
+    canLoadMore: allPools.length < total && realPoolData.length === pageSize
+  });
+
   // Memoized pool data conversion for better performance
   const poolDataList = useMemo(() => {
-    const pools = realPoolData
+    const pools = allPools
       .map(pool => apiPoolToPoolData(pool))
-      .filter(pool => pool !== null); // 过滤掉无效的池子
+      .filter((pool): pool is PoolData => pool !== null); // 类型保护，过滤掉无效的池子
     
     // Apply search filter
     if (!searchQuery.trim()) {
@@ -311,7 +362,7 @@ const PoolPage = () => {
       `${pool.token0}/${pool.token1}`.toLowerCase().includes(query) ||
       `${pool.token1}/${pool.token0}`.toLowerCase().includes(query)
     );
-  }, [realPoolData, searchQuery]);
+  }, [allPools, searchQuery]);
 
   return (
     <>
@@ -446,15 +497,14 @@ const PoolPage = () => {
           // Pool List View
           <>
             {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-              <Typography variant="h4" fontWeight={600}>
-                Pools {poolDataList.length > 0 && `(${poolDataList.length})`}
-              </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 4 }}>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button
                   variant="outlined"
                   onClick={() => {
                     console.log('🔄 Force refresh triggered');
+                    setCurrentPage(1); // 重置到第一页
+                    setAllPools([]); // 清空累积数据
                     refetch();
                   }}
                   sx={{ 
@@ -577,15 +627,51 @@ const PoolPage = () => {
                 </CardContent>
               </Card>
             ) : (
-              <Box>
-                {poolDataList.map(pool => (
-                  <PoolCard 
-                    key={pool.id} 
-                    pool={pool} 
-                    onAddLiquidity={handleAddLiquidity} 
-                  />
-                ))}
-              </Box>
+              <>
+                <Box>
+                  {poolDataList.map(pool => (
+                    <PoolCard 
+                      key={pool.id} 
+                      pool={pool} 
+                      onAddLiquidity={handleAddLiquidity} 
+                    />
+                  ))}
+                </Box>
+                
+                {/* Load More Button */}
+                {(allPools.length < total && realPoolData.length === pageSize) && (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center',
+                    mt: 4,
+                    mb: 2
+                  }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        console.log('🔄 Load more clicked, current page:', currentPage, 'total:', total);
+                        setCurrentPage(currentPage + 1);
+                      }}
+                      sx={{ 
+                        borderRadius: 2,
+                        borderColor: '#f97316',
+                        color: '#f97316',
+                        px: 4,
+                        py: 1.5,
+                        fontWeight: 600,
+                        '&:hover': {
+                          backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                          borderColor: '#ea580c',
+                          color: '#ea580c',
+                        }
+                      }}
+                    >
+                      Load More...
+                    </Button>
+                  </Box>
+                )}
+              </>
             )}
           </>
         )}
