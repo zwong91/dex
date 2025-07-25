@@ -79,6 +79,11 @@ export function handleSwap(event: SwapEvent): void {
   // price bundle
   const bundle = loadBundle();
 
+  // 🔧 DEBUG: Log bundle data
+  log.info("[handleSwap] DEBUG - Bundle: bnbPriceUSD={}", [
+    bundle.bnbPriceUSD.toString()
+  ]);
+
   // reset tvl aggregates until new amounts calculated
   const lbFactory = loadLBFactory();
   lbFactory.totalValueLockedBNB = lbFactory.totalValueLockedBNB.minus(
@@ -87,30 +92,127 @@ export function handleSwap(event: SwapEvent): void {
 
   const tokenX = loadToken(Address.fromString(lbPair.tokenX));
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
+  
+  // 🔧 DEBUG: Log token basic info
+  log.info("[handleSwap] DEBUG - TokenX: address={}, symbol={}, decimals={}, derivedBNB={}", [
+    lbPair.tokenX,
+    tokenX.symbol,
+    tokenX.decimals.toString(),
+    tokenX.derivedBNB.toString()
+  ]);
+  log.info("[handleSwap] DEBUG - TokenY: address={}, symbol={}, decimals={}, derivedBNB={}", [
+    lbPair.tokenY,
+    tokenY.symbol,
+    tokenY.decimals.toString(),
+    tokenY.derivedBNB.toString()
+  ]);
+  
   const tokenXPriceUSD = safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD);
   const tokenYPriceUSD = safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD);
+
+  // 🔧 DEBUG: Log calculated USD prices
+  log.info("[handleSwap] DEBUG - Calculated prices: tokenXPriceUSD={}, tokenYPriceUSD={}", [
+    tokenXPriceUSD.toString(),
+    tokenYPriceUSD.toString()
+  ]);
 
   // Validate and decode input amounts
   const amountsIn = decodeAmounts(event.params.amountsIn);
   const amountsOut = decodeAmounts(event.params.amountsOut);
+  
+  // 🔧 DEBUG: Log raw decoded values to debug the issue
+  log.info("[handleSwap] DEBUG - Event transaction hash: {}", [
+    event.transaction.hash.toHexString()
+  ]);
+  log.info("[handleSwap] DEBUG - Raw amountsIn bytes: {}", [
+    event.params.amountsIn.toHexString()
+  ]);
+  log.info("[handleSwap] DEBUG - Raw amountsOut bytes: {}", [
+    event.params.amountsOut.toHexString()
+  ]);
+  log.info("[handleSwap] DEBUG - Raw amountsIn: X={}, Y={}", [
+    amountsIn[0].toString(),
+    amountsIn[1].toString()
+  ]);
+  log.info("[handleSwap] DEBUG - Raw amountsOut: X={}, Y={}", [
+    amountsOut[0].toString(), 
+    amountsOut[1].toString()
+  ]);
+  log.info("[handleSwap] DEBUG - Token decimals: X={}, Y={}", [
+    tokenX.decimals.toString(),
+    tokenY.decimals.toString()
+  ]);
   
   const fmtAmountXIn = formatTokenAmountByDecimals(amountsIn[0], tokenX.decimals);
   const fmtAmountYIn = formatTokenAmountByDecimals(amountsIn[1], tokenY.decimals);
   const fmtAmountXOut = formatTokenAmountByDecimals(amountsOut[0], tokenX.decimals);
   const fmtAmountYOut = formatTokenAmountByDecimals(amountsOut[1], tokenY.decimals);
 
+  // 🔧 DEBUG: Log formatted values
+  log.info("[handleSwap] DEBUG - Formatted amounts: XIn={}, YIn={}, XOut={}, YOut={}", [
+    fmtAmountXIn.toString(),
+    fmtAmountYIn.toString(), 
+    fmtAmountXOut.toString(),
+    fmtAmountYOut.toString()
+  ]);
+
   // Determine swap direction: X->Y or Y->X
   const swapForY = isSwapForY(event.params.amountsIn);
+  log.info("[handleSwap] DEBUG - Swap direction: swapForY={}", [swapForY.toString()]);
 
   const totalFees = decodeAmounts(event.params.totalFees);
+  log.info("[handleSwap] DEBUG - Raw totalFees: X={}, Y={}", [
+    totalFees[0].toString(),
+    totalFees[1].toString()
+  ]);
+  
   const totalFeesX = formatTokenAmountByDecimals(totalFees[0], tokenX.decimals);
   const totalFeesY = formatTokenAmountByDecimals(totalFees[1], tokenY.decimals);
-  const feesUSD = safeMultiply(totalFeesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
-    .plus(safeMultiply(totalFeesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD)));
+  log.info("[handleSwap] DEBUG - Formatted fees: X={}, Y={}", [
+    totalFeesX.toString(),
+    totalFeesY.toString()
+  ]);
+  
+  // 🔧 DEBUG: Log fees USD calculation step by step
+  const feesUSDX = safeMultiply(totalFeesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD));
+  const feesUSDY = safeMultiply(totalFeesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD));
+  log.info("[handleSwap] DEBUG - Individual fees USD: feesUSDX={}, feesUSDY={}", [
+    feesUSDX.toString(),
+    feesUSDY.toString()
+  ]);
+  
+  const feesUSD = feesUSDX.plus(feesUSDY);
+  log.info("[handleSwap] DEBUG - Total feesUSD={}", [
+    feesUSD.toString()
+  ]);
 
   // For volume calculation, use actual swap amounts, not total of in+out
   const amountXTotal = swapForY ? fmtAmountXIn : fmtAmountXOut;
   const amountYTotal = swapForY ? fmtAmountYOut : fmtAmountYIn;
+  
+  log.info("[handleSwap] DEBUG - Volume amounts: XTotal={}, YTotal={}", [
+    amountXTotal.toString(),
+    amountYTotal.toString()
+  ]);
+
+  // 🔧 DEBUG: Log token prices before volume calculation
+  log.info("[handleSwap] DEBUG - Token prices: X derivedBNB={}, Y derivedBNB={}, BNB price USD={}", [
+    tokenX.derivedBNB.toString(),
+    tokenY.derivedBNB.toString(),
+    bundle.bnbPriceUSD.toString()
+  ]);
+  log.info("[handleSwap] DEBUG - Token prices USD: X={}, Y={}", [
+    tokenXPriceUSD.toString(),
+    tokenYPriceUSD.toString()
+  ]);
+
+  // 🔧 DEBUG: Log getTrackedVolumeUSD inputs
+  log.info("[handleSwap] DEBUG - getTrackedVolumeUSD inputs: amountXTotal={}, tokenX.symbol={}, amountYTotal={}, tokenY.symbol={}", [
+    amountXTotal.toString(),
+    tokenX.symbol,
+    amountYTotal.toString(),
+    tokenY.symbol
+  ]);
 
   const trackedVolumeUSD = getTrackedVolumeUSD(
     amountXTotal,
@@ -119,6 +221,12 @@ export function handleSwap(event: SwapEvent): void {
     tokenY as Token
   );
   const trackedVolumeBNB = safeDiv(trackedVolumeUSD, bundle.bnbPriceUSD);
+
+  // 🔧 DEBUG: Log volume calculation details
+  log.info("[handleSwap] DEBUG - Volume calculation: trackedVolumeUSD={}, trackedVolumeBNB={}", [
+    trackedVolumeUSD.toString(),
+    trackedVolumeBNB.toString()
+  ]);
 
   // Only one direction should have non-zero values in a swap
   const bin = trackBin(
@@ -162,12 +270,42 @@ export function handleSwap(event: SwapEvent): void {
   );
   lbPair.tokenXPrice = bin.priceX;
   lbPair.tokenYPrice = bin.priceY;
+
+  // 🔧 DEBUG: Log before updating pair data
+  log.info("[handleSwap] DEBUG - Before update: pair volumeTokenX={}, volumeTokenY={}, volumeUSD={}", [
+    lbPair.volumeTokenX.toString(),
+    lbPair.volumeTokenY.toString(),
+    lbPair.volumeUSD.toString()
+  ]);
+  log.info("[handleSwap] DEBUG - Before update: pair feesTokenX={}, feesTokenY={}, feesUSD={}", [
+    lbPair.feesTokenX.toString(),
+    lbPair.feesTokenY.toString(),
+    lbPair.feesUSD.toString()
+  ]);
+
   lbPair.volumeTokenX = lbPair.volumeTokenX.plus(amountXTotal);
   lbPair.volumeTokenY = lbPair.volumeTokenY.plus(amountYTotal);
   lbPair.volumeUSD = lbPair.volumeUSD.plus(trackedVolumeUSD);
   lbPair.feesTokenX = lbPair.feesTokenX.plus(totalFeesX);
   lbPair.feesTokenY = lbPair.feesTokenY.plus(totalFeesY);
   lbPair.feesUSD = lbPair.feesUSD.plus(feesUSD);
+
+  // 🔧 DEBUG: Log after updating pair data
+  log.info("[handleSwap] DEBUG - After update: pair volumeTokenX={}, volumeTokenY={}, volumeUSD={}", [
+    lbPair.volumeTokenX.toString(),
+    lbPair.volumeTokenY.toString(),
+    lbPair.volumeUSD.toString()
+  ]);
+  log.info("[handleSwap] DEBUG - After update: pair feesTokenX={}, feesTokenY={}, feesUSD={}", [
+    lbPair.feesTokenX.toString(),
+    lbPair.feesTokenY.toString(),
+    lbPair.feesUSD.toString()
+  ]);
+  log.info("[handleSwap] DEBUG - This swap added: volumeUSD={}, feesUSD={}", [
+    trackedVolumeUSD.toString(),
+    feesUSD.toString()
+  ]);
+
   lbPair.save();
 
   // LBPairHourData
@@ -188,13 +326,39 @@ export function handleSwap(event: SwapEvent): void {
     lbPair as LBPair,
     true
   );
+  
+  // 🔧 DEBUG: Log day data before update
+  log.info("[handleSwap] DEBUG - Day data before: volumeTokenX={}, volumeTokenY={}, volumeUSD={}, feesUSD={}", [
+    lbPairDayData.volumeTokenX.toString(),
+    lbPairDayData.volumeTokenY.toString(),
+    lbPairDayData.volumeUSD.toString(),
+    lbPairDayData.feesUSD.toString()
+  ]);
+  
   lbPairDayData.volumeTokenX = lbPairDayData.volumeTokenX.plus(amountXTotal);
   lbPairDayData.volumeTokenY = lbPairDayData.volumeTokenY.plus(amountYTotal);
   lbPairDayData.volumeUSD = lbPairDayData.volumeUSD.plus(trackedVolumeUSD);
   lbPairDayData.feesUSD = lbPairDayData.feesUSD.plus(feesUSD);
+  
+  // 🔧 DEBUG: Log day data after update
+  log.info("[handleSwap] DEBUG - Day data after: volumeTokenX={}, volumeTokenY={}, volumeUSD={}, feesUSD={}", [
+    lbPairDayData.volumeTokenX.toString(),
+    lbPairDayData.volumeTokenY.toString(),
+    lbPairDayData.volumeUSD.toString(),
+    lbPairDayData.feesUSD.toString()
+  ]);
+  
   lbPairDayData.save();
 
   // LBFactory
+  // 🔧 DEBUG: Log factory data before update
+  log.info("[handleSwap] DEBUG - Factory before: volumeUSD={}, volumeBNB={}, feesUSD={}, feesBNB={}", [
+    lbFactory.volumeUSD.toString(),
+    lbFactory.volumeBNB.toString(),
+    lbFactory.feesUSD.toString(),
+    lbFactory.feesBNB.toString()
+  ]);
+  
   lbFactory.txCount = lbFactory.txCount.plus(BIG_INT_ONE);
   lbFactory.volumeUSD = lbFactory.volumeUSD.plus(trackedVolumeUSD);
   lbFactory.volumeBNB = lbFactory.volumeBNB.plus(trackedVolumeBNB);
@@ -207,10 +371,27 @@ export function handleSwap(event: SwapEvent): void {
   );
   lbFactory.feesUSD = lbFactory.feesUSD.plus(feesUSD);
   lbFactory.feesBNB = safeDiv(lbFactory.feesUSD, bundle.bnbPriceUSD);
+  
+  // 🔧 DEBUG: Log factory data after update
+  log.info("[handleSwap] DEBUG - Factory after: volumeUSD={}, volumeBNB={}, feesUSD={}, feesBNB={}", [
+    lbFactory.volumeUSD.toString(),
+    lbFactory.volumeBNB.toString(),
+    lbFactory.feesUSD.toString(),
+    lbFactory.feesBNB.toString()
+  ]);
+  
   lbFactory.save();
 
   // LBHourData
   const lbHourData = loadLBHourData(event.block.timestamp, true);
+  
+  // 🔧 DEBUG: Log hour data before update
+  log.info("[handleSwap] DEBUG - Hour data before: volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    lbHourData.volumeBNB.toString(),
+    lbHourData.volumeUSD.toString(),
+    lbHourData.feesUSD.toString()
+  ]);
+  
   lbHourData.volumeBNB = lbHourData.volumeBNB.plus(
     trackedVolumeBNB
   );
@@ -218,10 +399,26 @@ export function handleSwap(event: SwapEvent): void {
     trackedVolumeUSD
   );
   lbHourData.feesUSD = lbHourData.feesUSD.plus(feesUSD);
+  
+  // 🔧 DEBUG: Log hour data after update
+  log.info("[handleSwap] DEBUG - Hour data after: volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    lbHourData.volumeBNB.toString(),
+    lbHourData.volumeUSD.toString(),
+    lbHourData.feesUSD.toString()
+  ]);
+  
   lbHourData.save();
 
   // LBDayData
   const lbDayData = loadLBDayData(event.block.timestamp, true);
+  
+  // 🔧 DEBUG: Log global day data before update
+  log.info("[handleSwap] DEBUG - Global day data before: volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    lbDayData.volumeBNB.toString(),
+    lbDayData.volumeUSD.toString(),
+    lbDayData.feesUSD.toString()
+  ]);
+  
   lbDayData.volumeBNB = lbDayData.volumeBNB.plus(
     trackedVolumeBNB
   );
@@ -229,9 +426,24 @@ export function handleSwap(event: SwapEvent): void {
     trackedVolumeUSD
   );
   lbDayData.feesUSD = lbDayData.feesUSD.plus(feesUSD);
+  
+  // 🔧 DEBUG: Log global day data after update
+  log.info("[handleSwap] DEBUG - Global day data after: volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    lbDayData.volumeBNB.toString(),
+    lbDayData.volumeUSD.toString(),
+    lbDayData.feesUSD.toString()
+  ]);
+  
   lbDayData.save();
 
   // TokenX - Swap doesn't change token TVL, only volume and fees
+  // 🔧 DEBUG: Log TokenX data before update
+  log.info("[handleSwap] DEBUG - TokenX before: volume={}, volumeUSD={}, feesUSD={}", [
+    tokenX.volume.toString(),
+    tokenX.volumeUSD.toString(),
+    tokenX.feesUSD.toString()
+  ]);
+  
   tokenX.txCount = tokenX.txCount.plus(BIG_INT_ONE);
   tokenX.volume = tokenX.volume.plus(amountXTotal);
   tokenX.volumeUSD = tokenX.volumeUSD.plus(
@@ -241,7 +453,25 @@ export function handleSwap(event: SwapEvent): void {
   tokenX.feesUSD = tokenX.feesUSD.plus(feesUsdX);
   tokenX.totalValueLockedUSD = safeMultiply(tokenX.totalValueLocked, tokenXPriceUSD);
 
+  // 🔧 DEBUG: Log TokenX data after update  
+  log.info("[handleSwap] DEBUG - TokenX after: volume={}, volumeUSD={}, feesUSD={}", [
+    tokenX.volume.toString(),
+    tokenX.volumeUSD.toString(),
+    tokenX.feesUSD.toString()
+  ]);
+  log.info("[handleSwap] DEBUG - TokenX this swap: amountXTotal={}, feesUsdX={}", [
+    amountXTotal.toString(),
+    feesUsdX.toString()
+  ]);
+
   // TokenY - Swap doesn't change token TVL, only volume and fees
+  // 🔧 DEBUG: Log TokenY data before update
+  log.info("[handleSwap] DEBUG - TokenY before: volume={}, volumeUSD={}, feesUSD={}", [
+    tokenY.volume.toString(),
+    tokenY.volumeUSD.toString(),
+    tokenY.feesUSD.toString()
+  ]);
+  
   tokenY.txCount = tokenY.txCount.plus(BIG_INT_ONE);
   tokenY.volume = tokenY.volume.plus(amountYTotal);
   tokenY.volumeUSD = tokenY.volumeUSD.plus(
@@ -250,6 +480,17 @@ export function handleSwap(event: SwapEvent): void {
   const feesUsdY = safeMultiply(totalFeesY, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD));
   tokenY.feesUSD = tokenY.feesUSD.plus(feesUsdY);
   tokenY.totalValueLockedUSD = safeMultiply(tokenY.totalValueLocked, tokenYPriceUSD);
+
+  // 🔧 DEBUG: Log TokenY data after update
+  log.info("[handleSwap] DEBUG - TokenY after: volume={}, volumeUSD={}, feesUSD={}", [
+    tokenY.volume.toString(),
+    tokenY.volumeUSD.toString(),
+    tokenY.feesUSD.toString()
+  ]);
+  log.info("[handleSwap] DEBUG - TokenY this swap: amountYTotal={}, feesUsdY={}", [
+    amountYTotal.toString(),
+    feesUsdY.toString()
+  ]);
 
   tokenX.save();
   tokenY.save();
@@ -260,6 +501,15 @@ export function handleSwap(event: SwapEvent): void {
     tokenX as Token,
     true
   );
+  
+  // 🔧 DEBUG: Log TokenX hour data before update
+  log.info("[handleSwap] DEBUG - TokenX hour data before: volume={}, volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    tokenXHourData.volume.toString(),
+    tokenXHourData.volumeBNB.toString(),
+    tokenXHourData.volumeUSD.toString(),
+    tokenXHourData.feesUSD.toString()
+  ]);
+  
   tokenXHourData.volume = tokenXHourData.volume.plus(amountXTotal);
   tokenXHourData.volumeBNB = tokenXHourData.volumeBNB.plus(
     safeMultiply(amountXTotal, tokenX.derivedBNB)
@@ -268,6 +518,15 @@ export function handleSwap(event: SwapEvent): void {
     safeMultiply(amountXTotal, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenXHourData.feesUSD = tokenXHourData.feesUSD.plus(feesUsdX);
+  
+  // 🔧 DEBUG: Log TokenX hour data after update
+  log.info("[handleSwap] DEBUG - TokenX hour data after: volume={}, volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    tokenXHourData.volume.toString(),
+    tokenXHourData.volumeBNB.toString(),
+    tokenXHourData.volumeUSD.toString(),
+    tokenXHourData.feesUSD.toString()
+  ]);
+  
   tokenXHourData.save();
 
   // TokenYHourData
@@ -276,6 +535,15 @@ export function handleSwap(event: SwapEvent): void {
     tokenY as Token,
     true
   );
+  
+  // 🔧 DEBUG: Log TokenY hour data before update
+  log.info("[handleSwap] DEBUG - TokenY hour data before: volume={}, volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    tokenYHourData.volume.toString(),
+    tokenYHourData.volumeBNB.toString(),
+    tokenYHourData.volumeUSD.toString(),
+    tokenYHourData.feesUSD.toString()
+  ]);
+  
   tokenYHourData.volume = tokenYHourData.volume.plus(amountYTotal);
   tokenYHourData.volumeBNB = tokenYHourData.volumeBNB.plus(
     safeMultiply(amountYTotal, tokenY.derivedBNB)
@@ -284,6 +552,15 @@ export function handleSwap(event: SwapEvent): void {
     safeMultiply(amountYTotal, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenYHourData.feesUSD = tokenYHourData.feesUSD.plus(feesUsdY);
+  
+  // 🔧 DEBUG: Log TokenY hour data after update
+  log.info("[handleSwap] DEBUG - TokenY hour data after: volume={}, volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    tokenYHourData.volume.toString(),
+    tokenYHourData.volumeBNB.toString(),
+    tokenYHourData.volumeUSD.toString(),
+    tokenYHourData.feesUSD.toString()
+  ]);
+  
   tokenYHourData.save();
 
   // TokenXDayData
@@ -292,6 +569,15 @@ export function handleSwap(event: SwapEvent): void {
     tokenX as Token,
     true
   );
+  
+  // 🔧 DEBUG: Log TokenX day data before update
+  log.info("[handleSwap] DEBUG - TokenX day data before: volume={}, volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    tokenXDayData.volume.toString(),
+    tokenXDayData.volumeBNB.toString(),
+    tokenXDayData.volumeUSD.toString(),
+    tokenXDayData.feesUSD.toString()
+  ]);
+  
   tokenXDayData.volume = tokenXDayData.volume.plus(amountXTotal);
   tokenXDayData.volumeBNB = tokenXDayData.volumeBNB.plus(
     safeMultiply(amountXTotal, tokenX.derivedBNB)
@@ -300,6 +586,15 @@ export function handleSwap(event: SwapEvent): void {
     safeMultiply(amountXTotal, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenXDayData.feesUSD = tokenXDayData.feesUSD.plus(feesUsdX);
+  
+  // 🔧 DEBUG: Log TokenX day data after update
+  log.info("[handleSwap] DEBUG - TokenX day data after: volume={}, volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    tokenXDayData.volume.toString(),
+    tokenXDayData.volumeBNB.toString(),
+    tokenXDayData.volumeUSD.toString(),
+    tokenXDayData.feesUSD.toString()
+  ]);
+  
   tokenXDayData.save();
 
   // TokenYDayData
@@ -308,6 +603,15 @@ export function handleSwap(event: SwapEvent): void {
     tokenY as Token,
     true
   );
+  
+  // 🔧 DEBUG: Log TokenY day data before update
+  log.info("[handleSwap] DEBUG - TokenY day data before: volume={}, volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    tokenYDayData.volume.toString(),
+    tokenYDayData.volumeBNB.toString(),
+    tokenYDayData.volumeUSD.toString(),
+    tokenYDayData.feesUSD.toString()
+  ]);
+  
   tokenYDayData.volume = tokenYDayData.volume.plus(amountYTotal);
   tokenYDayData.volumeBNB = tokenYDayData.volumeBNB.plus(
     safeMultiply(amountYTotal, tokenY.derivedBNB)
@@ -316,6 +620,15 @@ export function handleSwap(event: SwapEvent): void {
     safeMultiply(amountYTotal, safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD))
   );
   tokenYDayData.feesUSD = tokenYDayData.feesUSD.plus(feesUsdY);
+  
+  // 🔧 DEBUG: Log TokenY day data after update
+  log.info("[handleSwap] DEBUG - TokenY day data after: volume={}, volumeBNB={}, volumeUSD={}, feesUSD={}", [
+    tokenYDayData.volume.toString(),
+    tokenYDayData.volumeBNB.toString(),
+    tokenYDayData.volumeUSD.toString(),
+    tokenYDayData.feesUSD.toString()
+  ]);
+  
   tokenYDayData.save();
 
   // User

@@ -156,7 +156,7 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 		const volume24h = dayData ? parseFloat(dayData.volumeUSD || '0') : 0;
 		const fees24h = dayData ? parseFloat(dayData.feesUSD || '0') : 0;
 		
-		// Calculate APR from 24h fees
+		// Calculate APR from 24h fees - 直接计算，不做边界检查
 		const tvl = parseFloat(pool.totalValueLockedUSD || '0');
 		const apr = tvl > 0 && fees24h > 0 ? (fees24h * 365 / tvl) * 100 : 0;
 
