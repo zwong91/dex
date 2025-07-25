@@ -251,18 +251,11 @@ const PoolPage = () => {
 
   // Fetch pool data from backend API
   const chainMap: Record<number, string> = useMemo(() => ({
-    1: 'ethereum',
-    56: 'binance',
-    97: 'binance',
-    137: 'polygon',
-    43114: 'avax',
-    42161: 'arbitrum',
-    10: 'optimism',
-    8453: 'base',
-    11155111: 'ethereum', // sepolia
+    56: 'bsc',
+    97: 'bscTestnet',
   }), []);
 
-  const chainName = chainMap[chainId] || 'binance';
+  const chainName = chainMap[chainId] || 'bsc';
   const { pools: realPoolData, loading: poolsLoading, refetch, total } = useApiPoolData({
     chain: chainName,
     pageSize: pageSize,
@@ -273,6 +266,15 @@ const PoolPage = () => {
     version: 'all',
     excludeLowVolumePools: true,
   });
+
+  // 当切换网络时重置状态并刷新数据
+  useEffect(() => {
+    console.log('🔄 Network changed to chainId:', chainId, 'chainName:', chainName);
+    setCurrentPage(1); // 重置到第一页
+    setAllPools([]); // 清空累积数据
+    setSearchQuery(''); // 清空搜索
+    // refetch 会在 useApiPoolData 中自动触发，因为 chainName 变化了
+  }, [chainId, chainName]);
 
   // 累积池子数据 - 当新数据到达时累积
   useEffect(() => {
@@ -516,43 +518,21 @@ const PoolPage = () => {
           <>
             {/* Header */}
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 4 }}>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    console.log('🔄 Force refresh triggered');
-                    setCurrentPage(1); // 重置到第一页
-                    setAllPools([]); // 清空累积数据
-                    refetch();
-                  }}
-                  sx={{ 
-                    borderRadius: 2,
-                    borderColor: '#f97316',
-                    color: '#f97316',
-                    '&:hover': {
-                      backgroundColor: 'rgba(249, 115, 22, 0.08)',
-                      borderColor: '#ea580c',
-                    }
-                  }}
-                >
-                  Refresh
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleCreatePool}
-                  sx={{ 
-                    borderRadius: 2,
-                    backgroundColor: '#f97316 !important',
-                    color: 'white !important',
-                    '&:hover': {
-                      backgroundColor: '#ea580c !important'
-                    }
-                  }}
-                >
-                  Create Pool
-                </Button>
-              </Box>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleCreatePool}
+                sx={{ 
+                  borderRadius: 2,
+                  backgroundColor: '#f97316 !important',
+                  color: 'white !important',
+                  '&:hover': {
+                    backgroundColor: '#ea580c !important'
+                  }
+                }}
+              >
+                Create Pool
+              </Button>
             </Box>
 
             {/* Search Box */}

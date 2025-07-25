@@ -2,7 +2,6 @@ import { switchChain } from "@wagmi/core";
 import { useState } from "react";
 import { FaChartBar, FaCog, FaExchangeAlt, FaLayerGroup, FaWallet } from "react-icons/fa";
 import { IoChevronDown } from "react-icons/io5";
-import { MdDashboard } from "react-icons/md";
 import { Link, useLocation } from "react-router-dom";
 import { useChainId } from "wagmi";
 import { SUPPORTED_NETWORKS } from "../dex/dexConfig";
@@ -23,9 +22,9 @@ const MainNavigation = () => {
 
   const navItems = [
     {
-      path: "/dashboard",
-      label: "Dashboard",
-      icon: <MdDashboard size={18} />,
+      path: "/portfolio",
+      label: "Portfolio",
+      icon: <FaWallet size={18} />,
     },
     {
       path: "/swap",
@@ -41,11 +40,6 @@ const MainNavigation = () => {
       path: "/analytics",
       label: "Analytics",
       icon: <FaChartBar size={18} />,
-    },
-    {
-      path: "/wallet",
-      label: "Portfolio",
-      icon: <FaWallet size={18} />,
     },
   ];
 

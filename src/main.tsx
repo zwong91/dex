@@ -43,7 +43,7 @@ const router = createBrowserRouter([
     element: <AddLiquidityPage />,
   },
   {
-    path: "/dashboard",
+    path: "/portfolio",
     element: <PortfolioPage />,
   },
   {

@@ -18,7 +18,7 @@ import {
 import {
   SwapHoriz as SwapIcon,
   Pool as PoolIcon,
-  Dashboard as DashboardIcon,
+  AccountBalanceWallet as PortfolioIcon,
   Menu as MenuIcon,
 } from '@mui/icons-material';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -34,7 +34,7 @@ const Navigation = () => {
   const navigationItems = [
     { name: 'Swap', path: '/swap', icon: <SwapIcon /> },
     { name: 'Pools', path: '/pool', icon: <PoolIcon /> },
-    { name: 'Portfolio', path: '/dashboard', icon: <DashboardIcon /> },
+    { name: 'Portfolio', path: '/portfolio', icon: <PortfolioIcon /> },
   ];
 
   const handleDrawerToggle = () => {

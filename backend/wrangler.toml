@@ -53,7 +53,7 @@ ENABLE_CONSOLE_LOGS = "true"
 ENABLE_STRUCTURED_LOGS = "true"
 
 # GraphQL configuration
-SUBGRAPH_URL = "https://gateway.thegraph.com/api/subgraphs/id/EMFDYw5HHE42EPiUJD926NLrpdum7tLmBmAdmJiZFrqj"
+SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/enty-square-bsc/v0.4.0-final-fix"
 SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
 
 # ⚠️ Sensitive information should use secrets instead of vars
@@ -144,7 +144,7 @@ NODE_ENV = "production"
 LOG_LEVEL = "warn"
 ENABLE_CONSOLE_LOGS = "false"
 ENABLE_STRUCTURED_LOGS = "true"
-SUBGRAPH_URL = "https://gateway.thegraph.com/api/subgraphs/id/EMFDYw5HHE42EPiUJD926NLrpdum7tLmBmAdmJiZFrqj"
+SUBGRAPH_URL = "https://api.studio.thegraph.com/query/114739/enty-square-bsc/v0.4.0-final-fix"
 SUBGRAPH_HEALTH_URL = "https://indexer.upgrade.thegraph.com/status"
 
 [env.production.ai]

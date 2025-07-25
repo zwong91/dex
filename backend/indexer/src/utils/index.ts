@@ -2,21 +2,49 @@ import { BigInt, BigDecimal, Bytes } from "@graphprotocol/graph-ts";
 import { BIG_INT_ZERO, BIG_INT_ONE, BIG_DECIMAL_ZERO } from "../constants";
 
 export function formatDecimalsToExponent(decimals: BigInt): BigDecimal {
-  let bd = BigDecimal.fromString("1");
-  for (let i = BIG_INT_ZERO; i.lt(decimals); i = i.plus(BIG_INT_ONE)) {
-    bd = bd.times(BigDecimal.fromString("10"));
+  // 🔧 Fix: Use direct string conversion instead of loop to prevent BigDecimal overflow
+  // The old loop-based approach causes precision issues with large decimals
+  if (decimals.equals(BIG_INT_ZERO)) {
+    return BigDecimal.fromString("1");
   }
-  return bd;
+  
+  // Convert BigInt to i32 for string formatting
+  const decimalsI32 = decimals.toI32();
+  
+  // Use direct string conversion for common decimal values
+  if (decimalsI32 === 6) {
+    return BigDecimal.fromString("1000000");           // 1e6
+  } else if (decimalsI32 === 8) {
+    return BigDecimal.fromString("100000000");         // 1e8
+  } else if (decimalsI32 === 18) {
+    return BigDecimal.fromString("1000000000000000000"); // 1e18
+  }
+  
+  // For other values, build the string directly
+  let result = "1";
+  for (let i = 0; i < decimalsI32; i++) {
+    result += "0";
+  }
+  return BigDecimal.fromString(result);
 }
 
 export function formatTokenAmountByDecimals(
   tokenAmount: BigInt,
   exchangeDecimals: BigInt
 ): BigDecimal {
-  if (exchangeDecimals === BIG_INT_ZERO) {
+  if (exchangeDecimals.equals(BIG_INT_ZERO)) {
     return tokenAmount.toBigDecimal();
   }
-  return tokenAmount.divDecimal(formatDecimalsToExponent(exchangeDecimals));
+  
+  // 🔧 Fix: Add safety checks and use more robust division
+  const divisor = formatDecimalsToExponent(exchangeDecimals);
+  
+  // Prevent division by zero (should not happen with fixed formatDecimalsToExponent, but safety first)
+  if (divisor.equals(BIG_DECIMAL_ZERO)) {
+    return BIG_DECIMAL_ZERO;
+  }
+  
+  return tokenAmount.toBigDecimal().div(divisor);
 }
 
 export function safeDiv(amount0: BigDecimal, amount1: BigDecimal): BigDecimal {

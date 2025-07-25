@@ -10,7 +10,7 @@ dataSources:
     source:
       address: "0x55268e26DA30fEAc50B26511ba70C5Cac2Af43B8"
       abi: LBFactory
-      startBlock: 52800000
+      startBlock: 52799999
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -42,7 +42,7 @@ dataSources:
     network: bsc
     source:
       abi: LBPair
-      startBlock: 52800000
+      startBlock: 52799999
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6

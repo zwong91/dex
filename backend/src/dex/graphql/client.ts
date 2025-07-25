@@ -856,7 +856,25 @@ export class SubgraphClient {
    */
   async getPoolDayData(poolId: string, days: number = 1): Promise<any[]> {
     const currentTime = Math.floor(Date.now() / 1000);
-    const daysAgoTimestamp = currentTime - (days * 24 * 60 * 60);
+    
+    // 🔧 FIX: Use day boundary instead of exact 24h ago
+    // DayData.date stores the start of day (00:00:00), so we need to query from the start of N days ago
+    const SECONDS_IN_DAY = 24 * 60 * 60;
+    const daysAgoTimestamp = currentTime - (days * SECONDS_IN_DAY);
+    const daysAgoDayStart = Math.floor(daysAgoTimestamp / SECONDS_IN_DAY) * SECONDS_IN_DAY;
+    
+    // 🔍 DEBUG: Log query details for problematic pool
+    if (poolId.toLowerCase() === '0x30540774ce85dcec6e3acbcb89209b2e01a29723') {
+      console.log('🔍 DEBUG - getPoolDayData query details (FIXED):', {
+        poolId,
+        currentTime,
+        daysAgoTimestamp,
+        daysAgoDayStart,
+        currentTimeISO: new Date(currentTime * 1000).toISOString(),
+        cutoffTimeISO: new Date(daysAgoDayStart * 1000).toISOString(),
+        oldCutoffISO: new Date(daysAgoTimestamp * 1000).toISOString()
+      });
+    }
     
     const query = `
       query GetPoolDayData($poolId: String!, $timestamp: Int!) {
@@ -880,10 +898,22 @@ export class SubgraphClient {
 
     const variables = {
       poolId: poolId.toLowerCase(),
-      timestamp: daysAgoTimestamp,
+      timestamp: daysAgoDayStart, // Use day boundary instead of exact time
     };
 
     const result = await this.query<{ lbpairDayDatas: any[] }>(query, variables);
+    
+    // 🔍 DEBUG: Log query result for problematic pool
+    if (poolId.toLowerCase() === '0x30540774ce85dcec6e3acbcb89209b2e01a29723') {
+      console.log('🔍 DEBUG - getPoolDayData result (FIXED):', {
+        poolId,
+        resultCount: result.data?.lbpairDayDatas?.length || 0,
+        resultData: result.data?.lbpairDayDatas || [],
+        hasErrors: !!result.errors,
+        errors: result.errors
+      });
+    }
+    
     return result.data?.lbpairDayDatas || [];
   }
 

@@ -81,17 +81,28 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 	console.log('🔍 Fetching pools and 24h data...');
 	const subgraphPools = await subgraphClient.getPools(limit, offset, 'totalValueLockedUSD', 'desc');
 	
-	// Get 24h data for all pools to calculate real volume and fees
-	const poolsDayData = await subgraphClient.getPoolsDayData(10, 1); // Get last 24h data for up to 100 pools
+	// 🔧 Fix: Get 24h data only for the pools we actually fetched
+	console.log(`🔍 Getting 24h data for ${subgraphPools.length} specific pools...`);
 	
 	// Create a map for quick lookup of day data by pool ID
 	const poolDayDataMap = new Map();
-	poolsDayData.forEach((dayData: any) => {
-		// Extract pool ID from dayData.id (format: "0xpoolAddress-timestamp") 
-		// or use lbPair.id if available
-		const poolId = dayData.lbPair?.id || dayData.id.split('-')[0];
-		poolDayDataMap.set(poolId, dayData);
+	
+	// Get 24h data for each pool in parallel
+	const dayDataPromises = subgraphPools.map(async (pool: any) => {
+		try {
+			const dayData = await subgraphClient.getPoolDayData(pool.id, 1);
+			if (dayData && dayData.length > 0) {
+				// Use the most recent day data
+				poolDayDataMap.set(pool.id, dayData[0]);
+			}
+		} catch (error) {
+			console.warn(`⚠️ Failed to get 24h data for pool ${pool.id}:`, error);
+		}
 	});
+	
+	// Wait for all day data queries to complete
+	await Promise.all(dayDataPromises);
+	console.log(`✅ Retrieved 24h data for ${poolDayDataMap.size} out of ${subgraphPools.length} pools`);
 	
 	// TEMP DEBUG: Also test the specific problematic pool with playground-style query
 	console.log('🔍 DEBUG - Testing problematic pool with exact playground query...');
@@ -130,6 +141,18 @@ async function handlePoolsList(c: Context<{ Bindings: Env }>, subgraphClient: an
 	const transformedPools = subgraphPools.map((pool: any) => {
 		// Get 24h data for this pool
 		const dayData = poolDayDataMap.get(pool.id);
+		
+		// 🔍 DEBUG: Log day data status for the problematic pool
+		if (pool.id === '0x30540774ce85dcec6e3acbcb89209b2e01a29723') {
+			console.log('🔍 DEBUG - Day data for problematic pool:', {
+				poolId: pool.id,
+				dayDataExists: !!dayData,
+				dayDataContent: dayData,
+				mapSize: poolDayDataMap.size,
+				allMapKeys: Array.from(poolDayDataMap.keys())
+			});
+		}
+		
 		const volume24h = dayData ? parseFloat(dayData.volumeUSD || '0') : 0;
 		const fees24h = dayData ? parseFloat(dayData.feesUSD || '0') : 0;
 		
