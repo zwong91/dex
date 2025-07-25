@@ -53,6 +53,8 @@ import {
   updateTokensDerivedNative,
   safeDiv,
   decodeAmounts,
+  decodeTotalFees,
+  decodeAmountsWithEndianFix,
   isSwapForY,
 } from "./utils";
 import { StaticFeeParametersSet } from "../generated/LBFactory/LBPair";
@@ -116,9 +118,9 @@ export function handleSwap(event: SwapEvent): void {
     tokenYPriceUSD.toString()
   ]);
 
-  // Validate and decode input amounts
-  const amountsIn = decodeAmounts(event.params.amountsIn);
-  const amountsOut = decodeAmounts(event.params.amountsOut);
+  // Validate and decode input amounts - use endian-fixed decoder for volume accuracy
+  const amountsIn = decodeAmountsWithEndianFix(event.params.amountsIn);
+  const amountsOut = decodeAmountsWithEndianFix(event.params.amountsOut);
   
   // 🔧 DEBUG: Log raw decoded values to debug the issue
   log.info("[handleSwap] DEBUG - Event transaction hash: {}", [
@@ -160,7 +162,10 @@ export function handleSwap(event: SwapEvent): void {
   const swapForY = isSwapForY(event.params.amountsIn);
   log.info("[handleSwap] DEBUG - Swap direction: swapForY={}", [swapForY.toString()]);
 
-  const totalFees = decodeAmounts(event.params.totalFees);
+  const totalFees = decodeTotalFees(event.params.totalFees);
+  log.info("[handleSwap] DEBUG - Raw totalFees bytes: {}", [
+    event.params.totalFees.toHexString()
+  ]);
   log.info("[handleSwap] DEBUG - Raw totalFees: X={}, Y={}", [
     totalFees[0].toString(),
     totalFees[1].toString()
@@ -681,7 +686,7 @@ export function handleFlashLoan(event: FlashLoan): void {
   const amountX = formatTokenAmountByDecimals(amounts[0], tokenX.decimals);
   const amountY = formatTokenAmountByDecimals(amounts[1], tokenY.decimals);
 
-  const totalFees = decodeAmounts(event.params.totalFees);
+  const totalFees = decodeTotalFees(event.params.totalFees);
   const feesX = formatTokenAmountByDecimals(totalFees[0], tokenX.decimals);
   const feesY = formatTokenAmountByDecimals(totalFees[1], tokenY.decimals);
   const feesUSD = safeMultiply(feesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
@@ -795,7 +800,7 @@ export function handleCompositionFee(event: CompositionFees): void {
   const tokenXPriceUSD = safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD);
   const tokenYPriceUSD = safeMultiply(tokenY.derivedBNB, bundle.bnbPriceUSD);
 
-  const fees = decodeAmounts(event.params.totalFees);
+  const fees = decodeTotalFees(event.params.totalFees);
   const feesX = formatTokenAmountByDecimals(fees[0], tokenX.decimals);
   const feesY = formatTokenAmountByDecimals(fees[1], tokenY.decimals);
   const feesUSD = safeMultiply(feesX, safeMultiply(tokenX.derivedBNB, bundle.bnbPriceUSD))
@@ -1189,7 +1194,7 @@ export function handleProtocolFeesCollected(
   const tokenX = loadToken(Address.fromString(lbPair.tokenX));
   const tokenY = loadToken(Address.fromString(lbPair.tokenY));
 
-  const fees = decodeAmounts(event.params.protocolFees);
+  const fees = decodeTotalFees(event.params.protocolFees);
   const amountX = formatTokenAmountByDecimals(fees[0], tokenX.decimals);
   const amountY = formatTokenAmountByDecimals(fees[1], tokenY.decimals);
   const derivedAmountBNB = safeMultiply(amountX, tokenX.derivedBNB)

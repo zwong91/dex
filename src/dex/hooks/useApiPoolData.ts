@@ -265,11 +265,11 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
           volumeUsd: pool.volume24hUsd || 0,
           feesUsd: pool.fees24hUsd || 0,
           lbBaseFeePct: pool.apr || 0,
-                    // 格式化显示字段 - 直接显示后端数据，不做任何过滤
+          // 格式化显示字段 - 直接显示后端数据，不做任何过滤
           tvlFormatted: `$${Number(pool.liquidityUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
           aprFormatted: pool.apr ? `${pool.apr.toFixed(2)}%` : '0.00%',
-          volume24hFormatted: pool.volume24hUsd ? `$${Number(pool.volume24hUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0',
-          fees24hFormatted: pool.fees24hUsd ? `$${Number(pool.fees24hUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0',
+          volume24hFormatted: pool.volume24hUsd ? `$${Number(pool.volume24hUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}` : '$0',
+          fees24hFormatted: pool.fees24hUsd ? `$${Number(pool.fees24hUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}` : '$0',
         };
       });
       

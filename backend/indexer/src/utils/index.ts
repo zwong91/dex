@@ -1,4 +1,4 @@
-import { BigInt, BigDecimal, Bytes } from "@graphprotocol/graph-ts";
+import { BigInt, BigDecimal, Bytes, ByteArray } from "@graphprotocol/graph-ts";
 import { BIG_INT_ZERO, BIG_INT_ONE, BIG_DECIMAL_ZERO } from "../constants";
 
 export function formatDecimalsToExponent(decimals: BigInt): BigDecimal {
@@ -78,8 +78,7 @@ export function isSwapForY(amountsInBytes32: Bytes): bool {
 
 // reference link https://developers.lfj.gg/guides/byte-32-decoding
 export function decodeAmounts(amounts: Bytes): Array<BigInt> {
-  // 🔧 FIX: Corrected bit parsing to prevent astronomical fee values
-  // bytes32 encoding: [128 bits Y][128 bits X] - Big-endian format
+  // 🔧 FIX: Keep original decoding for amounts that work correctly
   const amountsBigInt = BigInt.fromUnsignedBytes(amounts);
 
   // Create mask for 128 bits: 2^128 - 1
@@ -88,7 +87,57 @@ export function decodeAmounts(amounts: Bytes): Array<BigInt> {
   // Read the right 128 bits (AmountX is in low bits)
   const amountsX = amountsBigInt.bitAnd(mask128);
 
-  // Read the left 128 bits (AmountY is in high bits)  
+  // Read the left 128 bits (AmountY is in high bits)
+  const amountsY = amountsBigInt.rightShift(128).bitAnd(mask128);
+
+  return [amountsX, amountsY];
+}
+
+// 🔧 NEW: Special decoder for totalFees that have endianness issues
+export function decodeTotalFees(amounts: Bytes): Array<BigInt> {
+  // Handle byte order properly - AssemblyScript BigInt.fromUnsignedBytes uses little-endian
+  // But we need big-endian interpretation for the totalFees bytes32 data from Ethereum events
+  
+  // Create a new ByteArray with reversed bytes to fix endianness
+  const reversedBytes = new ByteArray(amounts.length);
+  for (let i = 0; i < amounts.length; i++) {
+    reversedBytes[i] = amounts[amounts.length - 1 - i];
+  }
+  
+  const amountsBigInt = BigInt.fromUnsignedBytes(reversedBytes);
+
+  // Create mask for 128 bits: 2^128 - 1
+  const mask128 = BigInt.fromI32(2).pow(128).minus(BigInt.fromI32(1));
+
+  // Read the right 128 bits (AmountX is in low bits after endian correction)
+  const amountsX = amountsBigInt.bitAnd(mask128);
+
+  // Read the left 128 bits (AmountY is in high bits after endian correction)
+  const amountsY = amountsBigInt.rightShift(128).bitAnd(mask128);
+
+  return [amountsX, amountsY];
+}
+
+// 🔧 NEW: Special decoder for amounts that also have endianness issues
+export function decodeAmountsWithEndianFix(amounts: Bytes): Array<BigInt> {
+  // Handle byte order properly - AssemblyScript BigInt.fromUnsignedBytes uses little-endian
+  // But we need big-endian interpretation for the amounts bytes32 data from Ethereum events
+  
+  // Create a new ByteArray with reversed bytes to fix endianness
+  const reversedBytes = new ByteArray(amounts.length);
+  for (let i = 0; i < amounts.length; i++) {
+    reversedBytes[i] = amounts[amounts.length - 1 - i];
+  }
+  
+  const amountsBigInt = BigInt.fromUnsignedBytes(reversedBytes);
+
+  // Create mask for 128 bits: 2^128 - 1
+  const mask128 = BigInt.fromI32(2).pow(128).minus(BigInt.fromI32(1));
+
+  // Read the right 128 bits (AmountX is in low bits after endian correction)
+  const amountsX = amountsBigInt.bitAnd(mask128);
+
+  // Read the left 128 bits (AmountY is in high bits after endian correction)
   const amountsY = amountsBigInt.rightShift(128).bitAnd(mask128);
 
   return [amountsX, amountsY];
