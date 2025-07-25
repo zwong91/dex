@@ -254,13 +254,18 @@ export const useApiPoolData = (options: UseApiPoolDataOptions) => {
         console.log('🔍 DEBUG: Processing raw pool data:', {
           poolId: pool.id,
           pairAddress: pool.pairAddress,
-          hasValidPairAddress: !!pool.pairAddress,
+          finalPairAddress: pool.pairAddress || pool.id, // 显示最终使用的地址
+          hasValidPairAddress: !!(pool.pairAddress || pool.id),
           poolKeys: Object.keys(pool),
-          rawPool: pool // 完整打印原始数据
+          volume24hUsd: pool.volume24hUsd,
+          fees24hUsd: pool.fees24hUsd,
+          liquidityUsd: pool.liquidityUsd
         });
         
         return {
           ...pool,
+          // 🔧 修复字段映射 - 后端返回 id，前端需要 pairAddress
+          pairAddress: pool.pairAddress || pool.id, // 使用 id 作为 pairAddress
           // 统一字段名映射
           volumeUsd: pool.volume24hUsd || 0,
           feesUsd: pool.fees24hUsd || 0,
